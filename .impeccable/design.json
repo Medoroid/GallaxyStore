@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-16T11:58:00Z",
+  "title": "Design System: Galaxy Store",
+  "extensions": {
+    "colorMeta": {
+      "neon": {
+        "role": "primary",
+        "displayName": "Electric Violet",
+        "canonical": "#9835fd",
+        "tonalRamp": [
+          "oklch(0.20 0.27 300)",
+          "oklch(0.30 0.27 300)",
+          "oklch(0.40 0.27 300)",
+          "oklch(0.50 0.27 300)",
+          "oklch(0.58 0.27 300)",
+          "oklch(0.68 0.25 300)",
+          "oklch(0.78 0.20 300)",
+          "oklch(0.88 0.12 300)"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Cosmic Pink",
+        "canonical": "#FF4FD8",
+        "tonalRamp": [
+          "oklch(0.25 0.28 350)",
+          "oklch(0.35 0.28 350)",
+          "oklch(0.45 0.28 350)",
+          "oklch(0.55 0.28 350)",
+          "oklch(0.68 0.28 350)",
+          "oklch(0.75 0.22 350)",
+          "oklch(0.82 0.16 350)",
+          "oklch(0.90 0.08 350)"
+        ]
+      },
+      "accent": {
+        "role": "tertiary",
+        "displayName": "Solar Gold",
+        "canonical": "#FFD166",
+        "tonalRamp": [
+          "oklch(0.35 0.16 90)",
+          "oklch(0.45 0.16 90)",
+          "oklch(0.55 0.16 90)",
+          "oklch(0.65 0.16 90)",
+          "oklch(0.75 0.16 90)",
+          "oklch(0.85 0.16 90)",
+          "oklch(0.90 0.10 90)",
+          "oklch(0.95 0.05 90)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Deep Space",
+        "canonical": "#120018",
+        "tonalRamp": [
+          "oklch(0.08 0.07 310)",
+          "oklch(0.10 0.07 310)",
+          "oklch(0.13 0.07 310)",
+          "oklch(0.16 0.07 310)",
+          "oklch(0.20 0.06 310)",
+          "oklch(0.25 0.05 310)",
+          "oklch(0.30 0.04 310)",
+          "oklch(0.35 0.03 310)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Void White",
+        "canonical": "#FAFAFA",
+        "tonalRamp": [
+          "oklch(0.98 0.005 300)",
+          "oklch(0.95 0.005 300)",
+          "oklch(0.90 0.005 300)",
+          "oklch(0.85 0.005 300)",
+          "oklch(0.80 0.005 300)",
+          "oklch(0.75 0.005 300)",
+          "oklch(0.70 0.005 300)",
+          "oklch(0.65 0.005 300)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headlines only — the largest voice on the page, used once per section."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles — bold and commanding."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, modal headers, subsection headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs, descriptions, reviews — readable at length."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Eyebrows, categories, badges — small but assertive, always uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "glass",
+        "value": "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+        "purpose": "Structural base for glass panels. Gives frosted surfaces weight."
+      },
+      {
+        "name": "neon-glow",
+        "value": "0 0 24px rgba(138,43,226,0.55), 0 0 60px rgba(138,43,226,0.25)",
+        "purpose": "Purple halo for primary interactions — nav scroll, card hover, CTA emphasis."
+      },
+      {
+        "name": "pink-glow",
+        "value": "0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25)",
+        "purpose": "Pink halo for secondary interactions — wishlist, quick-view, active nav states."
+      },
+      {
+        "name": "gold-glow",
+        "value": "0 0 24px rgba(255,209,102,0.45)",
+        "purpose": "Warm halo for value signals — cart badge, star ratings, price highlights."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for state transitions."
+      },
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Entrance animations — fade-in-up, slide-in."
+      },
+      {
+        "name": "duration-fast",
+        "value": "200ms",
+        "purpose": "Hover state changes, micro-interactions."
+      },
+      {
+        "name": "duration-normal",
+        "value": "300ms",
+        "purpose": "Standard transitions, scroll effects."
+      },
+      {
+        "name": "duration-slow",
+        "value": "500ms",
+        "purpose": "Image scale transforms, complex reveals."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action. Electric Violet gradient with glow-on-hover.",
+      "html": "<button class=\"ds-btn-primary\">SHOP NOW</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #8A2BE2, #FF4FD8); color: #FAFAFA; padding: 12px 24px; border-radius: 16px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; transition: transform 200ms cubic-bezier(0.4,0,0.2,1), box-shadow 200ms; } .ds-btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); } .ds-btn-primary:focus-visible { box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); outline: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action. Transparent glass with subtle hover glow.",
+      "html": "<button class=\"ds-btn-ghost\">Design Your Own</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: #FAFAFA; padding: 12px 24px; border-radius: 16px; font-weight: 600; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.10); cursor: pointer; transition: background 200ms, box-shadow 200ms; backdrop-filter: blur(20px) saturate(160%); } .ds-btn-ghost:hover { background: rgba(255,255,255,0.05); box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); } .ds-btn-ghost:focus-visible { box-shadow: 0 0 24px rgba(255,79,216,0.55); outline: none; }"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Glass card with image, hover glow, and slide-in action buttons.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-image\"><img src=\"/product.jpg\" alt=\"Product\" /></div><div class=\"ds-card-body\"><p class=\"ds-card-category\">APPAREL</p><h3 class=\"ds-card-title\">Galaxy Tee</h3><span class=\"ds-card-price\">$29.99</span></div></div>",
+      "css": ".ds-card { background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); backdrop-filter: blur(20px) saturate(160%); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 12px; transition: transform 500ms cubic-bezier(0.4,0,0.2,1), box-shadow 500ms; cursor: pointer; } .ds-card:hover { transform: translateY(-4px); box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); } .ds-card-image { position: relative; aspect-ratio: 1/1; overflow: hidden; border-radius: 16px; } .ds-card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 700ms; } .ds-card:hover .ds-card-image img { transform: scale(1.1); } .ds-card-body { padding: 12px 0 0; } .ds-card-category { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: oklch(0.75 0.04 305); margin-bottom: 4px; } .ds-card-title { font-size: 0.875rem; font-weight: 600; line-height: 1.3; } .ds-card-price { display: block; margin-top: 4px; font-size: 1.125rem; font-weight: 800; background: linear-gradient(135deg, #FFD166, #FF4FD8); -webkit-background-clip: text; background-clip: text; color: transparent; }"
+    },
+    {
+      "name": "Glass Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input with glass background and pink glow on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Full Name\" />",
+      "css": ".ds-input { width: 100%; height: 44px; padding: 12px 16px; background: rgba(255,255,255,0.08); color: #FAFAFA; border: none; border-radius: 16px; font-size: 0.875rem; font-family: inherit; outline: none; transition: box-shadow 200ms; } .ds-input::placeholder { color: oklch(0.75 0.04 305); } .ds-input:focus { box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Nav link with glass pill shape, active state uses inset border.",
+      "html": "<a class=\"ds-nav-link\" href=\"/products\">Products</a>",
+      "css": ".ds-nav-link { padding: 8px 16px; border-radius: 16px; font-size: 0.875rem; font-weight: 500; color: oklch(0.75 0.04 305); text-decoration: none; transition: color 200ms, background 200ms; } .ds-nav-link:hover { color: #FAFAFA; background: rgba(255,255,255,0.05); } .ds-nav-link.active { color: #FAFAFA; background: rgba(255,255,255,0.10); box-shadow: inset 0 0 0 1px rgba(255,79,216,0.4); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Full pill badge for product labels and cart count.",
+      "html": "<span class=\"ds-badge\">NEW</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 4px 10px; background: linear-gradient(135deg, #8A2BE2, #FF4FD8); color: #FAFAFA; border-radius: 9999px; font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }"
+    },
+    {
+      "name": "Review Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Glass card displaying a customer review with star rating.",
+      "html": "<div class=\"ds-review-card\"><div class=\"ds-review-stars\">★★★★★</div><p class=\"ds-review-text\">\"The neon mug looks insane.\"</p><p class=\"ds-review-author\">Layla M.</p></div>",
+      "css": ".ds-review-card { background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); backdrop-filter: blur(20px) saturate(160%); border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; padding: 20px; transition: box-shadow 300ms; } .ds-review-card:hover { box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); } .ds-review-stars { color: #FFD166; font-size: 1rem; margin-bottom: 12px; } .ds-review-text { font-size: 0.875rem; color: oklch(0.75 0.04 305); line-height: 1.6; margin-bottom: 16px; } .ds-review-author { font-size: 0.875rem; font-weight: 600; }"
+    },
+    {
+      "name": "Glass Navbar",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Fixed glassmorphism navbar with gradient background and scroll compression.",
+      "html": "<header class=\"ds-navbar\"><div class=\"ds-navbar-inner\"><a class=\"ds-navbar-brand\" href=\"/\"><span class=\"ds-navbar-logo\">✦</span> Galaxy<span>Store</span></a><nav class=\"ds-navbar-links\"><a href=\"/\">Home</a><a href=\"/products\">Products</a></nav></div></header>",
+      "css": ".ds-navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 16px; transition: padding 300ms; } .ds-navbar.scrolled { padding: 8px; } .ds-navbar-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(135deg, rgba(137,43,226,0.659), rgba(255,79,217,0.599)); backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,79,217,0.49); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.45); } .ds-navbar.scrolled .ds-navbar-inner { box-shadow: 0 0 24px rgba(255,79,216,0.55), 0 0 60px rgba(255,79,216,0.25); } .ds-navbar-brand { display: flex; align-items: center; gap: 8px; font-size: 1.25rem; font-weight: 800; color: #FAFAFA; text-decoration: none; } .ds-navbar-logo { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: linear-gradient(135deg, #8A2BE2, #FF4FD8); border-radius: 12px; animation: pulse-glow 3s ease-in-out infinite; } .ds-navbar-links { display: flex; gap: 4px; } .ds-navbar-links a { padding: 8px 16px; border-radius: 16px; font-size: 0.875rem; font-weight: 500; color: oklch(0.75 0.04 305); text-decoration: none; transition: color 200ms, background 200ms; } .ds-navbar-links a:hover { color: #FAFAFA; background: rgba(255,255,255,0.05); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Pixel Nebula",
+    "overview": "Galaxy Store is a digital cosmos where gaming culture meets galaxy aesthetics — bold, unapologetic, and culture-native. The system is playful and immersive: every surface should feel like stepping into a curated universe, not browsing a catalog. Deep space purples form the void; electric neon accents pulse through it like living light. Glassmorphism gives components weightless transparency, while colored glow halos create depth without heavy shadows.\n\nThe palette is cosmic in character — deep space purple as the infinite backdrop, electric violet and hot pink as the neon pulse, and warm gold as the premium highlight. Typography is bold and confident, with Poppins at heavy weights driving every heading. Spacing is generous and rhythmic, with generous section gaps creating breathing room between content blocks.",
+    "keyCharacteristics": [
+      "Dark-first: the deep purple void (#120018) is the constant canvas",
+      "Neon pulse: purple (#9835fd) and pink (#FF4FD8) as primary energy",
+      "Gold warmth: amber (#FFD166) as premium highlight and trust signal",
+      "Glassmorphism: frosted translucent surfaces with backdrop blur",
+      "Glow halos: colored light defines depth, not traditional shadows",
+      "Bold confidence: extra-bold headings, generous spacing, unapologetic presence"
+    ],
+    "rules": [
+      {
+        "name": "The Neon Rarity Rule",
+        "body": "The primary accent (Electric Violet) and secondary accent (Cosmic Pink) each appear on ≤15% of any given screen. Their scarcity is what makes them electric. Overuse kills the glow.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Trust Rule",
+        "body": "Solar Gold is reserved for value signals: prices, ratings, and trust indicators. It never decorates; it always communicates value.",
+        "section": "colors"
+      },
+      {
+        "name": "The Extrabold Heading Rule",
+        "body": "All headings are weight 800. No heading uses a lighter weight. The cosmos speaks in bold.",
+        "section": "typography"
+      },
+      {
+        "name": "The Eyebrow Uppercase Rule",
+        "body": "Section eyebrows and category labels are always uppercase with 0.15em tracking. They are whispers before the headline shouts.",
+        "section": "typography"
+      },
+      {
+        "name": "The Section Breathing Rule",
+        "body": "Every major section gets 80px (mt-20) of vertical space above it. The heading gets 32px below it. This rhythm creates the cosmic breathing room.",
+        "section": "layout"
+      },
+      {
+        "name": "The Glow-At-Rest Rule",
+        "body": "Components are flat at rest. Glows appear only as a response to state: hover, focus, scroll, or active selection. The cosmos is calm until you touch it.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Rounded Everything Rule",
+        "body": "Every container, button, input, badge, and card uses rounded corners. The minimum radius is 12px (rounded-xl). Sharp corners do not exist in this universe.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do use the neon gradient (purple→pink) for primary CTAs and brand moments — it is the signature.",
+      "Do apply glow halos only on interaction (hover, focus, active) — never at rest.",
+      "Do use Solar Gold for prices, ratings, and trust signals — it breaks the neon duopoly.",
+      "Do keep glass surfaces semi-transparent with backdrop blur — opacity is what makes them alive.",
+      "Do use extra-bold (800) for all headings — the cosmos speaks in bold.",
+      "Do maintain 80px vertical spacing between major sections — breathing room is non-negotiable.",
+      "Do use uppercase + wide tracking for eyebrows and labels — they whisper before the headline shouts."
+    ],
+    "donts": [
+      "Don't use neon accents on more than 15% of any screen — scarcity creates the electric effect.",
+      "Don't add shadows without a colored glow — a zero-offset dark shadow is dead weight in this system.",
+      "Don't use sharp corners (radius below 12px) on any component — the universe is rounded.",
+      "Don't place gradient text on dark backgrounds — emphasis comes from weight and gold color, not gradient fills.",
+      "Don't use gray for secondary text on colored surfaces — tint it from the surface hue or use muted-foreground.",
+      "Don't apply glassmorphism to small inline elements — glass is for surfaces and containers, not spans."
+    ]
+  }
+}

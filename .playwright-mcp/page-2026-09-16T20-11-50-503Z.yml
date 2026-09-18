@@ -1,0 +1,493 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - link "GalaxyStore" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e11]:
+        - link "Home" [ref=e12] [cursor=pointer]:
+          - /url: /
+        - link "Products" [ref=e13] [cursor=pointer]:
+          - /url: /products
+        - link "Custom Print" [ref=e14] [cursor=pointer]:
+          - /url: /custom-print
+        - link "Gallery" [ref=e15] [cursor=pointer]:
+          - /url: /gallery
+        - link "Gift Boxes" [ref=e16] [cursor=pointer]:
+          - /url: /gift-boxes
+      - generic [ref=e17]:
+        - textbox "Search..." [ref=e23]
+        - button "Language" [ref=e25]
+        - link "Account" [ref=e29] [cursor=pointer]:
+          - /url: /login
+        - link "Cart" [ref=e33] [cursor=pointer]:
+          - /url: /cart
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - img "Galaxy Store Hero" [ref=e39]
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: New drop · Galactic Edition 2026
+          - heading "Print Your Galaxy. Wear the Cosmos." [level=1] [ref=e47]: Print Your Galaxy.Wear the Cosmos.
+          - paragraph [ref=e48]: Premium custom printing & gaming-inspired gifts. Tees, mugs, posters, phone cases and themed gift boxes — designed in the multiverse, delivered to your door.
+          - generic [ref=e49]:
+            - link "Shop Now" [ref=e50] [cursor=pointer]:
+              - /url: /products
+            - link "Design Your Own" [ref=e53] [cursor=pointer]:
+              - /url: /custom-print
+          - generic [ref=e60]:
+            - generic [ref=e61]: Worldwide shipping
+            - generic [ref=e67]: 4.9 / 12k+ reviews
+            - generic [ref=e70]: 48h dispatch
+        - generic [ref=e78]:
+          - img "Neon Genesis Mug" [ref=e81]
+          - img "Cyberpunk Tee" [ref=e84]
+          - img "Galaxy Phone Case" [ref=e87]
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - paragraph [ref=e90]: Trending
+        - heading "Featured Drops" [level=2] [ref=e91]
+      - generic [ref=e93]:
+        - link "Vintage Thick Silver Ring Featured Wishlist Quick view Add to Cart Accessories Vintage Thick Silver Ring $-25.00 $1000.00 0.0" [ref=e95] [cursor=pointer]:
+          - /url: /product-details/f9a11e67-af79-449a-9b63-43bdb6ff177e
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - img "Vintage Thick Silver Ring" [ref=e98]
+              - generic [ref=e99]: Featured
+              - generic [ref=e100]:
+                - button "Wishlist" [ref=e101]
+                - button "Quick view" [ref=e104]
+              - button "Add to Cart" [ref=e109]
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: Accessories
+              - heading "Vintage Thick Silver Ring" [level=3] [ref=e115]
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: $-25.00
+                  - generic [ref=e119]: $1000.00
+                - generic [ref=e120]: "0.0"
+        - link "medoroid Featured Wishlist Quick view Add to Cart T-Shirts medoroid $-899.00 $999.00 0.0" [ref=e125] [cursor=pointer]:
+          - /url: /product-details/0bc39286-eefd-4e47-8c8f-6ffd57c80b29
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - img "medoroid" [ref=e128]
+              - generic [ref=e129]: Featured
+              - generic [ref=e130]:
+                - button "Wishlist" [ref=e131]
+                - button "Quick view" [ref=e134]
+              - button "Add to Cart" [ref=e139]
+            - generic [ref=e143]:
+              - paragraph [ref=e144]: T-Shirts
+              - heading "medoroid" [level=3] [ref=e145]
+              - generic [ref=e146]:
+                - generic [ref=e147]:
+                  - generic [ref=e148]: $-899.00
+                  - generic [ref=e149]: $999.00
+                - generic [ref=e150]: "0.0"
+        - link "بوستر فني Wishlist Quick view Add to Cart Home & Living بوستر فني $0.00 $16.99 0.0" [ref=e155] [cursor=pointer]:
+          - /url: /product-details/a4505fc5-9195-4831-9e95-1adfa345a7c8
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - img "بوستر فني" [ref=e158]
+              - generic [ref=e159]:
+                - button "Wishlist" [ref=e160]
+                - button "Quick view" [ref=e163]
+              - button "Add to Cart" [ref=e168]
+            - generic [ref=e172]:
+              - paragraph [ref=e173]: Home & Living
+              - heading "بوستر فني" [level=3] [ref=e174]
+              - generic [ref=e175]:
+                - generic [ref=e176]:
+                  - generic [ref=e177]: $0.00
+                  - generic [ref=e178]: $16.99
+                - generic [ref=e179]: "0.0"
+        - link "دفتر ملاحظات فاخر Wishlist Quick view Add to Cart Accessories دفتر ملاحظات فاخر $0.00 $12.99 0.0" [ref=e184] [cursor=pointer]:
+          - /url: /product-details/cc51fc19-e4c7-4fd1-9432-e2bc1726f426
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - img "دفتر ملاحظات فاخر" [ref=e187]
+              - generic [ref=e188]:
+                - button "Wishlist" [ref=e189]
+                - button "Quick view" [ref=e192]
+              - button "Add to Cart" [ref=e197]
+            - generic [ref=e201]:
+              - paragraph [ref=e202]: Accessories
+              - heading "دفتر ملاحظات فاخر" [level=3] [ref=e203]
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: $0.00
+                  - generic [ref=e207]: $12.99
+                - generic [ref=e208]: "0.0"
+        - link "حقيبة Tote قماش Wishlist Quick view Add to Cart Tote Bags حقيبة Tote قماش $0.00 $17.99 0.0" [ref=e213] [cursor=pointer]:
+          - /url: /product-details/d4634666-5be0-4cd9-931c-2d45c937a3fb
+          - generic [ref=e214]:
+            - generic [ref=e215]:
+              - img "حقيبة Tote قماش" [ref=e216]
+              - generic [ref=e217]:
+                - button "Wishlist" [ref=e218]
+                - button "Quick view" [ref=e221]
+              - button "Add to Cart" [ref=e226]
+            - generic [ref=e230]:
+              - paragraph [ref=e231]: Tote Bags
+              - heading "حقيبة Tote قماش" [level=3] [ref=e232]
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - generic [ref=e235]: $0.00
+                  - generic [ref=e236]: $17.99
+                - generic [ref=e237]: "0.0"
+        - link "كاب رياضي أسود Wishlist Quick view Add to Cart Accessories كاب رياضي أسود $0.00 $19.99 0.0" [ref=e242] [cursor=pointer]:
+          - /url: /product-details/10b18b36-3da4-4fb3-8136-dd810417357f
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - img "كاب رياضي أسود" [ref=e245]
+              - generic [ref=e246]:
+                - button "Wishlist" [ref=e247]
+                - button "Quick view" [ref=e250]
+              - button "Add to Cart" [ref=e255]
+            - generic [ref=e259]:
+              - paragraph [ref=e260]: Accessories
+              - heading "كاب رياضي أسود" [level=3] [ref=e261]
+              - generic [ref=e262]:
+                - generic [ref=e263]:
+                  - generic [ref=e264]: $0.00
+                  - generic [ref=e265]: $19.99
+                - generic [ref=e266]: "0.0"
+        - link "زجاجة مياه ستانلس Wishlist Quick view Add to Cart Accessories زجاجة مياه ستانلس $0.00 $21.99 0.0" [ref=e271] [cursor=pointer]:
+          - /url: /product-details/e5ef97ea-07d4-47cd-bce1-6ac4fba706f3
+          - generic [ref=e272]:
+            - generic [ref=e273]:
+              - img "زجاجة مياه ستانلس" [ref=e274]
+              - generic [ref=e275]:
+                - button "Wishlist" [ref=e276]
+                - button "Quick view" [ref=e279]
+              - button "Add to Cart" [ref=e284]
+            - generic [ref=e288]:
+              - paragraph [ref=e289]: Accessories
+              - heading "زجاجة مياه ستانلس" [level=3] [ref=e290]
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - generic [ref=e293]: $0.00
+                  - generic [ref=e294]: $21.99
+                - generic [ref=e295]: "0.0"
+        - link "جراب هاتف شفاف Wishlist Quick view Add to Cart Accessories جراب هاتف شفاف $0.00 $15.99 0.0" [ref=e300] [cursor=pointer]:
+          - /url: /product-details/1dc69109-e405-4569-8e55-f63469f131ac
+          - generic [ref=e301]:
+            - generic [ref=e302]:
+              - img "جراب هاتف شفاف" [ref=e303]
+              - generic [ref=e304]:
+                - button "Wishlist" [ref=e305]
+                - button "Quick view" [ref=e308]
+              - button "Add to Cart" [ref=e313]
+            - generic [ref=e317]:
+              - paragraph [ref=e318]: Accessories
+              - heading "جراب هاتف شفاف" [level=3] [ref=e319]
+              - generic [ref=e320]:
+                - generic [ref=e321]:
+                  - generic [ref=e322]: $0.00
+                  - generic [ref=e323]: $15.99
+                - generic [ref=e324]: "0.0"
+    - generic [ref=e328]:
+      - generic [ref=e329]:
+        - paragraph [ref=e330]: Explore
+        - heading "Shop by Category" [level=2] [ref=e331]
+      - generic [ref=e332]:
+        - link [ref=e333] [cursor=pointer]:
+          - /url: /products
+          - img "Apparel" [ref=e335]
+          - paragraph [ref=e336]: Apparel
+          - paragraph [ref=e337]: 120 items
+        - link [ref=e338] [cursor=pointer]:
+          - /url: /products
+          - img "Mugs & Drinkware" [ref=e340]
+          - paragraph [ref=e341]: Mugs & Drinkware
+          - paragraph [ref=e342]: 45 items
+        - link [ref=e343] [cursor=pointer]:
+          - /url: /products
+          - img "Posters & Art" [ref=e345]
+          - paragraph [ref=e346]: Posters & Art
+          - paragraph [ref=e347]: 85 items
+        - link [ref=e348] [cursor=pointer]:
+          - /url: /products
+          - img "Phone Cases" [ref=e350]
+          - paragraph [ref=e351]: Phone Cases
+          - paragraph [ref=e352]: 210 items
+        - link [ref=e353] [cursor=pointer]:
+          - /url: /products
+          - img "Gift Boxes" [ref=e355]
+          - paragraph [ref=e356]: Gift Boxes
+          - paragraph [ref=e357]: 15 items
+        - link [ref=e358] [cursor=pointer]:
+          - /url: /products
+          - img "Gaming Gear" [ref=e360]
+          - paragraph [ref=e361]: Gaming Gear
+          - paragraph [ref=e362]: 60 items
+        - link [ref=e363] [cursor=pointer]:
+          - /url: /products
+          - img "Stickers" [ref=e365]
+          - paragraph [ref=e366]: Stickers
+          - paragraph [ref=e367]: 300 items
+    - generic [ref=e368]:
+      - generic [ref=e369]:
+        - generic [ref=e370]:
+          - paragraph [ref=e371]: Hand-picked
+          - heading "Featured Products" [level=2] [ref=e372]
+        - link "See all" [ref=e373] [cursor=pointer]:
+          - /url: /products
+      - generic [ref=e376]:
+        - link "Vintage Thick Silver Ring Featured Wishlist Quick view Add to Cart Accessories Vintage Thick Silver Ring $-25.00 $1000.00 0.0" [ref=e377] [cursor=pointer]:
+          - /url: /product-details/f9a11e67-af79-449a-9b63-43bdb6ff177e
+          - generic [ref=e378]:
+            - generic [ref=e379]:
+              - img "Vintage Thick Silver Ring" [ref=e380]
+              - generic [ref=e381]: Featured
+              - generic [ref=e382]:
+                - button "Wishlist" [ref=e383]
+                - button "Quick view" [ref=e386]
+              - button "Add to Cart" [ref=e391]
+            - generic [ref=e395]:
+              - paragraph [ref=e396]: Accessories
+              - heading "Vintage Thick Silver Ring" [level=3] [ref=e397]
+              - generic [ref=e398]:
+                - generic [ref=e399]:
+                  - generic [ref=e400]: $-25.00
+                  - generic [ref=e401]: $1000.00
+                - generic [ref=e402]: "0.0"
+        - link "medoroid Featured Wishlist Quick view Add to Cart T-Shirts medoroid $-899.00 $999.00 0.0" [ref=e406] [cursor=pointer]:
+          - /url: /product-details/0bc39286-eefd-4e47-8c8f-6ffd57c80b29
+          - generic [ref=e407]:
+            - generic [ref=e408]:
+              - img "medoroid" [ref=e409]
+              - generic [ref=e410]: Featured
+              - generic [ref=e411]:
+                - button "Wishlist" [ref=e412]
+                - button "Quick view" [ref=e415]
+              - button "Add to Cart" [ref=e420]
+            - generic [ref=e424]:
+              - paragraph [ref=e425]: T-Shirts
+              - heading "medoroid" [level=3] [ref=e426]
+              - generic [ref=e427]:
+                - generic [ref=e428]:
+                  - generic [ref=e429]: $-899.00
+                  - generic [ref=e430]: $999.00
+                - generic [ref=e431]: "0.0"
+        - link "بوستر فني Wishlist Quick view Add to Cart Home & Living بوستر فني $0.00 $16.99 0.0" [ref=e435] [cursor=pointer]:
+          - /url: /product-details/a4505fc5-9195-4831-9e95-1adfa345a7c8
+          - generic [ref=e436]:
+            - generic [ref=e437]:
+              - img "بوستر فني" [ref=e438]
+              - generic [ref=e439]:
+                - button "Wishlist" [ref=e440]
+                - button "Quick view" [ref=e443]
+              - button "Add to Cart" [ref=e448]
+            - generic [ref=e452]:
+              - paragraph [ref=e453]: Home & Living
+              - heading "بوستر فني" [level=3] [ref=e454]
+              - generic [ref=e455]:
+                - generic [ref=e456]:
+                  - generic [ref=e457]: $0.00
+                  - generic [ref=e458]: $16.99
+                - generic [ref=e459]: "0.0"
+        - link "دفتر ملاحظات فاخر Wishlist Quick view Add to Cart Accessories دفتر ملاحظات فاخر $0.00 $12.99 0.0" [ref=e463] [cursor=pointer]:
+          - /url: /product-details/cc51fc19-e4c7-4fd1-9432-e2bc1726f426
+          - generic [ref=e464]:
+            - generic [ref=e465]:
+              - img "دفتر ملاحظات فاخر" [ref=e466]
+              - generic [ref=e467]:
+                - button "Wishlist" [ref=e468]
+                - button "Quick view" [ref=e471]
+              - button "Add to Cart" [ref=e476]
+            - generic [ref=e480]:
+              - paragraph [ref=e481]: Accessories
+              - heading "دفتر ملاحظات فاخر" [level=3] [ref=e482]
+              - generic [ref=e483]:
+                - generic [ref=e484]:
+                  - generic [ref=e485]: $0.00
+                  - generic [ref=e486]: $12.99
+                - generic [ref=e487]: "0.0"
+        - link "حقيبة Tote قماش Wishlist Quick view Add to Cart Tote Bags حقيبة Tote قماش $0.00 $17.99 0.0" [ref=e491] [cursor=pointer]:
+          - /url: /product-details/d4634666-5be0-4cd9-931c-2d45c937a3fb
+          - generic [ref=e492]:
+            - generic [ref=e493]:
+              - img "حقيبة Tote قماش" [ref=e494]
+              - generic [ref=e495]:
+                - button "Wishlist" [ref=e496]
+                - button "Quick view" [ref=e499]
+              - button "Add to Cart" [ref=e504]
+            - generic [ref=e508]:
+              - paragraph [ref=e509]: Tote Bags
+              - heading "حقيبة Tote قماش" [level=3] [ref=e510]
+              - generic [ref=e511]:
+                - generic [ref=e512]:
+                  - generic [ref=e513]: $0.00
+                  - generic [ref=e514]: $17.99
+                - generic [ref=e515]: "0.0"
+        - link "كاب رياضي أسود Wishlist Quick view Add to Cart Accessories كاب رياضي أسود $0.00 $19.99 0.0" [ref=e519] [cursor=pointer]:
+          - /url: /product-details/10b18b36-3da4-4fb3-8136-dd810417357f
+          - generic [ref=e520]:
+            - generic [ref=e521]:
+              - img "كاب رياضي أسود" [ref=e522]
+              - generic [ref=e523]:
+                - button "Wishlist" [ref=e524]
+                - button "Quick view" [ref=e527]
+              - button "Add to Cart" [ref=e532]
+            - generic [ref=e536]:
+              - paragraph [ref=e537]: Accessories
+              - heading "كاب رياضي أسود" [level=3] [ref=e538]
+              - generic [ref=e539]:
+                - generic [ref=e540]:
+                  - generic [ref=e541]: $0.00
+                  - generic [ref=e542]: $19.99
+                - generic [ref=e543]: "0.0"
+        - link "زجاجة مياه ستانلس Wishlist Quick view Add to Cart Accessories زجاجة مياه ستانلس $0.00 $21.99 0.0" [ref=e547] [cursor=pointer]:
+          - /url: /product-details/e5ef97ea-07d4-47cd-bce1-6ac4fba706f3
+          - generic [ref=e548]:
+            - generic [ref=e549]:
+              - img "زجاجة مياه ستانلس" [ref=e550]
+              - generic [ref=e551]:
+                - button "Wishlist" [ref=e552]
+                - button "Quick view" [ref=e555]
+              - button "Add to Cart" [ref=e560]
+            - generic [ref=e564]:
+              - paragraph [ref=e565]: Accessories
+              - heading "زجاجة مياه ستانلس" [level=3] [ref=e566]
+              - generic [ref=e567]:
+                - generic [ref=e568]:
+                  - generic [ref=e569]: $0.00
+                  - generic [ref=e570]: $21.99
+                - generic [ref=e571]: "0.0"
+        - link "جراب هاتف شفاف Wishlist Quick view Add to Cart Accessories جراب هاتف شفاف $0.00 $15.99 0.0" [ref=e575] [cursor=pointer]:
+          - /url: /product-details/1dc69109-e405-4569-8e55-f63469f131ac
+          - generic [ref=e576]:
+            - generic [ref=e577]:
+              - img "جراب هاتف شفاف" [ref=e578]
+              - generic [ref=e579]:
+                - button "Wishlist" [ref=e580]
+                - button "Quick view" [ref=e583]
+              - button "Add to Cart" [ref=e588]
+            - generic [ref=e592]:
+              - paragraph [ref=e593]: Accessories
+              - heading "جراب هاتف شفاف" [level=3] [ref=e594]
+              - generic [ref=e595]:
+                - generic [ref=e596]:
+                  - generic [ref=e597]: $0.00
+                  - generic [ref=e598]: $15.99
+                - generic [ref=e599]: "0.0"
+    - generic [ref=e603]:
+      - generic [ref=e604]:
+        - paragraph [ref=e605]: For Every Occasion
+        - heading "Themed Gift Boxes" [level=2] [ref=e606]
+      - generic [ref=e607]:
+        - link [ref=e608] [cursor=pointer]:
+          - /url: /gift-boxes
+          - img "Birthday" [ref=e609]
+          - generic [ref=e611]:
+            - heading "Birthday" [level=3] [ref=e616]
+            - paragraph [ref=e617]: Curated box
+        - link [ref=e618] [cursor=pointer]:
+          - /url: /gift-boxes
+          - img "Couples" [ref=e619]
+          - generic [ref=e621]:
+            - heading "Couples" [level=3] [ref=e626]
+            - paragraph [ref=e627]: Curated box
+        - link [ref=e628] [cursor=pointer]:
+          - /url: /gift-boxes
+          - img "Anime" [ref=e629]
+          - generic [ref=e631]:
+            - heading "Anime" [level=3] [ref=e636]
+            - paragraph [ref=e637]: Curated box
+        - link [ref=e638] [cursor=pointer]:
+          - /url: /gift-boxes
+          - img "Gaming" [ref=e639]
+          - generic [ref=e641]:
+            - heading "Gaming" [level=3] [ref=e646]
+            - paragraph [ref=e647]: Curated box
+        - link [ref=e648] [cursor=pointer]:
+          - /url: /gift-boxes
+          - img "Graduation" [ref=e649]
+          - generic [ref=e651]:
+            - heading "Graduation" [level=3] [ref=e656]
+            - paragraph [ref=e657]: Curated box
+    - generic [ref=e658]:
+      - generic [ref=e659]:
+        - paragraph [ref=e660]: Loved by gamers
+        - heading "Customer Reviews" [level=2] [ref=e661]
+      - generic [ref=e662]:
+        - generic [ref=e663]:
+          - paragraph [ref=e675]: "\"The neon mug looks insane. Better than the preview!\""
+          - paragraph [ref=e676]: Layla M.
+        - generic [ref=e677]:
+          - paragraph [ref=e689]: "\"Custom tee printing is top tier. Colors stay vivid after washes.\""
+          - paragraph [ref=e690]: Karim A.
+        - generic [ref=e691]:
+          - paragraph [ref=e703]: "\"Got the Anime gift box for my brother — he flipped out.\""
+          - paragraph [ref=e704]: Sara K.
+        - generic [ref=e705]:
+          - paragraph [ref=e717]: "\"Fast shipping and the packaging itself feels premium.\""
+          - paragraph [ref=e718]: Yusuf E.
+    - generic [ref=e722]:
+      - generic [ref=e723]: Custom Print Studio
+      - heading "Have an idea? We'll print it." [level=2] [ref=e730]
+      - paragraph [ref=e731]: Upload your artwork or pick a template — preview it live on real product mockups and we'll handle the rest.
+      - generic [ref=e732]:
+        - link "Start Designing" [ref=e733] [cursor=pointer]:
+          - /url: /custom-print
+        - link "See Our Work" [ref=e736] [cursor=pointer]:
+          - /url: /gallery
+  - contentinfo [ref=e737]:
+    - generic [ref=e738]:
+      - generic [ref=e739]:
+        - generic [ref=e740]:
+          - link "GalaxyStore" [ref=e741] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e746]: Premium custom printing & galaxy-themed gifts. Bring your ideas to life with stellar quality, neon-bright colors, and out-of-this-world delivery.
+          - generic [ref=e747]:
+            - link "Instagram" [ref=e748] [cursor=pointer]:
+              - /url: "#"
+            - link "TikTok" [ref=e751] [cursor=pointer]:
+              - /url: "#"
+            - link "WhatsApp" [ref=e754] [cursor=pointer]:
+              - /url: "#"
+        - generic [ref=e757]:
+          - heading "Shop" [level=4] [ref=e758]
+          - list [ref=e759]:
+            - listitem [ref=e760]:
+              - link "All Products" [ref=e761] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=e762]:
+              - link "Custom Print" [ref=e763] [cursor=pointer]:
+                - /url: /custom-print
+            - listitem [ref=e764]:
+              - link "Gift Boxes" [ref=e765] [cursor=pointer]:
+                - /url: /gift-boxes
+            - listitem [ref=e766]:
+              - link "Gallery" [ref=e767] [cursor=pointer]:
+                - /url: /gallery
+        - generic [ref=e768]:
+          - heading "Help" [level=4] [ref=e769]
+          - list [ref=e770]:
+            - listitem [ref=e771]:
+              - link "Track Order" [ref=e772] [cursor=pointer]:
+                - /url: /track-order
+            - listitem [ref=e773]:
+              - link "FAQ" [ref=e774] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e775]:
+              - link "Contact Us" [ref=e776] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=e777]:
+              - link "Shipping Policy" [ref=e778] [cursor=pointer]:
+                - /url: /shipping
+            - listitem [ref=e779]:
+              - link "Return Policy" [ref=e780] [cursor=pointer]:
+                - /url: /returns
+      - generic [ref=e781]:
+        - link "About Us" [ref=e782] [cursor=pointer]:
+          - /url: /about
+        - link "Terms & Conditions" [ref=e783] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy Policy" [ref=e784] [cursor=pointer]:
+          - /url: /privacy
+      - paragraph [ref=e785]: © 2026 Galaxy Store. Crafted across the cosmos.
+  - region "Notifications alt+T"
+  - button "Open Tanstack query devtools" [ref=e836] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e890] [cursor=pointer]
+  - alert [ref=e894]

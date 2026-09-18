@@ -1,0 +1,97 @@
+- generic [active] [ref=f3e1]:
+  - banner [ref=f3e2]:
+    - generic [ref=f3e4]:
+      - link "GalaxyStore" [ref=f3e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f3e11]:
+        - link "Home" [ref=f3e12] [cursor=pointer]:
+          - /url: /
+        - link "Products" [ref=f3e13] [cursor=pointer]:
+          - /url: /products
+        - link "Custom Print" [ref=f3e14] [cursor=pointer]:
+          - /url: /custom-print
+        - link "Gallery" [ref=f3e15] [cursor=pointer]:
+          - /url: /gallery
+        - link "Gift Boxes" [ref=f3e16] [cursor=pointer]:
+          - /url: /gift-boxes
+      - generic [ref=f3e17]:
+        - textbox "Search..." [ref=f3e23]
+        - button "Language" [ref=f3e25]
+        - link "Account" [ref=f3e29] [cursor=pointer]:
+          - /url: /login
+        - link "Cart" [ref=f3e33] [cursor=pointer]:
+          - /url: /cart
+  - generic [ref=f3e41]:
+    - paragraph [ref=f3e42]: Welcome back
+    - heading "Sign in to Galaxy" [level=1] [ref=f3e43]
+    - paragraph [ref=f3e44]: Access your orders, wishlist and custom designs.
+    - generic [ref=f3e45]:
+      - textbox "Email address" [ref=f3e50]
+      - textbox "Password" [ref=f3e55]
+      - link "Forgot Password?" [ref=f3e57] [cursor=pointer]:
+        - /url: /forgot-password
+      - button "Sign In" [ref=f3e58]
+      - generic [ref=f3e59]: or continue with
+      - button "Sign in with Google" [ref=f3e64]
+    - paragraph [ref=f3e70]:
+      - text: Don't have an account?
+      - link "Create one" [ref=f3e71] [cursor=pointer]:
+        - /url: /register
+  - contentinfo [ref=f3e72]:
+    - generic [ref=f3e73]:
+      - generic [ref=f3e74]:
+        - generic [ref=f3e75]:
+          - link "GalaxyStore" [ref=f3e76] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=f3e81]: Premium custom printing & galaxy-themed gifts. Bring your ideas to life with stellar quality, neon-bright colors, and out-of-this-world delivery.
+          - generic [ref=f3e82]:
+            - link "Instagram" [ref=f3e83] [cursor=pointer]:
+              - /url: "#"
+            - link "TikTok" [ref=f3e86] [cursor=pointer]:
+              - /url: "#"
+            - link "WhatsApp" [ref=f3e89] [cursor=pointer]:
+              - /url: "#"
+        - generic [ref=f3e92]:
+          - heading "Shop" [level=4] [ref=f3e93]
+          - list [ref=f3e94]:
+            - listitem [ref=f3e95]:
+              - link "All Products" [ref=f3e96] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=f3e97]:
+              - link "Custom Print" [ref=f3e98] [cursor=pointer]:
+                - /url: /custom-print
+            - listitem [ref=f3e99]:
+              - link "Gift Boxes" [ref=f3e100] [cursor=pointer]:
+                - /url: /gift-boxes
+            - listitem [ref=f3e101]:
+              - link "Gallery" [ref=f3e102] [cursor=pointer]:
+                - /url: /gallery
+        - generic [ref=f3e103]:
+          - heading "Help" [level=4] [ref=f3e104]
+          - list [ref=f3e105]:
+            - listitem [ref=f3e106]:
+              - link "Track Order" [ref=f3e107] [cursor=pointer]:
+                - /url: /track-order
+            - listitem [ref=f3e108]:
+              - link "FAQ" [ref=f3e109] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=f3e110]:
+              - link "Contact Us" [ref=f3e111] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=f3e112]:
+              - link "Shipping Policy" [ref=f3e113] [cursor=pointer]:
+                - /url: /shipping
+            - listitem [ref=f3e114]:
+              - link "Return Policy" [ref=f3e115] [cursor=pointer]:
+                - /url: /returns
+      - generic [ref=f3e116]:
+        - link "About Us" [ref=f3e117] [cursor=pointer]:
+          - /url: /about
+        - link "Terms & Conditions" [ref=f3e118] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy Policy" [ref=f3e119] [cursor=pointer]:
+          - /url: /privacy
+      - paragraph [ref=f3e120]: © 2026 Galaxy Store. Crafted across the cosmos.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f3e126] [cursor=pointer]
+  - alert [ref=f3e130]
