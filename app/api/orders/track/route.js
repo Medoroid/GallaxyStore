@@ -1,10 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
-
 // GET - Track order by ID and email using views
 export async function GET(request) {
   try {
@@ -18,6 +13,11 @@ export async function GET(request) {
         { status: 400 }
       );
     }
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
     // Use order_summary view for order details
     const { data: orderSummary, error: summaryError } = await SupabaseClient

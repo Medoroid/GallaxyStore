@@ -1,16 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 // GET - Search products with full-text search, filters, facets, and suggestions
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode") || "search";
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
     if (mode === "suggestions") {
       const prefix = searchParams.get("q") || "";

@@ -1,15 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 // GET - Get recently viewed products
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     const authHeader = request.headers.get("authorization");
     let session_token = null;
     let user = null;

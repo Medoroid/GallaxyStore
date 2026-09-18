@@ -1,11 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 // GET - Get shipping options for a country
 export async function GET(request) {
   try {
@@ -19,6 +14,11 @@ export async function GET(request) {
         { status: 400 }
       );
     }
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
     const { data: options, error } = await SupabaseClient
       .rpc("get_shipping_options", {

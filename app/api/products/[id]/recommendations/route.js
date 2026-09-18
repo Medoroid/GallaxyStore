@@ -1,17 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 // GET - Get recommended products for a given product
 export async function GET(request, { params }) {
   try {
     const { id: product_id } = await params;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "8", 10);
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
     const { data, error } = await SupabaseClient.rpc("get_recommended_products", {
       p_product_id: product_id,

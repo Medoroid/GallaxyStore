@@ -2,15 +2,16 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 // POST - Track a product view
 export async function POST(request, { params }) {
   try {
     const { id: product_id } = await params;
+
+    const SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     const authHeader = request.headers.get("authorization");
     let session_token = null;
     let user = null;
