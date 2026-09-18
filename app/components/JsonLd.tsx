@@ -25,7 +25,7 @@ export function ProductJsonLd({
     name,
     description: description || name,
     image,
-    url: url || (typeof window !== "undefined" ? window.location.href : ""),
+    url: url || undefined,
     offers: {
       "@type": "Offer",
       priceCurrency: currency,

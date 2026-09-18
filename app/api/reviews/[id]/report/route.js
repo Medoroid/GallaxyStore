@@ -2,10 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function getSupabaseForUser(token) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
 
 // POST - Report a review
 export async function POST(request, { params }) {
@@ -20,6 +23,7 @@ export async function POST(request, { params }) {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
     const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
     if (authError || !user) {
       return Response.json(

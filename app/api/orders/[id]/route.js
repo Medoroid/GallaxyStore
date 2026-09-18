@@ -1,10 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function getSupabaseForUser(token) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
 
 // GET - Fetch single order with items
 export async function GET(request, { params }) {
@@ -18,6 +21,7 @@ export async function GET(request, { params }) {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
     const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
 
     if (authError || !user) {

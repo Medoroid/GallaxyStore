@@ -3,10 +3,13 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function getSupabaseForUser(token) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
 
 // POST - Cancel an order
 export async function POST(request) {
@@ -30,6 +33,7 @@ export async function POST(request) {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
     const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
 
     if (authError || !user) {

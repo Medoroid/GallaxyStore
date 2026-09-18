@@ -3,13 +3,24 @@ import { verifyAdmin } from "../admin/_lib/verifyAdmin";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+function getSupabasePublic() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
+function getSupabaseForUser(token) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
 
 export async function GET() {
   try {
+    const SupabaseClient = getSupabasePublic();
     const { data, error } = await SupabaseClient
       .from("gallery_images")
       .select("*")
@@ -56,6 +67,9 @@ export async function POST(request) {
       );
     }
 
+    const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
+
     const { title, description, image_url, category, is_featured } = await request.json();
 
     if (!title || !image_url) {
@@ -101,6 +115,9 @@ export async function DELETE(request) {
         { status: auth.status }
       );
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

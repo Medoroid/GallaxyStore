@@ -3,10 +3,13 @@ import { verifyAdmin } from "../_lib/verifyAdmin";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
-const SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+function getSupabaseForUser(token) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
 
 export async function GET(request) {
   try {
@@ -17,6 +20,9 @@ export async function GET(request) {
         { status: auth.status }
       );
     }
+
+    const token = request.headers.get("authorization").replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
 
     const { data: vendors, error } = await SupabaseClient
       .from("stores")
@@ -47,6 +53,9 @@ export async function POST(request) {
         { status: auth.status }
       );
     }
+
+    const token = request.headers.get("authorization").replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
 
     const { action, store_id, payout_request_id, reason, notes } = await request.json();
 
