@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Package, Plus, Edit, Trash2, Loader2, X, Save,
   Search, ChevronDown, ChevronUp, Eye, EyeOff, Star,
-  Ruler, Tag, Globe, BarChart3,
+  Ruler, Tag, Globe, BarChart3, Image as ImageIcon, Upload, XCircle
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import { createClient } from "@supabase/supabase-js";
@@ -13,6 +13,7 @@ import {
   updateProduct,
   archiveProduct,
   fetchProductLookups,
+  fetchDefaultVariant,
   productToForm,
   type ProductFormValues,
   type ProductLookup,
@@ -40,6 +41,7 @@ const EMPTY_FORM: ProductFormValues = {
   currency: "USD",
   color: "",
   available_colors: "",
+  stock_quantity: "100",
 };
 
 export default function AdminProductsPage() {
@@ -52,6 +54,7 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
+    images: true,
     pricing: true,
     physical: false,
     seo: false,
@@ -59,6 +62,10 @@ export default function AdminProductsPage() {
   });
 
   const [form, setForm] = useState<ProductFormValues>(EMPTY_FORM);
+  const [mainImage, setMainImage] = useState<File | null>(null);
+  const [secondaryImages, setSecondaryImages] = useState<File[]>([]);
+  const mainImageInputRef = useRef<HTMLInputElement>(null);
+  const secondaryImagesInputRef = useRef<HTMLInputElement>(null);
 
   // Lookup data
   const [categories, setCategories] = useState<ProductLookup[]>([]);
@@ -102,16 +109,35 @@ export default function AdminProductsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleOpenModal = useCallback((product?: SupabaseProduct) => {
+  const handleOpenModal = useCallback(async (product?: SupabaseProduct) => {
     if (product) {
       setEditingProduct(product);
-      setForm(productToForm(product));
+      const variant = await fetchDefaultVariant(product.id).catch(() => null);
+      setForm(productToForm(product, variant));
     } else {
       setEditingProduct(null);
       setForm(EMPTY_FORM);
     }
+    setMainImage(null);
+    setSecondaryImages([]);
     setShowModal(true);
   }, []);
+
+  const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setMainImage(e.target.files[0]);
+    }
+  };
+
+  const handleSecondaryImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSecondaryImages((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeSecondaryImage = (index: number) => {
+    setSecondaryImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = async () => {
     if (!form.name || !form.base_price) return;
@@ -163,6 +189,9 @@ export default function AdminProductsPage() {
       setShowModal(false);
     } catch (err) {
       console.error("Save error:", err);
+      alert(
+        `Failed to save product: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       setSaving(false);
     }
@@ -325,8 +354,8 @@ export default function AdminProductsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowModal(false)} />
-          <div className="relative glass rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="relative bg-[#111116] border border-white/10 shadow-2xl rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">
                 {editingProduct ? "Edit Product" : "Add Product"}
@@ -340,6 +369,80 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="space-y-4">
+              {/* Images Section */}
+              <SectionHeader
+                title="Product Images"
+                icon={<ImageIcon className="w-4 h-4" />}
+                expanded={expandedSections.images}
+                onToggle={() => toggleSection("images")}
+              />
+              {expandedSections.images && (
+                <div className="space-y-4 pl-1">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Main Image <span className="text-[#FF4FD8]">*</span></label>
+                    <div 
+                      onClick={() => mainImageInputRef.current?.click()}
+                      className="border-2 border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#FF4FD8]/50 hover:bg-white/[0.02] transition-colors"
+                    >
+                      {mainImage ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <ImageIcon className="w-8 h-8 text-[#FF4FD8]" />
+                          <span className="text-sm text-white font-medium">{mainImage.name}</span>
+                          <span className="text-xs text-gray-400">Click to replace</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="w-8 h-8 text-gray-500" />
+                          <span className="text-sm text-gray-400">Upload the primary image</span>
+                          <span className="text-xs text-gray-500">PNG, JPG, WEBP up to 5MB</span>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        ref={mainImageInputRef} 
+                        onChange={handleMainImageChange} 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Additional Images</label>
+                    <div 
+                      onClick={() => secondaryImagesInputRef.current?.click()}
+                      className="border-2 border-dashed border-white/20 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#FF4FD8]/50 hover:bg-white/[0.02] transition-colors"
+                    >
+                      <Upload className="w-6 h-6 text-gray-500 mb-2" />
+                      <span className="text-sm text-gray-400">Upload multiple images</span>
+                      <input 
+                        type="file" 
+                        ref={secondaryImagesInputRef} 
+                        onChange={handleSecondaryImagesChange} 
+                        accept="image/*" 
+                        multiple 
+                        className="hidden" 
+                      />
+                    </div>
+                    {secondaryImages.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                        {secondaryImages.map((img, idx) => (
+                          <div key={idx} className="relative group bg-white/[0.03] border border-white/[0.08] rounded-xl p-2 flex items-center justify-center">
+                            <span className="text-xs text-gray-400 truncate w-full text-center px-2">{img.name}</span>
+                            <button
+                              onClick={() => removeSecondaryImage(idx)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Basic Info Section */}
               <SectionHeader
                 title="Basic Information"
@@ -513,6 +616,17 @@ export default function AdminProductsPage() {
                         <option value="AED">AED</option>
                         <option value="EGP">EGP</option>
                       </select>
+                    </FormField>
+                    <FormField label="Stock Quantity">
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={form.stock_quantity}
+                        onChange={(e) => updateForm("stock_quantity", e.target.value)}
+                        className={INPUT_CLASS}
+                        placeholder="100"
+                      />
                     </FormField>
                   </div>
                 </div>

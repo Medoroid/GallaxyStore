@@ -110,7 +110,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Providers>
           <Navbar />
-          <div className="mt-22">
+          <div className="mt-10">
           {children}
           </div>
           <Footer />

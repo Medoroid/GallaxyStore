@@ -157,9 +157,9 @@ export default function Products() {
             {/* Search Suggestions */}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 glass rounded-2xl p-2 z-50 shadow-xl">
-                {suggestions.slice(0, 5).map((s) => (
+                {suggestions.slice(0, 5).map((s, idx) => (
                   <button
-                    key={s.id}
+                    key={s.id ? `${s.id}-${idx}` : idx}
                     onClick={() => { setQuery(s.name); setShowSuggestions(false); resetPage(); }}
                     className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/[0.05] transition-colors"
                   >
@@ -214,7 +214,7 @@ export default function Products() {
                 <div className="flex gap-1">
                   {[0, 1, 2, 3, 4, 5].map((r) => (
                     <button
-                      key={r}
+                      key={`rating-${r}`}
                       onClick={() => { setMinRating(r); resetPage(); }}
                       className={`px-3 h-9 rounded-lg text-sm font-semibold transition-all ${
                         minRating === r ? "bg-gradient-neon text-white" : "glass"
@@ -234,8 +234,8 @@ export default function Products() {
                   onChange={(e) => setSort(e.target.value)}
                   className="w-full h-9 px-3 rounded-lg glass text-sm bg-transparent outline-none"
                 >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-black text-white">
+                  {SORT_OPTIONS.map((opt, idx) => (
+                    <option key={`${opt.value}-${idx}`} value={opt.value} className="bg-black text-white">
                       {opt.label}
                     </option>
                   ))}
@@ -256,8 +256,8 @@ export default function Products() {
       {/* Categories */}
       <div className="mt-6 flex gap-2 overflow-x-auto pb-2 mask-fade">
         <CategoryChip active={active === "all"} onClick={() => { setActive("all"); resetPage(); }} label="All" />
-        {categories.map((c) => (
-          <CategoryChip key={c.slug} active={active === c.slug} onClick={() => { setActive(c.slug); resetPage(); }} label={c.name} />
+        {categories.map((c, idx) => (
+          <CategoryChip key={c.slug ? `${c.slug}-${idx}` : idx} active={active === c.slug} onClick={() => { setActive(c.slug); resetPage(); }} label={c.name} />
         ))}
       </div>
 
@@ -273,8 +273,8 @@ export default function Products() {
             onChange={(e) => setSort(e.target.value)}
             className="h-8 px-2 rounded-lg glass text-xs bg-transparent outline-none"
           >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-black text-white">
+            {SORT_OPTIONS.map((opt, idx) => (
+              <option key={`${opt.value}-${idx}`} value={opt.value} className="bg-black text-white">
                 {opt.label}
               </option>
             ))}
@@ -291,8 +291,8 @@ export default function Products() {
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {paginated.map((product) => (
-            <ProductCard key={product.id} product={toProductCardProduct(product)} href={`/product-details/${product.id}`} />
+          {paginated.map((product, idx) => (
+            <ProductCard key={product.id ? `${product.id}-${idx}` : idx} product={toProductCardProduct(product)} href={`/product-details/${product.id}`} />
           ))}
         </div>
       )}

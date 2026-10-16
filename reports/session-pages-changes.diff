@@ -1,0 +1,2339 @@
+﻿diff --git a/app/admin/orders/page.tsx b/app/admin/orders/page.tsx
+index c1e1fb2..16a81cb 100644
+--- a/app/admin/orders/page.tsx
++++ b/app/admin/orders/page.tsx
+@@ -1,21 +1,60 @@
+ "use client";
+ 
+-import { useState, useEffect } from "react";
++import { useState } from "react";
+ import Link from "next/link";
++import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+ import {
+   ArrowLeft,
+-  Loader2,
++  Banknote,
+   CheckCircle2,
+   Clock,
+-  Truck,
++  CreditCard,
++  Loader2,
+   Package,
++  ShieldAlert,
++  Smartphone,
++  Truck,
++  Wallet,
+   XCircle,
++  Zap,
+ } from "lucide-react";
+ import { useAuth } from "@/app/lib/auth-context";
+ import { formatCurrency } from "@/lib/formatCurrency";
++import { ReceiptViewer } from "@/app/components/payment/ReceiptViewer";
++import { apiErrorMessage } from "@/app/lib/api-error-message";
++
++type Payment = {
++  id?: string;
++  provider: string;
++  provider_payment_id?: string | null;
++  amount?: number | null;
++  status: string;
++  created_at?: string;
++  receipt_url?: string | null;
++  raw_response?: {
++    payer_phone?: string;
++    receipt_path?: string;
++    uploaded_at?: string;
++    verified_at?: string;
++    verify_note?: string | null;
++    rejected?: boolean;
++    rejection_reason?: string | null;
++  } | null;
++};
++
++type ShippingMethod = {
++  id: string;
++  name: string;
++  slug: string;
++  type: string;
++  carrier: string | null;
++  min_delivery_days: number | null;
++  max_delivery_days: number | null;
++};
+ 
+ type Order = {
+   id: string;
++  order_number: string;
+   user_id: string;
+   status: string;
+   subtotal: number;
+@@ -32,10 +71,15 @@ type Order = {
+     country: string;
+   } | null;
+   customer_note: string | null;
++  payment?: Payment | null;
++  payments?: Payment[] | null;
++  shipping_method?: ShippingMethod | null;
+   created_at: string;
+   updated_at: string;
+ };
+ 
++const BADGE_BASE = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border";
++
+ const STATUS_OPTIONS = [
+   { value: "pending", label: "Pending", icon: Clock, color: "text-yellow-400" },
+   { value: "paid", label: "Paid", icon: CheckCircle2, color: "text-blue-400" },
+@@ -44,61 +88,206 @@ const STATUS_OPTIONS = [
+   { value: "shipped", label: "Shipped", icon: Truck, color: "text-cyan-400" },
+   { value: "delivered", label: "Delivered", icon: CheckCircle2, color: "text-green-400" },
+   { value: "cancelled", label: "Cancelled", icon: XCircle, color: "text-red-400" },
++] as const;
++
++type PaymentFilter = "all" | "awaiting" | "paid" | "rejected" | "cod" | "vodafone";
++
++const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
++  { key: "all", label: "All" },
++  { key: "awaiting", label: "Awaiting verification" },
++  { key: "paid", label: "Paid" },
++  { key: "rejected", label: "Rejected" },
++  { key: "cod", label: "COD" },
++  { key: "vodafone", label: "Vodafone Cash" },
+ ];
+ 
++function hasReceipt(order: Order) {
++  return Boolean(order.payment?.raw_response?.receipt_path);
++}
++
++function paymentRejected(payment?: Payment | null) {
++  return Boolean(payment && payment.status === "failed" && payment.raw_response?.rejected);
++}
++
++function isRejected(order: Order) {
++  return paymentRejected(order.payment);
++}
++
++function isAwaitingVerification(order: Order) {
++  const payment = order.payment;
++  if (!payment || payment.provider !== "vodafone_cash") return false;
++  if (payment.status === "pending" || payment.status === "processing") return true;
++  // A failed row without an admin rejection means the reconciliation sweep
++  // timed it out ΓÇö it still needs a human check, and is never called "Rejected".
++  return payment.status === "failed" && !payment.raw_response?.rejected;
++}
++
++function isPaid(order: Order) {
++  return order.payment?.status === "succeeded";
++}
++
++function matchesPaymentFilter(order: Order, filter: PaymentFilter) {
++  switch (filter) {
++    case "awaiting":
++      return isAwaitingVerification(order);
++    case "paid":
++      return isPaid(order);
++    case "rejected":
++      return isRejected(order);
++    case "cod":
++      return order.payment?.provider === "cod";
++    case "vodafone":
++      return order.payment?.provider === "vodafone_cash";
++    default:
++      return true;
++  }
++}
++
++function paymentBadge(order: Order) {
++  const payment = order.payment;
++
++  if (!payment) {
++    return {
++      icon: Clock,
++      className: `${BADGE_BASE} text-slate-300 bg-slate-950/50 border-white/10`,
++      label: "Awaiting payment",
++      detail: "",
++    };
++  }
++
++  if (payment.provider === "vodafone_cash") {
++    if (paymentRejected(payment)) {
++      return {
++        icon: XCircle,
++        className: `${BADGE_BASE} text-red-300 bg-red-950/40 border-red-500/40`,
++        label: "Vodafone Cash",
++        detail: "Rejected",
++      };
++    }
++    if (isAwaitingVerification(order)) {
++      return {
++        icon: Smartphone,
++        className: `${BADGE_BASE} text-amber-300 bg-amber-950/40 border-amber-500/40`,
++        label: "Vodafone Cash",
++        detail: "Awaiting verification",
++      };
++    }
++    if (payment.status === "succeeded") {
++      return {
++        icon: Wallet,
++        className: `${BADGE_BASE} text-emerald-300 bg-emerald-950/40 border-emerald-500/40`,
++        label: "Vodafone Cash",
++        detail: "Paid",
++      };
++    }
++  }
++
++  if (payment.provider === "cod") {
++    return {
++      icon: Banknote,
++      className: `${BADGE_BASE} text-amber-300 bg-amber-950/40 border-amber-500/30`,
++      label: "Cash on delivery",
++      detail: payment.status === "succeeded" ? "Paid" : "Due on delivery",
++    };
++  }
++
++  if (payment.provider === "wallet") {
++    return {
++      icon: Wallet,
++      className: `${BADGE_BASE} text-purple-300 bg-purple-950/40 border-purple-500/30`,
++      label: "Wallet",
++      detail: payment.status === "succeeded" ? "Paid" : payment.status,
++    };
++  }
++
++  return {
++    icon: CreditCard,
++    className: `${BADGE_BASE} ${
++      payment.status === "succeeded"
++        ? "text-emerald-300 bg-emerald-950/40 border-emerald-500/30"
++        : "text-sky-300 bg-sky-950/40 border-sky-500/30"
++    }`,
++    label: "Card payment",
++    detail: payment.status === "succeeded" ? "Paid" : payment.status,
++  };
++}
++
++function deliveryBadge(order: Order) {
++  const method = order.shipping_method;
++
++  if (!method) {
++    return {
++      icon: Truck,
++      className: `${BADGE_BASE} text-slate-300 bg-slate-950/50 border-white/10`,
++      label: "Delivery not set",
++      detail: "",
++    };
++  }
++
++  const express = method.type === "express";
++  const days =
++    method.min_delivery_days && method.max_delivery_days
++      ? `${method.min_delivery_days}ΓÇô${method.max_delivery_days} days`
++      : "";
++
++  return {
++    icon: express ? Zap : Truck,
++    className: `${BADGE_BASE} ${
++      express
++        ? "text-cyan-300 bg-cyan-950/40 border-cyan-500/30"
++        : "text-indigo-300 bg-indigo-950/40 border-indigo-500/30"
++    }`,
++    label: express ? "Express delivery" : "Standard delivery",
++    detail: days,
++  };
++}
++
+ export default function AdminOrdersPage() {
+   const { user, getToken } = useAuth();
+-  const [orders, setOrders] = useState<Order[]>([]);
+-  const [loading, setLoading] = useState(true);
+-  const [updating, setUpdating] = useState<string | null>(null);
+-  const [isAdmin, setIsAdmin] = useState(false);
+-  const [filter, setFilter] = useState("all");
+-
+-  useEffect(() => {
+-    if (!user) return;
+-
+-    let cancelled = false;
+-    const fetchData = async () => {
+-      try {
+-        const token = await getToken();
+-
+-        // Check admin
+-        const adminRes = await fetch("/api/admin", {
+-          headers: { Authorization: `Bearer ${token}` },
+-        });
+-        const adminData = await adminRes.json();
+-
+-        if (!adminData.is_admin) {
+-          if (!cancelled) setLoading(false);
+-          return;
+-        }
+-
+-        if (!cancelled) setIsAdmin(true);
+-
+-        // Fetch orders
+-        const ordersRes = await fetch("/api/admin/orders", {
+-          headers: { Authorization: `Bearer ${token}` },
+-        });
+-        const ordersData = await ordersRes.json();
+-
+-        if (!cancelled) {
+-          if (ordersData.success) {
+-            setOrders(ordersData.orders);
+-          }
+-          setLoading(false);
+-        }
+-      } catch {
+-        if (!cancelled) setLoading(false);
+-      }
+-    };
++  const queryClient = useQueryClient();
++
++  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
++  const [statusFilter, setStatusFilter] = useState<string>("all");
++  const [rejectingId, setRejectingId] = useState<string | null>(null);
++  const [rejectNote, setRejectNote] = useState("");
++  const [confirming, setConfirming] = useState<Order | null>(null);
++
++  const adminQuery = useQuery({
++    queryKey: ["admin", "me"],
++    enabled: Boolean(user),
++    retry: false,
++    queryFn: async () => {
++      const token = await getToken();
++      const res = await fetch("/api/admin", {
++        headers: { Authorization: `Bearer ${token}` },
++      });
++      const data = await res.json().catch(() => null);
++      if (!res.ok || !data?.is_admin) throw new Error("You don't have admin privileges.");
++      return data as { is_admin: boolean };
++    },
++  });
+ 
+-    fetchData();
+-    return () => { cancelled = true; };
+-  }, [user, getToken]);
++  const isAdmin = Boolean(adminQuery.data?.is_admin);
++
++  const ordersQuery = useQuery({
++    queryKey: ["admin", "orders"],
++    enabled: isAdmin,
++    retry: false,
++    queryFn: async (): Promise<Order[]> => {
++      const token = await getToken();
++      const res = await fetch("/api/admin/orders", {
++        headers: { Authorization: `Bearer ${token}` },
++      });
++      const data = await res.json().catch(() => null);
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to load orders"));
++      }
++      return (data.orders ?? []) as Order[];
++    },
++  });
+ 
+-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+-    setUpdating(orderId);
+-    try {
++  const statusMutation = useMutation({
++    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+       const token = await getToken();
+       const res = await fetch("/api/admin/orders", {
+         method: "PATCH",
+@@ -106,24 +295,53 @@ export default function AdminOrdersPage() {
+           "Content-Type": "application/json",
+           Authorization: `Bearer ${token}`,
+         },
+-        body: JSON.stringify({ order_id: orderId, status: newStatus }),
++        body: JSON.stringify({ order_id: orderId, status }),
+       });
++      const data = await res.json().catch(() => null);
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to update order status"));
++      }
++      return data;
++    },
++    onSuccess: () => {
++      void queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
++    },
++  });
+ 
+-      const data = await res.json();
+-
+-      if (data.success) {
+-        setOrders((prev) =>
+-          prev.map((o) =>
+-            o.id === orderId ? { ...o, status: newStatus } : o
+-          )
+-        );
++  const verifyMutation = useMutation({
++    mutationFn: async (payload: {
++      orderId: string;
++      approve: boolean;
++      note?: string;
++    }) => {
++      const token = await getToken();
++      const res = await fetch("/api/admin/orders", {
++        method: "PATCH",
++        headers: {
++          "Content-Type": "application/json",
++          Authorization: `Bearer ${token}`,
++        },
++        body: JSON.stringify({
++          order_id: payload.orderId,
++          action: "verify_payment",
++          approve: payload.approve,
++          ...(payload.note ? { note: payload.note } : {}),
++        }),
++      });
++      const data = await res.json().catch(() => null);
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to verify payment"));
+       }
+-    } catch {
+-      // ignore
+-    } finally {
+-      setUpdating(null);
+-    }
+-  };
++      return data;
++    },
++    onSuccess: () => {
++      // The PATCH response carries no payment data ΓÇö refetch for the truth.
++      void queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
++      setRejectingId(null);
++      setRejectNote("");
++      setConfirming(null);
++    },
++  });
+ 
+   if (!user) {
+     return (
+@@ -131,7 +349,10 @@ export default function AdminOrdersPage() {
+         <div className="glass-strong rounded-3xl p-8 text-center">
+           <h1 className="text-2xl font-extrabold mb-2">Login Required</h1>
+           <p className="text-muted-foreground mb-4">Please log in to access admin panel.</p>
+-          <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform">
++          <Link
++            href="/login"
++            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
++          >
+             Sign In
+           </Link>
+         </div>
+@@ -139,32 +360,44 @@ export default function AdminOrdersPage() {
+     );
+   }
+ 
+-  if (loading) {
++  if (adminQuery.isPending) {
+     return (
+       <div className="min-h-screen flex items-center justify-center">
+-        <Loader2 className="h-8 w-8 animate-spin text-secondary" />
++        <Loader2 className="h-8 w-8 animate-spin text-secondary" aria-label="Loading" />
+       </div>
+     );
+   }
+ 
+-  if (!isAdmin) {
++  if (adminQuery.error || !isAdmin) {
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6">
+         <div className="glass-strong rounded-3xl p-8 text-center">
+-          <XCircle className="h-16 w-16 mx-auto text-red-400 mb-4" />
++          <XCircle className="h-16 w-16 mx-auto text-red-400 mb-4" aria-hidden="true" />
+           <h1 className="text-2xl font-extrabold mb-2">Access Denied</h1>
+-          <p className="text-muted-foreground">You don&apos;t have admin privileges.</p>
++          <p className="text-muted-foreground">
++            {adminQuery.error instanceof Error
++              ? adminQuery.error.message
++              : "You don't have admin privileges."}
++          </p>
+         </div>
+       </div>
+     );
+   }
+ 
+-  const filteredOrders = filter === "all" ? orders : orders.filter((o) => o.status === filter);
++  const orders = ordersQuery.data ?? [];
++  const filteredOrders = orders.filter(
++    (order) => matchesPaymentFilter(order, paymentFilter) && (statusFilter === "all" || order.status === statusFilter)
++  );
++  const countFor = (filter: PaymentFilter) => orders.filter((order) => matchesPaymentFilter(order, filter)).length;
++  const verificationError = statusMutation.error ?? verifyMutation.error ?? null;
+ 
+   return (
+     <div className="mx-auto max-w-6xl px-4 pt-28 pb-20">
+       <div className="mb-8">
+-        <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
++        <Link
++          href="/admin"
++          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
++        >
+           <ArrowLeft className="h-4 w-4" />
+           Back to Dashboard
+         </Link>
+@@ -174,55 +407,111 @@ export default function AdminOrdersPage() {
+         <p className="text-muted-foreground mt-2">{orders.length} total orders</p>
+       </div>
+ 
+-      {/* Filter */}
+-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+-        {["all", "pending", "paid", "shipped", "delivered", "cancelled"].map((f) => (
+-          <button
+-            key={f}
+-            onClick={() => setFilter(f)}
+-            className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+-              filter === f
+-                ? "bg-gradient-neon text-white"
+-                : "glass text-muted-foreground hover:text-foreground"
+-            }`}
+-          >
+-            {f === "all" ? `All (${orders.length})` : `${f} (${orders.filter((o) => o.status === f).length})`}
+-          </button>
+-        ))}
++      {(ordersQuery.error || verificationError) && (
++        <div role="alert" className="mb-6 p-4 rounded-xl text-sm text-red-400 bg-red-950/40 border border-red-500/30">
++          {verificationError instanceof Error
++            ? verificationError.message
++            : ordersQuery.error instanceof Error
++              ? ordersQuery.error.message
++              : "Something went wrong"}
++        </div>
++      )}
++
++      {/* Payment-oriented filters */}
++      <div className="flex gap-2 mb-3 overflow-x-auto pb-2" role="group" aria-label="Filter by payment">
++        {PAYMENT_FILTERS.map((option) => {
++          const count = countFor(option.key);
++          const active = paymentFilter === option.key;
++          return (
++            <button
++              key={option.key}
++              onClick={() => setPaymentFilter(option.key)}
++              aria-pressed={active}
++              data-testid={`filter-${option.key}`}
++              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
++                active ? "bg-gradient-neon text-white" : "glass text-muted-foreground hover:text-foreground"
++              }`}
++            >
++              {option.label} ({count})
++            </button>
++          );
++        })}
+       </div>
+ 
+-      {/* Orders Table */}
+-      {filteredOrders.length === 0 ? (
++      {/* Order status filter */}
++      <div className="flex items-center gap-3 mb-6">
++        <label htmlFor="order-status-filter" className="text-sm text-muted-foreground">
++          Order status
++        </label>
++        <select
++          id="order-status-filter"
++          value={statusFilter}
++          onChange={(event) => setStatusFilter(event.target.value)}
++          className="h-9 px-3 rounded-lg glass text-sm outline-none cursor-pointer"
++        >
++          <option value="all" className="bg-black text-white">
++            All statuses
++          </option>
++          {STATUS_OPTIONS.map((option) => (
++            <option key={option.value} value={option.value} className="bg-black text-white">
++              {option.label}
++            </option>
++          ))}
++        </select>
++        {ordersQuery.isFetching && (
++          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Refreshing orders" />
++        )}
++      </div>
++
++      {ordersQuery.isPending ? (
++        <div className="text-center py-20">
++          <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" aria-label="Loading orders" />
++        </div>
++      ) : filteredOrders.length === 0 ? (
+         <div className="text-center py-20">
+-          <Package className="h-20 w-20 mx-auto text-muted-foreground mb-4" />
++          <Package className="h-20 w-20 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
+           <h2 className="text-2xl font-extrabold mb-2">No Orders</h2>
+-          <p className="text-muted-foreground">No orders match the selected filter.</p>
++          <p className="text-muted-foreground">No orders match the selected filters.</p>
+         </div>
+       ) : (
+         <div className="space-y-4">
+           {filteredOrders.map((order) => {
+-            const statusInfo = STATUS_OPTIONS.find((s) => s.value === order.status) || STATUS_OPTIONS[0];
++            const statusInfo = STATUS_OPTIONS.find((option) => option.value === order.status) || STATUS_OPTIONS[0];
++            const payment = paymentBadge(order);
++            const delivery = deliveryBadge(order);
++            const PaymentIcon = payment.icon;
++            const DeliveryIcon = delivery.icon;
++            const paymentRow = order.payment;
++            const awaiting = isAwaitingVerification(order);
++            const rejected = isRejected(order);
++            const canVerify = Boolean(paymentRow && awaiting && hasReceipt(order));
++            const busy = statusMutation.isPending || verifyMutation.isPending;
++
+             return (
+               <div key={order.id} className="glass-strong rounded-2xl p-5 hover:pink-glow transition-all">
+                 <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                   <div>
+-                    <p className="font-mono text-sm font-semibold">{order.id.slice(0, 8)}...</p>
++                    <p className="font-mono text-sm font-semibold">Order {order.order_number || `${order.id.slice(0, 8)}ΓÇª`}</p>
+                     <p className="text-xs text-muted-foreground mt-1">
+                       {new Date(order.created_at).toLocaleString()}
+                     </p>
+                   </div>
+                   <div className="flex items-center gap-2">
+-                    {updating === order.id ? (
+-                      <Loader2 className="h-4 w-4 animate-spin text-secondary" />
++                    {statusMutation.isPending && statusMutation.variables?.orderId === order.id ? (
++                      <Loader2 className="h-4 w-4 animate-spin text-secondary" aria-label="Updating status" />
+                     ) : (
+                       <select
++                        aria-label={`Order status for ${order.order_number || order.id.slice(0, 8)}`}
+                         value={order.status}
+-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
++                        onChange={(event) =>
++                          statusMutation.mutate({ orderId: order.id, status: event.target.value })
++                        }
++                        disabled={busy}
+                         className={`h-9 px-3 rounded-lg glass text-sm font-semibold ${statusInfo.color} bg-transparent outline-none cursor-pointer`}
+                       >
+-                        {STATUS_OPTIONS.map((opt) => (
+-                          <option key={opt.value} value={opt.value} className="bg-black text-white">
+-                            {opt.label}
++                        {STATUS_OPTIONS.map((option) => (
++                          <option key={option.value} value={option.value} className="bg-black text-white">
++                            {option.label}
+                           </option>
+                         ))}
+                       </select>
+@@ -230,11 +519,183 @@ export default function AdminOrdersPage() {
+                   </div>
+                 </div>
+ 
++                {/* Nature of the order: how it is paid + how it is shipped */}
++                <div className="flex flex-wrap items-center gap-2 mb-4">
++                  <span className={payment.className} data-testid="admin-payment-badge">
++                    <PaymentIcon className="h-3.5 w-3.5" />
++                    {payment.label}
++                    {payment.detail && <span className="opacity-70 font-medium">┬╖ {payment.detail}</span>}
++                  </span>
++                  <span className={delivery.className}>
++                    <DeliveryIcon className="h-3.5 w-3.5" />
++                    {delivery.label}
++                    {delivery.detail && <span className="opacity-70 font-medium">┬╖ {delivery.detail}</span>}
++                  </span>
++                </div>
++
++                {/* Vodafone Cash: transfer details awaiting admin verification */}
++                {paymentRow?.provider === "vodafone_cash" && (
++                  <div className="glass rounded-xl p-4 mb-4 space-y-3" data-testid="vodafone-panel">
++                    <div className="flex flex-wrap items-center justify-between gap-2">
++                      <p className="font-semibold text-sm flex items-center gap-2">
++                        <Smartphone className="h-4 w-4 text-emerald-400" aria-hidden="true" />
++                        Vodafone Cash transfer
++                      </p>
++                      <span className="text-xs font-semibold px-2 py-1 rounded-lg border border-white/10 text-muted-foreground">
++                        {awaiting
++                          ? "Waiting for your check"
++                          : paymentRow.status === "succeeded"
++                            ? "Verified"
++                            : rejected
++                              ? "Rejected"
++                              : "Awaiting verification"}
++                      </span>
++                    </div>
++
++                    <div className="grid gap-3 sm:grid-cols-2 text-sm">
++                      <div>
++                        <p className="text-xs text-muted-foreground">Customer</p>
++                        <p className="font-semibold">{order.shipping_address_snapshot?.full_name || "ΓÇö"}</p>
++                      </div>
++                      <div>
++                        <p className="text-xs text-muted-foreground">Amount due</p>
++                        <p className="font-extrabold text-gradient-gold" data-testid="admin-amount-due">
++                          {formatCurrency(paymentRow.amount ?? order.total)}
++                        </p>
++                      </div>
++                      <div>
++                        <p className="text-xs text-muted-foreground">Transfer reference</p>
++                        <p className="font-mono font-semibold">{paymentRow.provider_payment_id || "ΓÇö"}</p>
++                      </div>
++                      <div>
++                        <p className="text-xs text-muted-foreground">Payer phone</p>
++                        <p className="font-mono">{paymentRow.raw_response?.payer_phone || "ΓÇö"}</p>
++                      </div>
++                      <div>
++                        <p className="text-xs text-muted-foreground">Receipt uploaded</p>
++                        <p>
++                          {paymentRow.raw_response?.uploaded_at
++                            ? new Date(paymentRow.raw_response.uploaded_at).toLocaleString()
++                            : "ΓÇö"}
++                        </p>
++                      </div>
++                      <div>
++                        <p className="text-xs text-muted-foreground">Order</p>
++                        <p className="font-mono text-xs">{order.order_number}</p>
++                      </div>
++                    </div>
++
++                    {paymentRow.receipt_url ? (
++                      <ReceiptViewer
++                        src={paymentRow.receipt_url}
++                        alt={`Transfer receipt for order ${order.order_number || order.id.slice(0, 8)}`}
++                        label="Open receipt"
++                        className="max-w-md"
++                        meta={[
++                          { label: "Order", value: order.order_number || order.id.slice(0, 8) },
++                          { label: "Amount due", value: formatCurrency(paymentRow.amount ?? order.total) },
++                          { label: "Reference", value: paymentRow.provider_payment_id || null },
++                          { label: "Payer", value: paymentRow.raw_response?.payer_phone || null },
++                        ]}
++                      />
++                    ) : (
++                      <div className="flex items-start gap-2 rounded-xl bg-amber-950/40 border border-amber-500/30 p-3 text-xs text-amber-200">
++                        <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
++                        <p>
++                          {paymentRow.raw_response?.receipt_path
++                            ? "The receipt image could not be loaded. Ask the customer to resend it before verifying."
++                            : "The customer has not uploaded a receipt yet. Verification stays open until one arrives."}
++                        </p>
++                      </div>
++                    )}
++
++                    {(paymentRow.raw_response?.verify_note || paymentRow.raw_response?.rejection_reason) && (
++                      <p className="text-xs text-muted-foreground">
++                        Note: {paymentRow.raw_response?.verify_note || paymentRow.raw_response?.rejection_reason}
++                      </p>
++                    )}
++
++                    {canVerify && rejectingId !== order.id && (
++                      <div className="flex flex-wrap gap-2 pt-1" data-testid="verify-actions">
++                        <button
++                          onClick={() => setConfirming(order)}
++                          disabled={busy}
++                          className="flex-1 min-w-[170px] h-10 rounded-xl bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors disabled:opacity-60"
++                        >
++                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
++                          Confirm payment
++                        </button>
++                        <button
++                          onClick={() => {
++                            setRejectingId(order.id);
++                            setRejectNote("");
++                          }}
++                          disabled={busy}
++                          className="px-4 h-10 rounded-xl glass text-red-400 text-sm font-bold flex items-center gap-2 hover:bg-red-950/40 transition-colors disabled:opacity-60"
++                        >
++                          <XCircle className="h-4 w-4" aria-hidden="true" />
++                          Reject
++                        </button>
++                      </div>
++                    )}
++
++                    {canVerify && rejectingId === order.id && (
++                      <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 space-y-2">
++                        <label
++                          htmlFor={`reject-reason-${order.id}`}
++                          className="text-xs font-semibold text-red-300"
++                        >
++                          Why is this transfer being rejected? (the customer sees this)
++                        </label>
++                        <textarea
++                          id={`reject-reason-${order.id}`}
++                          value={rejectNote}
++                          onChange={(event) => setRejectNote(event.target.value)}
++                          rows={2}
++                          maxLength={500}
++                          placeholder="e.g. Amount received does not match the order total"
++                          className="w-full rounded-lg glass p-2 text-sm outline-none resize-y"
++                        />
++                        <div className="flex flex-wrap gap-2">
++                          <button
++                            onClick={() =>
++                              verifyMutation.mutate({
++                                orderId: order.id,
++                                approve: false,
++                                note: rejectNote.trim() || undefined,
++                              })
++                            }
++                            disabled={verifyMutation.isPending}
++                            className="h-9 px-4 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-500 transition-colors disabled:opacity-60"
++                          >
++                            {verifyMutation.isPending && verifyMutation.variables?.approve === false ? (
++                              <Loader2 className="h-4 w-4 animate-spin" aria-label="Rejecting" />
++                            ) : (
++                              "Send rejection"
++                            )}
++                          </button>
++                          <button
++                            onClick={() => {
++                              setRejectingId(null);
++                              setRejectNote("");
++                            }}
++                            disabled={verifyMutation.isPending}
++                            className="h-9 px-4 rounded-lg glass text-sm font-semibold disabled:opacity-60"
++                          >
++                            Cancel
++                          </button>
++                        </div>
++                      </div>
++                    )}
++                  </div>
++                )}
++
+                 {order.shipping_address_snapshot && (
+                   <div className="glass rounded-xl p-3 mb-4 text-sm">
+                     <p className="font-semibold">{order.shipping_address_snapshot.full_name}</p>
+                     <p className="text-muted-foreground">
+-                      {order.shipping_address_snapshot.address}, {order.shipping_address_snapshot.city}, {order.shipping_address_snapshot.country}
++                      {order.shipping_address_snapshot.address}, {order.shipping_address_snapshot.city},{" "}
++                      {order.shipping_address_snapshot.country}
+                     </p>
+                     <p className="text-muted-foreground">{order.shipping_address_snapshot.phone}</p>
+                   </div>
+@@ -242,9 +703,7 @@ export default function AdminOrdersPage() {
+ 
+                 <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
+                   <div className="text-sm">
+-                    {order.coupon_code && (
+-                      <span className="text-secondary">Coupon: {order.coupon_code}</span>
+-                    )}
++                    {order.coupon_code && <span className="text-secondary">Coupon: {order.coupon_code}</span>}
+                   </div>
+                   <div className="text-right">
+                     <p className="text-xs text-muted-foreground">Total</p>
+@@ -256,6 +715,71 @@ export default function AdminOrdersPage() {
+           })}
+         </div>
+       )}
++
++      {/* Confirm payment dialog */}
++      {confirming && (
++        <div
++          role="dialog"
++          aria-modal="true"
++          aria-labelledby="confirm-payment-title"
++          className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
++          onClick={() => setConfirming(null)}
++        >
++          <div
++            className="glass-strong rounded-3xl p-6 max-w-md w-full space-y-4"
++            onClick={(event) => event.stopPropagation()}
++          >
++            <div className="flex items-start gap-3">
++              <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
++              <div>
++                <h2 id="confirm-payment-title" className="text-lg font-extrabold">
++                  Confirm payment
++                </h2>
++                <p className="text-sm text-muted-foreground mt-1">
++                  Confirm that the transferred amount matches the order total?
++                </p>
++              </div>
++            </div>
++
++            <dl className="glass rounded-xl p-4 text-sm space-y-1">
++              <div className="flex justify-between gap-4">
++                <dt className="text-muted-foreground">Order total</dt>
++                <dd className="font-extrabold text-gradient-gold">{formatCurrency(confirming.total)}</dd>
++              </div>
++              <div className="flex justify-between gap-4">
++                <dt className="text-muted-foreground">Payment requested</dt>
++                <dd className="font-semibold">{formatCurrency(confirming.payment?.amount ?? confirming.total)}</dd>
++              </div>
++              <div className="flex justify-between gap-4">
++                <dt className="text-muted-foreground">Transfer reference</dt>
++                <dd className="font-mono text-xs">{confirming.payment?.provider_payment_id || "ΓÇö"}</dd>
++              </div>
++            </dl>
++
++            <div className="flex flex-wrap gap-2 justify-end">
++              <button
++                onClick={() => setConfirming(null)}
++                className="h-10 px-4 rounded-xl glass text-sm font-semibold"
++              >
++                Cancel
++              </button>
++              <button
++                onClick={() =>
++                  verifyMutation.mutate({ orderId: confirming.id, approve: true })
++                }
++                disabled={verifyMutation.isPending}
++                className="h-10 px-5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 transition-colors disabled:opacity-60"
++              >
++                {verifyMutation.isPending && verifyMutation.variables?.approve ? (
++                  <Loader2 className="h-4 w-4 animate-spin" aria-label="Confirming" />
++                ) : (
++                  "Yes, confirm payment"
++                )}
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
+     </div>
+   );
+ }
+diff --git a/app/api/admin/orders/route.js b/app/api/admin/orders/route.js
+index d674ed5..9b0ebec 100644
+--- a/app/api/admin/orders/route.js
++++ b/app/api/admin/orders/route.js
+@@ -1,8 +1,143 @@
++import { createClient } from "@supabase/supabase-js";
+ import { getServiceRoleClient } from "@/lib/supabase/service-role";
+ import { verifyAdmin } from "../_lib/verifyAdmin";
+ import { logger } from "@/lib/logger";
+ import { handleApiError } from "@/lib/api-errors";
+ 
++// Client bound to the admin's own JWT ΓÇö required for RPCs that check is_admin()
++function getUserClient(request) {
++  const token = (request.headers.get("authorization") || "").replace("Bearer ", "");
++  return createClient(
++    process.env.NEXT_PUBLIC_SUPABASE_URL,
++    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
++    { global: { headers: { Authorization: `Bearer ${token}` } } }
++  );
++}
++
++// Reading orders can use the service role when configured (bypasses RLS),
++// otherwise fall back to the admin's JWT ΓÇö but only if that user really is an
++// admin in the database, otherwise RLS would silently return an empty list.
++function getReadClient(request) {
++  try {
++    return { client: getServiceRoleClient(), scoped: false };
++  } catch (error) {
++    logger.warn("[Admin Orders] SUPABASE_SERVICE_ROLE_KEY missing, using admin JWT:", error.message);
++    return { client: getUserClient(request), scoped: true };
++  }
++}
++
++// Attach the "nature of the order" to each row: how it is being paid
++// (cash on delivery / card / wallet) and how it is being shipped
++// (express vs standard). All lookups are batched and non-fatal.
++async function withOrderNature(client, orders) {
++  if (!orders || orders.length === 0) return orders ?? [];
++
++  const orderIds = orders.map((o) => o.id);
++
++  const [paymentsRes, shipmentsRes] = await Promise.all([
++    client
++      .from("payments")
++      .select("order_id, provider, provider_payment_id, amount, status, created_at, raw_response")
++      .in("order_id", orderIds),
++    client
++      .from("shipments")
++      .select("order_id, shipping_method_id, created_at")
++      .in("order_id", orderIds),
++  ]);
++
++  if (paymentsRes.error) {
++    logger.warn("[Admin Orders] payments lookup failed:", paymentsRes.error.message);
++  }
++  if (shipmentsRes.error) {
++    logger.warn("[Admin Orders] shipments lookup failed:", shipmentsRes.error.message);
++  }
++
++  const paymentsByOrder = new Map();
++  for (const payment of paymentsRes.data ?? []) {
++    const list = paymentsByOrder.get(payment.order_id) ?? [];
++    list.push(payment);
++    paymentsByOrder.set(payment.order_id, list);
++  }
++  for (const list of paymentsByOrder.values()) {
++    list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
++  }
++
++  // Newest shipment wins when the order itself does not carry the method.
++  const shipmentByOrder = new Map();
++  for (const shipment of shipmentsRes.data ?? []) {
++    if (!shipment.shipping_method_id) continue;
++    const previous = shipmentByOrder.get(shipment.order_id);
++    if (
++      !previous ||
++      new Date(shipment.created_at).getTime() > new Date(previous.created_at).getTime()
++    ) {
++      shipmentByOrder.set(shipment.order_id, shipment);
++    }
++  }
++
++  const methodIds = new Set();
++  for (const order of orders) {
++    if (order.shipping_method_id) methodIds.add(order.shipping_method_id);
++  }
++  for (const shipment of shipmentByOrder.values()) {
++    methodIds.add(shipment.shipping_method_id);
++  }
++
++  let methods = [];
++  if (methodIds.size > 0) {
++    const { data, error } = await client
++      .from("shipping_methods")
++      .select("id, name, slug, type, carrier, min_delivery_days, max_delivery_days")
++      .in("id", [...methodIds]);
++
++    if (error) {
++      logger.warn("[Admin Orders] shipping methods lookup failed:", error.message);
++    } else {
++      methods = data ?? [];
++    }
++  }
++  const methodsById = new Map(methods.map((method) => [method.id, method]));
++
++  const rows = orders.map((order) => {
++    const attempts = paymentsByOrder.get(order.id) ?? [];
++    // A settled attempt beats the most recent retry.
++    const payment =
++      attempts.find((attempt) => attempt.status === "succeeded") ?? attempts[0] ?? null;
++
++    const shipment = shipmentByOrder.get(order.id);
++    const methodId = order.shipping_method_id || shipment?.shipping_method_id || null;
++
++    return {
++      ...order,
++      payment,
++      payments: attempts,
++      shipping_method_id: methodId,
++      shipping_method: methodId ? (methodsById.get(methodId) ?? null) : null,
++    };
++  });
++
++  // Transfer receipts live in a private bucket ΓÇö hand the admin a signed URL.
++  await Promise.all(
++    rows.map(async (row) => {
++      const receiptPath = row.payment?.raw_response?.receipt_path;
++      if (!receiptPath) return;
++
++      const { data, error } = await client.storage
++        .from("payment-receipts")
++        .createSignedUrl(receiptPath, 3600);
++
++      if (error) {
++        logger.warn("[Admin Orders] receipt URL failed:", error.message);
++        return;
++      }
++
++      row.payment = { ...row.payment, receipt_url: data?.signedUrl ?? null };
++    })
++  );
++
++  return rows;
++}
++
+ export async function GET(request) {
+   try {
+     const auth = await verifyAdmin(request);
+@@ -10,7 +145,21 @@ export async function GET(request) {
+       return Response.json({ success: false, message: auth.error }, { status: auth.status });
+     }
+ 
+-    const SupabaseClient = getServiceRoleClient();
++    const { client: SupabaseClient, scoped } = getReadClient(request);
++
++    if (scoped) {
++      const { data: isAdmin, error: adminError } = await SupabaseClient.rpc("is_admin");
++      if (adminError || isAdmin !== true) {
++        return Response.json(
++          {
++            success: false,
++            message:
++              "Cannot load orders: SUPABASE_SERVICE_ROLE_KEY is not set and this account is not an admin in the database (set profiles.role = 'admin').",
++          },
++          { status: 403 }
++        );
++      }
++    }
+ 
+     const { data: orders, error } = await SupabaseClient
+       .from("orders")
+@@ -18,7 +167,8 @@ export async function GET(request) {
+       .order("created_at", { ascending: false });
+ 
+     if (error) throw error;
+-    return Response.json({ success: true, orders: orders ?? [] });
++
++    return Response.json({ success: true, orders: await withOrderNature(SupabaseClient, orders ?? []) });
+   } catch (error) {
+     return handleApiError(error, "Admin Orders GET", "Failed to fetch orders");
+   }
+@@ -31,8 +181,41 @@ export async function PATCH(request) {
+       return Response.json({ success: false, message: auth.error }, { status: auth.status });
+     }
+ 
+-    const SupabaseClient = getServiceRoleClient();
+-    const { order_id, status, note } = await request.json();
++    // update_order_status() raises 'Admin only' unless auth.uid() is a real
++    // admin, so the service role (no auth.uid) can never be used here.
++    const SupabaseClient = getUserClient(request);
++    const { order_id, status, note, action, approve } = await request.json();
++
++    // Vodafone Cash: the admin checked the transfer against the receipt.
++    if (action === "verify_payment") {
++      if (!order_id) {
++        return Response.json(
++          { success: false, message: "order_id is required" },
++          { status: 400 }
++        );
++      }
++
++      const approved = approve !== false;
++      const { error } = await SupabaseClient.rpc("verify_vodafone_cash_payment", {
++        p_order_id: order_id,
++        p_approve: approved,
++        p_note: note || null,
++      });
++
++      if (error) {
++        logger.error("Failed to verify payment", error);
++        return Response.json(
++          { success: false, message: error.message || "Failed to verify payment" },
++          { status: 400 }
++        );
++      }
++
++      return Response.json({
++        success: true,
++        order_id,
++        status: approved ? "paid" : "pending",
++      });
++    }
+ 
+     if (!order_id || !status) {
+       return Response.json(
+@@ -49,7 +232,7 @@ export async function PATCH(request) {
+       );
+     }
+ 
+-    const { data: order, error } = await SupabaseClient
++    const { error } = await SupabaseClient
+       .rpc("update_order_status", {
+         p_order_id: order_id,
+         p_new_status: status,
+@@ -59,7 +242,7 @@ export async function PATCH(request) {
+     if (error) {
+       logger.error("Failed to update order", error);
+       return Response.json(
+-        { success: false, message: "Failed to update order" },
++        { success: false, message: error.message || "Failed to update order" },
+         { status: 400 }
+       );
+     }
+diff --git a/app/checkout/page.tsx b/app/checkout/page.tsx
+index 2bb877b..048a2a5 100644
+--- a/app/checkout/page.tsx
++++ b/app/checkout/page.tsx
+@@ -9,12 +9,27 @@ import {
+   MapPin,
+   CreditCard,
+   CheckCircle2,
++  Clock,
+   Package,
+   Truck,
++  Wallet,
+ } from "lucide-react";
+ import { useCartStore } from "../stores/cartStore";
+ import { useAuth } from "../lib/auth-context";
+ import { formatCurrency } from "@/lib/formatCurrency";
++import { ReceiptUploader } from "@/app/components/payment/ReceiptUploader";
++import { VodafoneInstructions } from "@/app/components/payment/VodafoneInstructions";
++import { apiErrorMessage } from "@/app/lib/api-error-message";
++import {
++  formatDeliveryEstimate,
++  PAYMENT_PROVIDER_LABELS,
++  rememberVodafoneOrder,
++  resolveWalletNumber,
++  toPaymentProvider,
++  type PaymentProvider,
++} from "@/app/lib/payment-status";
++
++const WALLET = resolveWalletNumber();
+ 
+ type ShippingAddress = {
+   full_name: string;
+@@ -26,12 +41,38 @@ type ShippingAddress = {
+   country: string;
+ };
+ 
++type ShippingOption = {
++  method_id: string;
++  method_name: string;
++  method_type?: string;
++  fee: number;
++  is_free: boolean;
++  min_delivery_days?: number | null;
++  max_delivery_days?: number | null;
++};
++
++const PAYMENT_OPTIONS: { id: PaymentProvider; label: string; desc: string }[] = [
++  { id: "cod", label: "Cash on Delivery", desc: "Pay when you receive your order" },
++  {
++    id: "stripe",
++    label: "Credit/Debit Card",
++    desc: "Pay securely online via Stripe",
++  },
++  {
++    id: "vodafone_cash",
++    label: "Vodafone Cash",
++    desc: "Transfer now, then upload your receipt for verification",
++  },
++];
++
+ export default function CheckoutPage() {
+   const { user, getToken } = useAuth();
+   const { items, getTotal, getCount, clearCart } = useCartStore();
+-  const [step, setStep] = useState<"address" | "payment" | "confirm" | "success">("address");
++  const [step, setStep] = useState<"address" | "payment" | "confirm" | "vodafone" | "success">("address");
+   const [loading, setLoading] = useState(false);
+   const [orderId, setOrderId] = useState<string | null>(null);
++  const [orderNumber, setOrderNumber] = useState<string | null>(null);
++  const [amountDue, setAmountDue] = useState(0);
+   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+ 
+   const [address, setAddress] = useState<ShippingAddress>({
+@@ -44,33 +85,51 @@ export default function CheckoutPage() {
+     country: "Egypt",
+   });
+ 
+-  const [paymentMethod, setPaymentMethod] = useState("cod");
++  const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>("cod");
+   const [notes, setNotes] = useState("");
+ 
+-  const [shippingOptions, setShippingOptions] = useState<Array<{ method_id: string; method_name: string; fee: number; is_free: boolean }>>([]);
+-  const [selectedShipping, setSelectedShipping] = useState<{ method_id: string; fee: number } | null>(null);
+-  const [shippingLoading, setShippingLoading] = useState(false);
++  const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
++  const [selectedShipping, setSelectedShipping] = useState<{
++    method_id: string;
++    fee: number;
++  } | null>(null);
+ 
+   const subtotal = getTotal();
+   const shipping = selectedShipping?.fee ?? (subtotal > 500 ? 0 : 49);
+   const total = subtotal + shipping;
+-
+-  // Fetch shipping options when address changes
++  // Derived from the data instead of a synchronous setState in the effect.
++  const shippingLoading = step === "payment" && shippingOptions === null;
++  const selectedOption =
++    selectedShipping && shippingOptions
++      ? shippingOptions.find((opt) => opt.method_id === selectedShipping.method_id) ?? null
++      : null;
++
++  // Fetch shipping options when the address changes
+   useEffect(() => {
+     if (!address.country || step !== "payment") return;
+-    setShippingLoading(true);
++    let cancelled = false;
++
+     fetch(`/api/shipping?country=${encodeURIComponent(address.country)}&subtotal=${subtotal}`)
+       .then((r) => r.json())
+       .then((data) => {
+-        if (data.success && data.options) {
+-          setShippingOptions(data.options);
+-          if (data.options.length > 0 && !selectedShipping) {
+-            setSelectedShipping({ method_id: data.options[0].method_id, fee: data.options[0].fee });
+-          }
++        if (cancelled) return;
++        const options: ShippingOption[] =
++          data.success && Array.isArray(data.options) ? data.options : [];
++        setShippingOptions(options);
++        if (options.length > 0) {
++          setSelectedShipping(
++            (current) =>
++              current ?? { method_id: options[0].method_id, fee: options[0].fee }
++          );
+         }
+       })
+-      .catch(() => {})
+-      .finally(() => setShippingLoading(false));
++      .catch(() => {
++        if (!cancelled) setShippingOptions([]);
++      });
++
++    return () => {
++      cancelled = true;
++    };
+   }, [address.country, step, subtotal]);
+ 
+   if (!user) {
+@@ -90,7 +149,10 @@ export default function CheckoutPage() {
+     );
+   }
+ 
+-  if (items.length === 0 && step !== "success") {
++  // The cart is cleared the moment the order exists, so the empty-cart screen
++  // must not take over the post-order steps.
++  const cartRequired = step === "address" || step === "payment" || step === "confirm";
++  if (items.length === 0 && cartRequired) {
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6">
+         <div className="glass-strong rounded-3xl p-8 text-center">
+@@ -118,6 +180,23 @@ export default function CheckoutPage() {
+   };
+ 
+   const handlePlaceOrder = async () => {
++    if (loading) return; // guard against a double click
++
++    // Reject unknown providers instead of silently falling back to COD.
++    const provider = toPaymentProvider(paymentMethod);
++    if (!provider) {
++      setMessage({
++        type: "error",
++        text: `Unsupported payment method: ${String(paymentMethod)}. Please pick another option.`,
++      });
++      return;
++    }
++
++    if (shippingOptions && shippingOptions.length > 0 && !selectedShipping) {
++      setMessage({ type: "error", text: "Please choose a shipping method." });
++      return;
++    }
++
+     setLoading(true);
+     setMessage(null);
+     try {
+@@ -136,7 +215,7 @@ export default function CheckoutPage() {
+       }
+ 
+       // Push current cart items to server before checkout
+-      await fetch("/api/cart", {
++      const syncRes = await fetch("/api/cart", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+@@ -153,6 +232,39 @@ export default function CheckoutPage() {
+           })),
+         }),
+       });
++      const syncData = await syncRes.json().catch(() => null);
++
++      if (!syncRes.ok || !syncData?.success) {
++        setMessage({
++          type: "error",
++          text: syncData?.message || "Failed to sync your cart. Please try again.",
++        });
++        setLoading(false);
++        return;
++      }
++
++      const failedReasons = [
++        ...new Set(
++          (syncData.failed_items ?? []).map(
++            (f: { item?: { name?: string }; reason?: string }) =>
++              `${f.item?.name ?? "Item"}: ${f.reason ?? "unknown error"}`
++          )
++        ),
++      ];
++      const serverItemCount =
++        typeof syncData.item_count === "number" ? syncData.item_count : null;
++
++      if (failedReasons.length > 0 || serverItemCount === 0) {
++        setMessage({
++          type: "error",
++          text:
++            failedReasons.length > 0
++              ? `These items could not be added to your order: ${failedReasons.join(" | ")}`
++              : "Your cart is empty on the server. Please review your cart and try again.",
++        });
++        setLoading(false);
++        return;
++      }
+ 
+       // Create order via checkout RPC
+       const orderRes = await fetch("/api/orders", {
+@@ -166,22 +278,38 @@ export default function CheckoutPage() {
+           shipping_address: address,
+           customer_note: notes || null,
+           shipping_fee: shipping,
+-          payment_method: paymentMethod,
++          payment_method: provider,
++          shipping_method_id: selectedShipping?.method_id || null,
+         }),
+       });
+ 
+-      const orderData = await orderRes.json();
++      const orderData = await orderRes.json().catch(() => null);
+ 
+-      if (!orderData.success) {
+-        setMessage({ type: "error", text: orderData.message || "Failed to create order" });
++      if (!orderData?.success) {
++        setMessage({
++          type: "error",
++          text: apiErrorMessage(orderRes.status, orderData, "Failed to create order"),
++        });
+         setLoading(false);
+         return;
+       }
+ 
+       const newOrderId = orderData.order_id;
+ 
++      // Vodafone Cash: show the wallet number, then collect the transfer receipt
++      if (provider === "vodafone_cash") {
++        rememberVodafoneOrder(newOrderId);
++        setOrderId(newOrderId);
++        setOrderNumber(orderData.order_number || null);
++        setAmountDue(orderData.total ?? total);
++        setMessage(null);
++        clearCart();
++        setStep("vodafone");
++        return;
++      }
++
+       // If card payment, redirect to Stripe
+-      if (paymentMethod === "card") {
++      if (provider === "stripe") {
+         const checkoutRes = await fetch("/api/checkout", {
+           method: "POST",
+           headers: {
+@@ -226,26 +354,121 @@ export default function CheckoutPage() {
+     }
+   };
+ 
++  const handleReceiptSubmitted = () => {
++    setMessage(null);
++    setStep("success");
++  };
++
++  if (step === "vodafone") {
++    return (
++      <div className="min-h-screen flex items-center justify-center p-6">
++        <div className="glass-strong rounded-3xl p-8 w-full max-w-lg space-y-5">
++          <div className="text-center">
++            <div className="h-16 w-16 rounded-full bg-emerald-500/20 grid place-items-center mx-auto mb-3">
++              <Wallet className="h-8 w-8 text-emerald-400" />
++            </div>
++            <h1 className="text-2xl font-extrabold">Pay with Vodafone Cash</h1>
++            <p className="text-sm text-muted-foreground mt-1">
++              Your order is created. Transfer the amount below, then send us the receipt.
++            </p>
++          </div>
++
++          {message && (
++            <div
++              className={`p-3 rounded-xl text-sm ${
++                message.type === "success"
++                  ? "text-green-400 bg-green-950/40 border border-green-500/30"
++                  : "text-red-400 bg-red-950/40 border border-red-500/30"
++              }`}
++            >
++              {message.text}
++            </div>
++          )}
++
++          <VodafoneInstructions
++            number={WALLET.number}
++            amountLabel={formatCurrency(amountDue)}
++            orderNumber={orderNumber}
++            showFileSpecs
++          />
++
++          {orderId && (
++            <div className="border-t border-white/10 pt-4">
++              <h2 className="text-sm font-extrabold mb-1">Upload your receipt</h2>
++              <p className="text-xs text-muted-foreground mb-3">
++                Uploading does not complete the payment ΓÇö the order stays{" "}
++                <span className="text-amber-400 font-semibold">
++                  Awaiting payment verification
++                </span>{" "}
++                until our team confirms the transfer.
++              </p>
++              <ReceiptUploader
++                orderId={orderId}
++                onSubmitted={handleReceiptSubmitted}
++                submitLabel="Submit receipt for verification"
++              />
++            </div>
++          )}
++
++          <div className="text-center">
++            <Link
++              href={orderId ? `/orders/${orderId}?pay=vodafone_cash` : "/orders"}
++              onClick={() => orderId && rememberVodafoneOrder(orderId)}
++              className="text-xs text-secondary hover:underline"
++            >
++              I will submit the receipt later
++            </Link>
++          </div>
++        </div>
++      </div>
++    );
++  }
++
+   if (step === "success") {
++    const vodafone = paymentMethod === "vodafone_cash";
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6">
+         <div className="glass-strong rounded-3xl p-8 text-center max-w-md">
+-          <div className="h-20 w-20 rounded-full bg-green-500/20 grid place-items-center mx-auto mb-4">
+-            <CheckCircle2 className="h-10 w-10 text-green-400" />
++          <div
++            className={`h-20 w-20 rounded-full grid place-items-center mx-auto mb-4 ${
++              vodafone ? "bg-amber-500/20" : "bg-green-500/20"
++            }`}
++          >
++            {vodafone ? (
++              <Clock className="h-10 w-10 text-amber-400" />
++            ) : (
++              <CheckCircle2 className="h-10 w-10 text-green-400" />
++            )}
+           </div>
+-          <h1 className="text-3xl font-extrabold mb-2">Order Placed!</h1>
++          <h1 className="text-3xl font-extrabold mb-2">
++            {vodafone ? "Receipt Submitted" : "Order Placed!"}
++          </h1>
+           <p className="text-muted-foreground mb-4">
+-            Thank you for your order. We&apos;ll send you a confirmation email shortly.
++            {vodafone
++              ? "Your order is awaiting payment verification. We'll mark it as paid once our team confirms your transfer."
++              : "Thank you for your order. We'll send you a confirmation email shortly."}
+           </p>
+           {orderId && (
+             <p className="text-sm text-secondary mb-6">
+-              Order ID: <span className="font-mono">{orderId.slice(0, 8)}...</span>
++              Order:{" "}
++              <span className="font-mono">{orderNumber || `${orderId.slice(0, 8)}...`}</span>
+             </p>
+           )}
+-          <div className="flex gap-3 justify-center">
++          <div className="flex gap-3 justify-center flex-wrap">
++            {orderId && (
++              <Link
++                href={`/orders/${orderId}${vodafone ? "?pay=vodafone_cash" : ""}`}
++                onClick={() => vodafone && rememberVodafoneOrder(orderId)}
++                className="px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
++              >
++                {vodafone ? "Track this order" : "View Order"}
++              </Link>
++            )}
+             <Link
+               href="/orders"
+-              className="px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
++              className={`px-6 py-3 rounded-2xl font-semibold transition-all ${
++                orderId ? "glass hover:pink-glow" : "bg-gradient-neon text-white hover:scale-105"
++              }`}
+             >
+               View Orders
+             </Link>
+@@ -425,13 +648,13 @@ export default function CheckoutPage() {
+                 Payment Method
+               </h2>
+ 
+-              <div className="space-y-3">
+-                {[
+-                  { id: "cod", label: "Cash on Delivery", desc: "Pay when you receive your order" },
+-                  { id: "card", label: "Credit/Debit Card", desc: "Pay securely online via Stripe" },
+-                ].map((method) => (
++              <div className="space-y-3" role="radiogroup" aria-label="Payment method">
++                {PAYMENT_OPTIONS.map((method) => (
+                   <button
+                     key={method.id}
++                    type="button"
++                    role="radio"
++                    aria-checked={paymentMethod === method.id}
+                     onClick={() => setPaymentMethod(method.id)}
+                     className={`w-full p-4 rounded-xl text-left transition-all ${
+                       paymentMethod === method.id
+@@ -446,29 +669,55 @@ export default function CheckoutPage() {
+               </div>
+ 
+               {/* Shipping Options */}
+-              {shippingOptions.length > 0 && (
+-                <div className="space-y-2">
++              {shippingOptions && shippingOptions.length > 0 && (
++                <div className="space-y-2" role="radiogroup" aria-label="Shipping method">
+                   <p className="text-sm font-semibold">Shipping Method</p>
+-                  {shippingOptions.map((opt) => (
+-                    <button
+-                      key={opt.method_id}
+-                      onClick={() => setSelectedShipping({ method_id: opt.method_id, fee: opt.fee })}
+-                      className={`w-full p-3 rounded-xl text-left transition-all ${
+-                        selectedShipping?.method_id === opt.method_id
+-                          ? "bg-gradient-neon/20 border border-secondary"
+-                          : "glass hover:bg-white/5"
+-                      }`}
+-                    >
+-                      <p className="font-semibold text-sm">{opt.method_name}</p>
+-                      <p className="text-xs text-muted-foreground">
+-                        {opt.is_free ? "Free" : formatCurrency(opt.fee)}
+-                      </p>
+-                    </button>
+-                  ))}
++                  {shippingOptions.map((opt) => {
++                    const estimate = formatDeliveryEstimate(
++                      opt.min_delivery_days,
++                      opt.max_delivery_days
++                    );
++                    const selected = selectedShipping?.method_id === opt.method_id;
++                    return (
++                      <button
++                        key={opt.method_id}
++                        type="button"
++                        role="radio"
++                        aria-checked={selected}
++                        onClick={() =>
++                          setSelectedShipping({ method_id: opt.method_id, fee: opt.fee })
++                        }
++                        className={`w-full p-3 rounded-xl text-left transition-all ${
++                          selected
++                            ? "bg-gradient-neon/20 border border-secondary"
++                            : "glass hover:bg-white/5"
++                        }`}
++                      >
++                        <div className="flex items-center justify-between gap-3">
++                          <p className="font-semibold text-sm">{opt.method_name}</p>
++                          <p className="text-sm font-bold">
++                            {opt.is_free || opt.fee === 0
++                              ? "Free"
++                              : formatCurrency(opt.fee)}
++                          </p>
++                        </div>
++                        {estimate && (
++                          <p className="text-xs text-muted-foreground">Delivery in {estimate}</p>
++                        )}
++                      </button>
++                    );
++                  })}
+                 </div>
+               )}
+               {shippingLoading && (
+-                <p className="text-xs text-muted-foreground">Loading shipping options...</p>
++                <p className="text-xs text-muted-foreground" role="status">
++                  Loading shipping options...
++                </p>
++              )}
++              {!shippingLoading && shippingOptions && shippingOptions.length === 0 && (
++                <p className="text-xs text-amber-400" role="status">
++                  No shipping options for this address ΓÇö shipping will be confirmed by support.
++                </p>
+               )}
+ 
+               <div>
+@@ -541,8 +790,42 @@ export default function CheckoutPage() {
+               {/* Payment */}
+               <div className="glass rounded-xl p-4">
+                 <p className="text-xs text-muted-foreground mb-1">Payment:</p>
++                <p className="font-semibold" data-testid="confirm-payment-method">
++                  {paymentMethod === "vodafone_cash"
++                    ? "Vodafone Cash (transfer + receipt verification)"
++                    : PAYMENT_PROVIDER_LABELS[paymentMethod]}
++                </p>
++                <p className="text-xs text-muted-foreground mt-1">
++                  {paymentMethod === "vodafone_cash"
++                    ? "Your order is created now and stays unpaid until our team verifies your transfer."
++                    : paymentMethod === "stripe"
++                      ? "You'll be redirected to a secure card payment page."
++                      : paymentMethod === "cod"
++                        ? "You'll pay in cash when the order arrives."
++                        : "Payment will be collected with your wallet balance."}
++                </p>
++              </div>
++
++              {/* Delivery */}
++              <div className="glass rounded-xl p-4">
++                <p className="text-xs text-muted-foreground mb-1">Delivery:</p>
+                 <p className="font-semibold">
+-                  {paymentMethod === "card" ? "Credit/Debit Card (Stripe)" : "Cash on Delivery"}
++                  {selectedOption
++                    ? selectedOption.method_name
++                    : shippingOptions === null
++                      ? "LoadingΓÇª"
++                      : "Standard delivery"}
++                </p>
++                <p className="text-xs text-muted-foreground mt-1">
++                  {formatDeliveryEstimate(
++                    selectedOption?.min_delivery_days,
++                    selectedOption?.max_delivery_days
++                  )
++                    ? `Estimated delivery in ${formatDeliveryEstimate(
++                        selectedOption?.min_delivery_days,
++                        selectedOption?.max_delivery_days
++                      )}`
++                    : "Estimated delivery confirmed at checkout"}
+                 </p>
+               </div>
+ 
+@@ -562,8 +845,18 @@ export default function CheckoutPage() {
+                     <Loader2 className="h-5 w-5 animate-spin" />
+                   ) : (
+                     <>
+-                      {paymentMethod === "card" ? <CreditCard className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
+-                      {paymentMethod === "card" ? `Pay with Card ┬╖ ${formatCurrency(total)}` : `Place Order ┬╖ ${formatCurrency(total)}`}
++                      {paymentMethod === "stripe" ? (
++                        <CreditCard className="h-5 w-5" />
++                      ) : paymentMethod === "vodafone_cash" ? (
++                        <Wallet className="h-5 w-5" />
++                      ) : (
++                        <Truck className="h-5 w-5" />
++                      )}
++                      {paymentMethod === "stripe"
++                        ? `Pay with Card ┬╖ ${formatCurrency(total)}`
++                        : paymentMethod === "vodafone_cash"
++                          ? `Continue to Vodafone Cash ┬╖ ${formatCurrency(total)}`
++                          : `Place Order ┬╖ ${formatCurrency(total)}`}
+                     </>
+                   )}
+                 </button>
+@@ -583,11 +876,26 @@ export default function CheckoutPage() {
+                 <span className="font-semibold">{formatCurrency(subtotal)}</span>
+               </div>
+               <div className="flex justify-between">
+-                <span className="text-muted-foreground">Shipping</span>
++                <span className="text-muted-foreground">
++                  Shipping{selectedOption ? ` ┬╖ ${selectedOption.method_name}` : ""}
++                </span>
+                 <span className={`font-semibold ${shipping === 0 ? "text-green-400" : ""}`}>
+                   {shipping === 0 ? "Free" : formatCurrency(shipping)}
+                 </span>
+               </div>
++              {selectedOption &&
++                formatDeliveryEstimate(
++                  selectedOption.min_delivery_days,
++                  selectedOption.max_delivery_days
++                ) && (
++                  <p className="text-xs text-muted-foreground">
++                    Delivery in{" "}
++                    {formatDeliveryEstimate(
++                      selectedOption.min_delivery_days,
++                      selectedOption.max_delivery_days
++                    )}
++                  </p>
++                )}
+               <div className="border-t border-white/10 pt-2 flex justify-between">
+                 <span className="font-bold">Total</span>
+                 <span className="font-extrabold text-lg text-gradient-gold">
+diff --git a/app/orders/[id]/page.tsx b/app/orders/[id]/page.tsx
+index 5ab319e..c675c7a 100644
+--- a/app/orders/[id]/page.tsx
++++ b/app/orders/[id]/page.tsx
+@@ -1,11 +1,47 @@
+ "use client";
+ 
+-import { useState, useEffect } from "react";
++import { useState } from "react";
+ import { useParams } from "next/navigation";
+ import Link from "next/link";
+-import { ArrowLeft, Package, Truck, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
++import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
++import {
++  ArrowLeft,
++  Banknote,
++  CheckCircle2,
++  Clock,
++  CreditCard,
++  Loader2,
++  MapPin,
++  Package,
++  ShieldCheck,
++  Smartphone,
++  Truck,
++  Wallet,
++  XCircle,
++} from "lucide-react";
+ import { useAuth } from "../../lib/auth-context";
+ import { formatCurrency } from "@/lib/formatCurrency";
++import { ReceiptUploader } from "@/app/components/payment/ReceiptUploader";
++import { ReceiptViewer } from "@/app/components/payment/ReceiptViewer";
++import { VodafoneInstructions } from "@/app/components/payment/VodafoneInstructions";
++import { apiErrorMessage } from "@/app/lib/api-error-message";
++import {
++  TONE_CLASS,
++  VODAFONE_STATE_COPY,
++  canSubmitReceipt,
++  describeShippingMethod,
++  getRejectionReason,
++  getVodafoneState,
++  isVodafoneHintedOrder,
++  paymentProviderLabel,
++  pickPayment,
++  rememberVodafoneOrder,
++  resolveWalletNumber,
++  toPaymentProvider,
++  type PaymentAttempt,
++} from "@/app/lib/payment-status";
++
++const WALLET = resolveWalletNumber();
+ 
+ type OrderItem = {
+   id: string;
+@@ -18,6 +54,16 @@ type OrderItem = {
+   options_snapshot: Record<string, string> | null;
+ };
+ 
++type ShippingMethod = {
++  id: string;
++  name: string;
++  slug: string;
++  type: string;
++  carrier: string | null;
++  min_delivery_days: number | null;
++  max_delivery_days: number | null;
++};
++
+ type Order = {
+   id: string;
+   order_number: string;
+@@ -33,6 +79,9 @@ type Order = {
+   placed_at: string;
+   created_at: string;
+   items?: OrderItem[];
++  payment?: PaymentAttempt | null;
++  payments?: PaymentAttempt[];
++  shipping_method?: ShippingMethod | null;
+ };
+ 
+ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Package }> = {
+@@ -47,47 +96,98 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
+   partially_refunded: { label: "Partially Refunded", color: "text-gray-400", icon: XCircle },
+ };
+ 
++const PROVIDER_ICONS: Record<string, typeof Package> = {
++  cod: Banknote,
++  vodafone_cash: Smartphone,
++  wallet: Wallet,
++  stripe: CreditCard,
++  paymob: CreditCard,
++};
++
++/** Human payment status ΓÇö never claims "Rejected" without admin proof. */
++function paymentStatusCopy(payment: PaymentAttempt | null): { label: string; color: string } {
++  if (!payment) return { label: "Awaiting payment", color: "text-slate-300" };
++  switch (payment.status) {
++    case "succeeded":
++      return { label: "Paid", color: "text-emerald-300" };
++    case "pending":
++    case "processing":
++      return { label: "Awaiting verification", color: "text-amber-300" };
++    case "failed":
++      return toPaymentProvider(payment.provider) === "vodafone_cash"
++        ? payment.raw_response?.rejected
++          ? { label: "Rejected", color: "text-red-300" }
++          : { label: "Awaiting verification", color: "text-amber-300" }
++        : { label: "Failed", color: "text-red-300" };
++    default:
++      return { label: payment.status, color: "text-slate-300" };
++  }
++}
++
+ export default function OrderDetailPage() {
+   const params = useParams();
+   const { user, getToken } = useAuth();
+-  const [order, setOrder] = useState<Order | null>(null);
+-  const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState<string | null>(null);
+-  const [cancelling, setCancelling] = useState(false);
+-
+-  const orderId = params?.id as string;
+-
+-  useEffect(() => {
+-    if (!user || !orderId) return;
+-
+-    const fetchOrder = async () => {
+-      try {
+-        const token = await getToken();
+-        const res = await fetch(`/api/orders/${orderId}`, {
+-          headers: { Authorization: `Bearer ${token}` },
+-        });
+-        const data = await res.json();
+-
+-        if (data.success && data.order) {
+-          setOrder(data.order);
+-        } else {
+-          setError(data.message || "Order not found");
+-        }
+-      } catch {
+-        setError("Failed to load order");
+-      } finally {
+-        setLoading(false);
++  const queryClient = useQueryClient();
++
++  const orderId = (params?.id as string) ?? "";
++
++  // Client-side hint only ΓÇö see payment-status.ts (orders has no
++  // payment_method column yet). Never used to decide ownership or success.
++  const [hintedVodafone] = useState(() => {
++    if (typeof window === "undefined" || !orderId) return false;
++    const fromQuery =
++      new URLSearchParams(window.location.search).get("pay") === "vodafone_cash";
++    if (fromQuery) rememberVodafoneOrder(orderId);
++    return isVodafoneHintedOrder(orderId);
++  });
++
++  const orderQuery = useQuery({
++    queryKey: ["order", orderId],
++    enabled: Boolean(user && orderId),
++    retry: false,
++    queryFn: async (): Promise<Order> => {
++      const token = await getToken();
++      if (!token) throw new Error("Please sign in again.");
++
++      const res = await fetch(`/api/orders/${orderId}`, {
++        headers: { Authorization: `Bearer ${token}` },
++      });
++      const data = await res.json().catch(() => null);
++
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to load order"));
+       }
+-    };
++      return data.order as Order;
++    },
++  });
++
++  const order = orderQuery.data ?? null;
++  const payments = order?.payments ?? [];
++  const vodafonePayment = pickPayment(payments, "vodafone_cash");
++  const receiptPath = vodafonePayment?.raw_response?.receipt_path;
+ 
+-    fetchOrder();
+-  }, [user, orderId, getToken]);
++  const receiptQuery = useQuery({
++    queryKey: ["order-receipt", orderId, vodafonePayment?.id ?? "none"],
++    enabled: Boolean(user && orderId && receiptPath),
++    retry: false,
++    queryFn: async () => {
++      const token = await getToken();
++      if (!token) throw new Error("Please sign in again.");
++
++      const res = await fetch(`/api/orders/${orderId}/receipt`, {
++        headers: { Authorization: `Bearer ${token}` },
++      });
++      const data = await res.json().catch(() => null);
+ 
+-  const handleCancelOrder = async () => {
+-    if (!order || !confirm("Are you sure you want to cancel this order?")) return;
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to load the receipt"));
++      }
++      return data.url as string;
++    },
++  });
+ 
+-    setCancelling(true);
+-    try {
++  const cancelMutation = useMutation({
++    mutationFn: async (targetId: string) => {
+       const token = await getToken();
+       const res = await fetch("/api/orders/cancel", {
+         method: "POST",
+@@ -95,36 +195,54 @@ export default function OrderDetailPage() {
+           "Content-Type": "application/json",
+           Authorization: `Bearer ${token}`,
+         },
+-        body: JSON.stringify({ order_id: order.id }),
++        body: JSON.stringify({ order_id: targetId }),
+       });
+-
+-      const data = await res.json();
+-      if (data.success) {
+-        setOrder({ ...order, status: "cancelled" });
+-      } else {
+-        alert(data.message || "Failed to cancel order");
++      const data = await res.json().catch(() => null);
++      if (!res.ok || !data?.success) {
++        throw new Error(apiErrorMessage(res.status, data, "Failed to cancel order"));
+       }
+-    } catch {
+-      alert("Network error. Please try again.");
+-    } finally {
+-      setCancelling(false);
+-    }
+-  };
+-
+-  if (loading) {
++      return data;
++    },
++    onSuccess: () => {
++      void queryClient.invalidateQueries({ queryKey: ["order", orderId] });
++    },
++  });
++
++  if (!user) {
++    return (
++      <div className="min-h-screen flex items-center justify-center p-6">
++        <div className="glass-strong rounded-3xl p-8 text-center">
++          <h1 className="text-2xl font-extrabold mb-2">Login Required</h1>
++          <p className="text-muted-foreground mb-4">Please log in to view this order.</p>
++          <Link
++            href="/login"
++            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
++          >
++            Sign In
++          </Link>
++        </div>
++      </div>
++    );
++  }
++
++  if (orderQuery.isPending) {
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6">
+-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
++        <Loader2 className="h-8 w-8 animate-spin text-accent" aria-label="Loading order" />
+       </div>
+     );
+   }
+ 
+-  if (error || !order) {
++  if (orderQuery.error || !order) {
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6">
+         <div className="glass-strong rounded-3xl p-8 text-center">
+           <h1 className="text-2xl font-extrabold mb-2">Order Not Found</h1>
+-          <p className="text-muted-foreground mb-4">{error || "This order does not exist."}</p>
++          <p className="text-muted-foreground mb-4">
++            {orderQuery.error instanceof Error
++              ? orderQuery.error.message
++              : "This order does not exist."}
++          </p>
+           <Link
+             href="/orders"
+             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
+@@ -140,6 +258,33 @@ export default function OrderDetailPage() {
+   const statusConfig = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+   const StatusIcon = statusConfig.icon;
+ 
++  const activePayment = pickPayment(payments);
++  const vodafoneState = getVodafoneState({
++    orderStatus: order.status,
++    payment: vodafonePayment,
++    hintedVodafone,
++  });
++
++  // Before the first receipt exists a Vodafone order has no payment row at all.
++  // The local hint lets us label it honestly instead of "Not recorded".
++  const displayProvider = activePayment?.provider ?? (vodafoneState !== "not_applicable" ? "vodafone_cash" : "");
++  const PaymentIcon = PROVIDER_ICONS[toPaymentProvider(displayProvider) ?? "stripe"] ?? CreditCard;
++  const statusCopy = activePayment
++    ? paymentStatusCopy(activePayment)
++    : vodafoneState === "receipt_required"
++      ? { label: "Receipt required", color: "text-amber-300" }
++      : { label: "Awaiting payment", color: "text-slate-300" };
++
++  const vodafoneCopy = VODAFONE_STATE_COPY[vodafoneState];
++  const vodafoneTone = TONE_CLASS[vodafoneCopy.tone];
++  const rejectionReason = getRejectionReason(vodafonePayment);
++  const showReceiptForm = canSubmitReceipt({
++    orderStatus: order.status,
++    payments,
++    hintedVodafone,
++  });
++  const delivery = describeShippingMethod(order.shipping_method);
++
+   return (
+     <div className="mx-auto max-w-4xl px-4 pt-28 pb-20">
+       {/* Header */}
+@@ -151,7 +296,7 @@ export default function OrderDetailPage() {
+           <ArrowLeft className="h-4 w-4" />
+           Back to Orders
+         </Link>
+-        <div className="flex items-center justify-between">
++        <div className="flex flex-wrap items-center justify-between gap-3">
+           <div>
+             <h1 className="text-3xl font-extrabold">
+               Order <span className="text-gradient-neon">#{order.order_number || order.id.slice(0, 8)}</span>
+@@ -161,29 +306,222 @@ export default function OrderDetailPage() {
+             </p>
+           </div>
+           <div className={`flex items-center gap-2 px-4 py-2 rounded-xl glass ${statusConfig.color}`}>
+-            <StatusIcon className="h-4 w-4" />
++            <StatusIcon className="h-4 w-4" aria-hidden="true" />
+             <span className="font-semibold">{statusConfig.label}</span>
+           </div>
+         </div>
+       </div>
+ 
+       <div className="grid md:grid-cols-3 gap-8">
+-        {/* Order Items */}
++        {/* Main column */}
+         <div className="md:col-span-2 space-y-6">
++          {/* Payment */}
++          <section className="glass-strong rounded-3xl p-6" aria-labelledby="payment-heading">
++            <h2 id="payment-heading" className="text-lg font-extrabold mb-4">
++              Payment
++            </h2>
++
++            <div className="grid gap-3 sm:grid-cols-3 text-sm mb-4">
++              <div className="glass rounded-xl p-3">
++                <p className="text-xs text-muted-foreground">Method</p>
++                <p className="font-semibold flex items-center gap-1.5 mt-0.5" data-testid="payment-method">
++                  <PaymentIcon className="h-4 w-4" aria-hidden="true" />
++                  {paymentProviderLabel(displayProvider || undefined)}
++                </p>
++              </div>
++              <div className="glass rounded-xl p-3">
++                <p className="text-xs text-muted-foreground">Amount</p>
++                <p className="font-extrabold text-gradient-gold mt-0.5">
++                  {formatCurrency(activePayment?.amount ?? order.total)}
++                </p>
++              </div>
++              <div className="glass rounded-xl p-3">
++                <p className="text-xs text-muted-foreground">Status</p>
++                <p className={`font-semibold mt-0.5 ${statusCopy.color}`} data-testid="payment-status">
++                  {statusCopy.label}
++                </p>
++              </div>
++            </div>
++
++            {Boolean(vodafonePayment) && (
++              <div className={`rounded-xl border p-4 space-y-3 ${vodafoneTone.panel}`}>
++                <div className="flex flex-wrap items-center justify-between gap-2">
++                  <p className="font-semibold text-sm">Vodafone Cash transfer</p>
++                  <span
++                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${vodafoneTone.badge}`}
++                    data-testid="vodafone-state"
++                  >
++                    {vodafoneCopy.badge}
++                  </span>
++                </div>
++
++                <div>
++                  <p className="font-semibold">{vodafoneCopy.title}</p>
++                  <p className="text-sm text-muted-foreground mt-0.5">{vodafoneCopy.body}</p>
++                </div>
++
++                {rejectionReason && (
++                  <div className="rounded-lg bg-red-950/40 border border-red-500/30 p-3 text-sm">
++                    <p className="font-semibold text-red-300">Reason given by our team</p>
++                    <p className="text-red-200/90 mt-0.5">{rejectionReason}</p>
++                  </div>
++                )}
++
++                {vodafonePayment && (
++                  <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
++                    <div className="flex justify-between gap-3">
++                      <dt className="text-muted-foreground">Reference</dt>
++                      <dd className="font-mono font-semibold">
++                        {vodafonePayment.provider_payment_id || "ΓÇö"}
++                      </dd>
++                    </div>
++                    <div className="flex justify-between gap-3">
++                      <dt className="text-muted-foreground">Sent from</dt>
++                      <dd className="font-mono">
++                        {vodafonePayment.raw_response?.payer_phone || "ΓÇö"}
++                      </dd>
++                    </div>
++                    <div className="flex justify-between gap-3">
++                      <dt className="text-muted-foreground">Submitted</dt>
++                      <dd>
++                        {vodafonePayment.raw_response?.uploaded_at
++                          ? new Date(vodafonePayment.raw_response.uploaded_at).toLocaleString()
++                          : "ΓÇö"}
++                      </dd>
++                    </div>
++                    <div className="flex justify-between gap-3">
++                      <dt className="text-muted-foreground">Order</dt>
++                      <dd className="font-mono text-xs">{order.order_number}</dd>
++                    </div>
++                  </dl>
++                )}
++
++                {receiptPath && (
++                  <div>
++                    <p className="text-xs text-muted-foreground mb-1.5">Your submitted receipt</p>
++                    {receiptQuery.data ? (
++                      <ReceiptViewer
++                        src={receiptQuery.data}
++                        alt={`Transfer receipt for order ${order.order_number || order.id.slice(0, 8)}`}
++                        label="View receipt"
++                        className="max-w-xs"
++                        meta={[
++                          { label: "Order", value: order.order_number || order.id.slice(0, 8) },
++                          { label: "Amount", value: formatCurrency(order.total) },
++                          {
++                            label: "Reference",
++                            value: vodafonePayment?.provider_payment_id ?? null,
++                          },
++                          {
++                            label: "Submitted",
++                            value: vodafonePayment?.raw_response?.uploaded_at
++                              ? new Date(
++                                  vodafonePayment.raw_response.uploaded_at
++                                ).toLocaleString()
++                              : null,
++                          },
++                        ]}
++                      />
++                    ) : receiptQuery.isPending ? (
++                      <div className="glass rounded-xl h-28 w-64 grid place-items-center">
++                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Loading receipt" />
++                      </div>
++                    ) : (
++                      <p className="text-xs text-red-300" role="alert">
++                        {receiptQuery.error instanceof Error
++                          ? receiptQuery.error.message
++                          : "Receipt could not be loaded."}
++                      </p>
++                    )}
++                  </div>
++                )}
++              </div>
++            )}
++
++            {/* Nothing recorded yet (e.g. card payment awaiting the webhook) */}
++            {!activePayment && !showReceiptForm && (
++              <p className="text-sm text-muted-foreground">
++                No payment has been recorded for this order yet. It will update automatically once
++                the payment provider confirms it.
++              </p>
++            )}
++          </section>
++
++          {/* Vodafone Cash: instructions + receipt submission */}
++          {vodafoneState !== "not_applicable" && (
++              <section className="glass-strong rounded-3xl p-6" aria-labelledby="receipt-heading">
++                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
++                  <h2 id="receipt-heading" className="text-lg font-extrabold flex items-center gap-2">
++                    <Wallet className="h-5 w-5 text-emerald-400" aria-hidden="true" />
++                    Pay with Vodafone Cash
++                  </h2>
++                  <span
++                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${vodafoneTone.badge}`}
++                  >
++                    {vodafoneCopy.badge}
++                  </span>
++                </div>
++
++                <VodafoneInstructions
++                  number={WALLET.number}
++                  amountLabel={formatCurrency(order.total)}
++                  orderNumber={order.order_number || order.id.slice(0, 8)}
++                  className="mb-4"
++                />
++
++                {showReceiptForm ? (
++                  <div className="border-t border-white/10 pt-4">
++                    <p className="text-xs text-muted-foreground mb-3">
++                      {vodafoneState === "receipt_required"
++                        ? "Upload the receipt after you complete the transfer."
++                        : "Upload a new receipt to replace the one we could not verify."}
++                    </p>
++                    <ReceiptUploader
++                      orderId={order.id}
++                      idPrefix={`receipt-${order.id}`}
++                      onSubmitted={() => {
++                        void orderQuery.refetch();
++                        void receiptQuery.refetch();
++                      }}
++                      submitLabel={
++                        vodafoneState === "receipt_required"
++                          ? "Submit receipt for verification"
++                          : "Submit a new receipt"
++                      }
++                    />
++                  </div>
++                ) : (
++                  <div className="border-t border-white/10 pt-4 text-sm text-muted-foreground flex items-start gap-2">
++                    <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
++                    <p>
++                      {vodafoneState === "confirmed"
++                        ? "Nothing else is needed ΓÇö this order is paid."
++                        : "Your receipt is with our payment team. No further action is needed from you."}
++                    </p>
++                  </div>
++                )}
++              </section>
++            )}
++
++          {/* Order Items */}
+           <div className="glass-strong rounded-3xl p-6">
+             <h2 className="text-lg font-extrabold mb-4">Order Items</h2>
+             {order.items && order.items.length > 0 ? (
+               <div className="space-y-3">
+                 {order.items.map((item) => (
+                   <div key={item.id} className="glass rounded-xl p-4">
+-                    <div className="flex justify-between items-start">
++                    <div className="flex justify-between items-start gap-3">
+                       <div>
+                         <p className="font-semibold">{item.product_name_snapshot}</p>
+                         <p className="text-sm text-muted-foreground">
+                           SKU: {item.sku_snapshot}
+-                          {item.options_snapshot && Object.entries(item.options_snapshot).map(([k, v]) => (
+-                            <span key={k}> ┬╖ {k}: {v}</span>
+-                          ))}
++                          {item.options_snapshot &&
++                            Object.entries(item.options_snapshot).map(([k, v]) => (
++                              <span key={k}>
++                                {" "}
++                                ┬╖ {k}: {v}
++                              </span>
++                            ))}
+                         </p>
+                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                       </div>
+@@ -200,14 +538,20 @@ export default function OrderDetailPage() {
+           {/* Shipping Address */}
+           {order.shipping_address_snapshot && (
+             <div className="glass-strong rounded-3xl p-6">
+-              <h2 className="text-lg font-extrabold mb-4">Shipping Address</h2>
++              <h2 className="text-lg font-extrabold mb-4 flex items-center gap-2">
++                <MapPin className="h-5 w-5 text-accent" aria-hidden="true" />
++                Shipping Address
++              </h2>
+               <div className="glass rounded-xl p-4">
+                 <p className="font-semibold">{order.shipping_address_snapshot.full_name || "N/A"}</p>
+                 <p className="text-sm text-muted-foreground">
+-                  {order.shipping_address_snapshot.address}, {order.shipping_address_snapshot.city}, {order.shipping_address_snapshot.state} {order.shipping_address_snapshot.zip_code}
++                  {order.shipping_address_snapshot.address}, {order.shipping_address_snapshot.city},{" "}
++                  {order.shipping_address_snapshot.state} {order.shipping_address_snapshot.zip_code}
+                 </p>
+                 <p className="text-sm text-muted-foreground">{order.shipping_address_snapshot.country}</p>
+-                <p className="text-sm text-muted-foreground">Phone: {order.shipping_address_snapshot.phone || "N/A"}</p>
++                <p className="text-sm text-muted-foreground">
++                  Phone: {order.shipping_address_snapshot.phone || "N/A"}
++                </p>
+               </div>
+             </div>
+           )}
+@@ -218,6 +562,16 @@ export default function OrderDetailPage() {
+           <div className="glass-strong rounded-3xl p-6 h-fit sticky top-28 space-y-4">
+             <h3 className="text-lg font-extrabold">Order Summary</h3>
+ 
++            <div className="glass rounded-xl p-3 flex items-start gap-2 text-sm">
++              <Truck className="h-4 w-4 mt-0.5 text-indigo-300 shrink-0" aria-hidden="true" />
++              <div>
++                <p className="font-semibold">{delivery.label}</p>
++                {delivery.detail && (
++                  <p className="text-xs text-muted-foreground">{delivery.detail}</p>
++                )}
++              </div>
++            </div>
++
+             <div className="space-y-2 text-sm">
+               <div className="flex justify-between">
+                 <span className="text-muted-foreground">Subtotal</span>
+@@ -250,13 +604,29 @@ export default function OrderDetailPage() {
+             {/* Cancel Button */}
+             {(order.status === "pending" || order.status === "paid") && (
+               <button
+-                onClick={handleCancelOrder}
+-                disabled={cancelling}
++                onClick={() => {
++                  if (confirm("Are you sure you want to cancel this order?")) {
++                    cancelMutation.mutate(order.id);
++                  }
++                }}
++                disabled={cancelMutation.isPending}
+                 className="w-full h-10 rounded-xl bg-red-500/20 text-red-400 font-semibold hover:bg-red-500/30 transition-colors disabled:opacity-50"
+               >
+-                {cancelling ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Cancel Order"}
++                {cancelMutation.isPending ? (
++                  <Loader2 className="h-4 w-4 animate-spin mx-auto" aria-label="Cancelling" />
++                ) : (
++                  "Cancel Order"
++                )}
+               </button>
+             )}
++
++            {cancelMutation.error && (
++              <p role="alert" className="text-xs text-red-400">
++                {cancelMutation.error instanceof Error
++                  ? cancelMutation.error.message
++                  : "Failed to cancel order"}
++              </p>
++            )}
+           </div>
+         </div>
+       </div>

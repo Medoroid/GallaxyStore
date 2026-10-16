@@ -1,0 +1,108 @@
+﻿diff --git a/app/api/orders/[id]/route.js b/app/api/orders/[id]/route.js
+index f9c76fa..5479ccc 100644
+--- a/app/api/orders/[id]/route.js
++++ b/app/api/orders/[id]/route.js
+@@ -61,9 +61,28 @@ export async function GET(request, { params }) {
+       .select("*")
+       .eq("order_id", id);
+ 
++    // Payment attempts (RLS: owner only). Needed by the Vodafone Cash panel
++    // so the customer can see the state and submit/re-submit a receipt.
++    const { data: payments, error: paymentsError } = await SupabaseClient
++      .from("payments")
++      .select("id, provider, status, amount, currency, provider_payment_id, raw_response, created_at")
++      .eq("order_id", id)
++      .order("created_at", { ascending: false });
++
++    if (paymentsError) {
++      logger.warn("[Order GET] payments lookup failed:", paymentsError.message);
++    }
++
++    const attempts = payments ?? [];
++    const payment = attempts.find((p) => p.status === "succeeded") ?? attempts[0] ?? null;
++
++    // Delivery option (express vs standard). All reads go through the
++    // customer's own JWT, so RLS still decides what they may see.
++    const shipping_method = await loadShippingMethod(SupabaseClient, order, logger);
++
+     return Response.json({
+       success: true,
+-      order: { ...order, items: items || [] },
++      order: { ...order, items: items || [], payment, payments: attempts, shipping_method },
+     });
+   } catch (error) {
+     logger.error("[Order GET Error]", error);
+@@ -73,3 +92,40 @@ export async function GET(request, { params }) {
+     );
+   }
+ }
++
++// The delivery option lives on the order (if the column is deployed) or on the
++// shipment row. Non-fatal: the page still renders when neither exists.
++async function loadShippingMethod(client, order, logger) {
++  try {
++    let methodId = order.shipping_method_id ?? null;
++
++    if (!methodId) {
++      const { data: shipment } = await client
++        .from("shipments")
++        .select("shipping_method_id, created_at")
++        .eq("order_id", order.id)
++        .order("created_at", { ascending: false })
++        .limit(1)
++        .maybeSingle();
++
++      methodId = shipment?.shipping_method_id ?? null;
++    }
++
++    if (!methodId) return null;
++
++    const { data: method, error } = await client
++      .from("shipping_methods")
++      .select("id, name, slug, type, carrier, min_delivery_days, max_delivery_days")
++      .eq("id", methodId)
++      .maybeSingle();
++
++    if (error) {
++      logger.warn("[Order GET] shipping method lookup failed:", error.message);
++      return null;
++    }
++    return method;
++  } catch (error) {
++    logger.warn("[Order GET] shipping method lookup failed:", error.message);
++    return null;
++  }
++}
+diff --git a/app/api/orders/route.js b/app/api/orders/route.js
+index 1b50ebb..142e5c7 100644
+--- a/app/api/orders/route.js
++++ b/app/api/orders/route.js
+@@ -88,6 +88,7 @@ export async function POST(request) {
+       customer_note,
+       shipping_fee,
+       payment_method,
++      shipping_method_id,
+     } = await request.json();
+ 
+     if (!cart_id) {
+@@ -142,6 +143,20 @@ export async function POST(request) {
+       }
+     }
+ 
++    // Remember the delivery option the customer picked (express vs standard).
++    // Non-fatal: the order stays valid even if this column/RPC is not deployed.
++    if (shipping_method_id) {
++      const { error: shippingError } = await SupabaseClient
++        .rpc("set_order_shipping_method", {
++          p_order_id: order.id,
++          p_shipping_method_id: shipping_method_id,
++        });
++
++      if (shippingError) {
++        logger.warn("[Orders POST] shipping method not saved:", shippingError.message);
++      }
++    }
++
+     // Send confirmation email (non-blocking)
+     try {
+       const { sendOrderConfirmation } = await import("@/lib/email");

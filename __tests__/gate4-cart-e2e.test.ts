@@ -87,6 +87,7 @@ describe("Cart E2E Flow", () => {
       .select("id")
       .eq("is_active", true)
       .gt("stock_quantity", 0)
+      .order("stock_quantity", { ascending: false })
       .limit(2);
 
     expect(error).toBeNull();

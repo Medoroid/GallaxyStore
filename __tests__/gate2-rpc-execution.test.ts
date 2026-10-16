@@ -127,6 +127,7 @@ describe("Cart RPCs", () => {
         .select("id")
         .eq("is_active", true)
         .gt("stock_quantity", 0)
+        .order("stock_quantity", { ascending: false })
         .limit(1)
         .single();
       testVariantId = variants?.id;
@@ -243,6 +244,7 @@ describe("Cart RPCs", () => {
         .select("id")
         .eq("is_active", true)
         .gt("stock_quantity", 0)
+        .order("stock_quantity", { ascending: false })
         .limit(1)
         .single();
       const { data } = await authClient.rpc("add_to_cart", {
@@ -286,6 +288,7 @@ describe("Cart RPCs", () => {
         .select("id")
         .eq("is_active", true)
         .gt("stock_quantity", 0)
+        .order("stock_quantity", { ascending: false })
         .limit(1)
         .single();
       const { data } = await authClient.rpc("add_to_cart", {

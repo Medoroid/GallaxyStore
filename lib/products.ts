@@ -61,6 +61,7 @@ export type ProductFormValues = {
   currency: string;
   color: string;
   available_colors: string;
+  stock_quantity: string;
 };
 
 export const emptyProductForm: ProductFormValues = {
@@ -79,6 +80,7 @@ export const emptyProductForm: ProductFormValues = {
   currency: "USD",
   color: "",
   available_colors: "",
+  stock_quantity: "100",
 };
 
 export const productSelect = `
@@ -132,7 +134,16 @@ export function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function productToForm(product: SupabaseProduct): ProductFormValues {
+export type ProductVariantInfo = {
+  id: string;
+  price: number;
+  stock_quantity: number;
+};
+
+export function productToForm(
+  product: SupabaseProduct,
+  variant?: ProductVariantInfo | null
+): ProductFormValues {
   return {
     name: product.name ?? "",
     slug: product.slug ?? "",
@@ -149,6 +160,8 @@ export function productToForm(product: SupabaseProduct): ProductFormValues {
     currency: product.currency ?? "USD",
     color: product.color ?? "",
     available_colors: product.available_colors?.join(", ") ?? "",
+    // المنتجات اللى ملهاش variant بتيجي من الفورم بمخزون افتراضى
+    stock_quantity: variant ? String(variant.stock_quantity) : "100",
   };
 }
 
@@ -272,9 +285,67 @@ export async function fetchProductLookups() {
   };
 }
 
-export async function createProduct(values: ProductFormValues) {
-  const { error } = await supabase.from("products").insert(formToProductPayload(values));
+export async function fetchDefaultVariant(
+  productId: string
+): Promise<ProductVariantInfo | null> {
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("id, price, stock_quantity")
+    .eq("product_id", productId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   if (error) throw error;
+  return (data as ProductVariantInfo | null) ?? null;
+}
+
+function defaultVariantSku(values: ProductFormValues, productId: string) {
+  const base = slugify(values.slug || values.name) || "product";
+  return `${base}-${productId.replace(/-/g, "")}`.toUpperCase();
+}
+
+/**
+ * أى منتج لازم يبقى ليه variant واحد على الأقل، وإلا ما ينفع يتحط في السلة
+ * (cart route بيرمى "No active variant found for product ...").
+ * بيتعمل variant افتراضى بالسعر والمخزون من الفورم، أو بيتحدّث لو موجود.
+ */
+async function syncDefaultVariant(productId: string, values: ProductFormValues) {
+  const price = Number(values.base_price || 0);
+  const stock_quantity = Math.max(0, Math.trunc(Number(values.stock_quantity || 0)));
+  const existing = await fetchDefaultVariant(productId);
+
+  if (existing) {
+    const { error } = await supabase
+      .from("product_variants")
+      .update({ price, stock_quantity })
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("product_variants").insert({
+    product_id: productId,
+    sku: defaultVariantSku(values, productId),
+    price,
+    stock_quantity,
+    is_default: true,
+    is_active: true,
+  });
+  if (error) throw error;
+}
+
+export async function createProduct(values: ProductFormValues) {
+  const { data, error } = await supabase
+    .from("products")
+    .insert(formToProductPayload(values))
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  await syncDefaultVariant(data.id as string, values);
 }
 
 export async function updateProduct(id: string, values: ProductFormValues) {
@@ -284,6 +355,8 @@ export async function updateProduct(id: string, values: ProductFormValues) {
     .eq("id", id);
 
   if (error) throw error;
+
+  await syncDefaultVariant(id, values);
 }
 
 export async function archiveProduct(id: string) {

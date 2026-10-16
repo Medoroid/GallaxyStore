@@ -88,6 +88,7 @@ export async function POST(request) {
       customer_note,
       shipping_fee,
       payment_method,
+      shipping_method_id,
     } = await request.json();
 
     if (!cart_id) {
@@ -139,6 +140,20 @@ export async function POST(request) {
       if (codError) {
         logger.error("[COD Payment Error]", codError);
         // Order created but COD recording failed — still return success with order
+      }
+    }
+
+    // Remember the delivery option the customer picked (express vs standard).
+    // Non-fatal: the order stays valid even if this column/RPC is not deployed.
+    if (shipping_method_id) {
+      const { error: shippingError } = await SupabaseClient
+        .rpc("set_order_shipping_method", {
+          p_order_id: order.id,
+          p_shipping_method_id: shipping_method_id,
+        });
+
+      if (shippingError) {
+        logger.warn("[Orders POST] shipping method not saved:", shippingError.message);
       }
     }
 

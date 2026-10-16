@@ -112,62 +112,86 @@ async function clearCart(client, cartId) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * الواجهة ترسل تسميات مثل "Black / أسود" أو لون hex، بينما قيم السمات في
+ * قاعدة البيانات أبسط ("Black", "S", "M"). أي تسمية لا تُطابق أي قيمة سمة
+ * تُهمل هنا بدل أن ترمي خطأ يُسقط السلة كلها.
+ */
+function normalizeOptionLabel(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^#(?:[0-9a-f]{3}){1,2}$/i.test(trimmed)) return null;
+  const base = trimmed.split("/")[0].trim();
+  return base || null;
+}
+
+async function defaultVariantId(client, productId) {
+  const { data, error } = await client
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", productId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to resolve variant: ${error.message}`);
+  // الرسالة بتتعرض للعميل، productId بيتسجل في اللوج
+  if (!data) throw new Error("This product is currently unavailable");
+  return data.id;
+}
+
 /**
  * محاولة إيجاد variant_id من product_id + color + size.
- * ملاحظة: اللون والمقاس في هذا المشروع غير مخزّنين كأعمدة مباشرة على
- * product_variants، بل عبر نظام سمات عام:
+ * اللون والمقاس غير مخزّنين كأعمدة على product_variants بل عبر نظام السمات:
  *   product_variant_options (variant_id, attribute_value_id)
  *     -> product_attribute_values (id, value, attribute_id)
  *       -> product_attributes (id, name)
- * لذلك لا يمكن عمل .eq("color", color) مباشرة على product_variants (العمود غير موجود أصلاً).
- * الأفضل دائمًا: يرسل الفرونت إند variant_id مباشرة (يُختار من صفحة المنتج)
- * وتُستخدم هذه الدالة فقط كخطة بديلة (fallback).
  */
 async function resolveVariantId(client, productId, color, size) {
   if (!productId) throw new Error("Product ID is required");
 
-  // لا يوجد لون/مقاس محدد => أول متغيّر نشط (الافتراضي أولاً)
-  if (!color && !size) {
-    const { data, error } = await client
-      .from("product_variants")
-      .select("id")
-      .eq("product_id", productId)
-      .eq("is_active", true)
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !data) {
-      throw new Error(`No active variant found for product ${productId}`);
-    }
-    return data.id;
+  const id = String(productId);
+  if (!UUID_RE.test(id)) {
+    throw new Error(`"${productId}" is not a real product and cannot be ordered`);
   }
 
-  const wanted = [color, size].filter(Boolean);
+  const wanted = [normalizeOptionLabel(color), normalizeOptionLabel(size)]
+    .filter(Boolean)
+    .map((value) => value.toLowerCase());
 
-  // 1) إيجاد معرّفات قيم السمات (Color/Size) المطابقة للنص المطلوب
+  if (wanted.length === 0) return defaultVariantId(client, id);
+
   const { data: values, error: valuesError } = await client
     .from("product_attribute_values")
-    .select("id, value")
-    .in("value", wanted);
+    .select("id, value");
 
   if (valuesError) {
     throw new Error(`Failed to resolve attribute values: ${valuesError.message}`);
   }
-  if (!values || values.length < wanted.length) {
-    throw new Error(
-      `Variant not found for product ${productId} (color=${color || "-"}, size=${size || "-"})`
-    );
-  }
-  const valueIds = values.map((v) => v.id);
 
-  // 2) إيجاد المتغيّر (variant) اللي مرتبط بكل قيم السمات المطلوبة معًا
+  const matched = (values || []).filter((row) =>
+    wanted.includes(String(row.value ?? "").trim().toLowerCase())
+  );
+  const matchedIds = matched.map((row) => row.id);
+  const knownLabels = new Set(
+    matched.map((row) => String(row.value ?? "").trim().toLowerCase())
+  );
+  const unresolved = wanted.filter((label) => !knownLabels.has(label));
+
+  // لا توجد أي تسمية مطابقة => المتغيّر الافتراضي للمنتج
+  if (matchedIds.length === 0) return defaultVariantId(client, id);
+
   const { data: variants, error: variantsError } = await client
     .from("product_variants")
-    .select("id, product_variant_options!inner(attribute_value_id)")
-    .eq("product_id", productId)
+    .select("id, is_default, product_variant_options(attribute_value_id)")
+    .eq("product_id", id)
     .eq("is_active", true)
-    .in("product_variant_options.attribute_value_id", valueIds);
+    .order("is_default", { ascending: false });
 
   if (variantsError) {
     throw new Error(`Failed to resolve variant: ${variantsError.message}`);
@@ -177,15 +201,17 @@ async function resolveVariantId(client, productId, color, size) {
     const linkedIds = new Set(
       (v.product_variant_options || []).map((o) => o.attribute_value_id)
     );
-    return valueIds.every((id) => linkedIds.has(id));
+    return matchedIds.every((valueId) => linkedIds.has(valueId));
   });
 
-  if (!match) {
-    throw new Error(
-      `Variant not found for product ${productId} (color=${color || "-"}, size=${size || "-"})`
-    );
-  }
-  return match.id;
+  if (match) return match.id;
+
+  // تسميات من الواجهة غير موجودة في قاعدة البيانات => متغيّر افتراضي
+  if (unresolved.length > 0) return defaultVariantId(client, id);
+
+  throw new Error(
+    `Selected options are not available for product ${productId} (color=${color || "-"}, size=${size || "-"})`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -348,10 +374,13 @@ export async function POST(request) {
       logger.error("[Cart POST] Some items failed to sync:", failedItems);
     }
 
+    const syncedIds = await fetchCartItemIds(client, cartId);
+
     return Response.json({
       success: true,
       message: failedItems.length > 0 ? "Cart synced with some errors" : "Cart synced",
       cart_id: cartId,
+      item_count: syncedIds.length,
       failed_items: failedItems,
     });
   } catch (error) {

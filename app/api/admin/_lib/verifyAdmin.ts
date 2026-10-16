@@ -5,10 +5,13 @@ const ADMIN_EMAILS = process.env.ADMIN_EMAILS
   ? process.env.ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase())
   : [];
 
-function getClient() {
+function getClient(token: string) {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    // The token must be attached here: is_admin() / admin_users rely on
+    // auth.uid(), which is null for a plain anon client.
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
 }
 
@@ -36,7 +39,7 @@ export async function verifyAdmin(
   if (!authHeader) return { error: "Authorization required", status: 401 };
 
   const token = authHeader.replace("Bearer ", "");
-  const supabase = getClient();
+  const supabase = getClient(token);
 
   const {
     data: { user },
