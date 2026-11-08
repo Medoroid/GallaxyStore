@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Heart, ShoppingBag, Trash2, Loader2, Package } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import { formatCurrency } from "@/lib/formatCurrency";
 
 type WishlistItem = {
   id: string;
@@ -11,6 +12,7 @@ type WishlistItem = {
   product_id: string | null;
   product_name: string;
   product_price: number;
+  product_currency?: string | null;
   product_slug: string;
   product_image: string | null;
   added_at: string;
@@ -132,6 +134,13 @@ export default function WishlistPage() {
                     src={item.product_image}
                     alt={item.product_name}
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      if (el.dataset.fallback !== "1") {
+                        el.dataset.fallback = "1";
+                        el.src = "/product-tshirt.jpg";
+                      }
+                    }}
                   />
                 ) : (
                   <div className="h-full w-full grid place-items-center text-muted-foreground">
@@ -146,7 +155,7 @@ export default function WishlistPage() {
                 </h3>
                 {item.product_price > 0 && (
                   <p className="text-sm text-secondary font-semibold mt-1">
-                    ${Number(item.product_price).toFixed(2)}
+                    {formatCurrency(item.product_price, item.product_currency ?? undefined)}
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground mt-1">

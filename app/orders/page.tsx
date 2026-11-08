@@ -13,6 +13,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
+import {
+  TONE_CLASS,
+  TRANSFER_STATE_COPY,
+  getTransferState,
+  isManualTransferProvider,
+  paymentProviderLabel,
+  type Tone,
+} from "@/app/lib/payment-status";
 
 type Order = {
   id: string;
@@ -30,11 +38,12 @@ type Order = {
   } | null;
   customer_note: string;
   created_at: string;
+  /** Compact payment state attached by /api/orders (own rows only). */
+  payment_summary: { provider: string; status: string } | null;
 };
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Package; color: string }> = {
   pending: { label: "Pending", icon: Clock, color: "text-yellow-400" },
-  confirmed: { label: "Confirmed", icon: CheckCircle2, color: "text-blue-400" },
   paid: { label: "Paid", icon: CheckCircle2, color: "text-blue-400" },
   processing: { label: "Processing", icon: Package, color: "text-purple-400" },
   printing: { label: "Printing", icon: Package, color: "text-indigo-400" },
@@ -42,7 +51,41 @@ const STATUS_MAP: Record<string, { label: string; icon: typeof Package; color: s
   delivered: { label: "Delivered", icon: CheckCircle2, color: "text-green-400" },
   cancelled: { label: "Cancelled", icon: XCircle, color: "text-red-400" },
   refunded: { label: "Refunded", icon: XCircle, color: "text-gray-400" },
+  partially_refunded: { label: "Partially Refunded", icon: XCircle, color: "text-gray-400" },
 };
+
+/**
+ * Customer-facing payment state, derived only from the server summary. It
+ * separates "waiting for review", "rejected", "confirmed" and "pay on
+ * delivery" so the customer always knows what happens next.
+ */
+function paymentBadgeFor(order: Order): { label: string; tone: Tone } | null {
+  const payment = order.payment_summary;
+
+  if (!payment) {
+    // No payment row: a fully discounted (free) order or a legacy settled one.
+    return order.status === "paid" ? { label: "Payment confirmed", tone: "emerald" } : null;
+  }
+
+  if (isManualTransferProvider(payment.provider)) {
+    const state = getTransferState({ orderStatus: order.status, payment });
+    const copy = TRANSFER_STATE_COPY[state];
+    return copy.badge ? { label: copy.badge, tone: copy.tone } : null;
+  }
+
+  if (payment.provider === "cod") {
+    if (payment.status === "succeeded") return { label: "Cash collected", tone: "emerald" };
+    return order.status === "cancelled"
+      ? null
+      : { label: "Pay on delivery", tone: "amber" };
+  }
+
+  if (payment.status === "succeeded") {
+    return { label: `Paid · ${paymentProviderLabel(payment.provider)}`, tone: "emerald" };
+  }
+
+  return { label: `${paymentProviderLabel(payment.provider)} · ${payment.status}`, tone: "slate" };
+}
 
 export default function OrdersPage() {
   const { user, getToken } = useAuth();
@@ -150,6 +193,7 @@ export default function OrdersPage() {
           {orders.map((order) => {
             const statusInfo = STATUS_MAP[order.status] || STATUS_MAP.pending;
             const StatusIcon = statusInfo.icon;
+            const paymentBadge = paymentBadgeFor(order);
             const date = new Date(order.created_at).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
@@ -168,9 +212,19 @@ export default function OrdersPage() {
                     <p className="font-mono text-sm font-semibold">{order.id.slice(0, 8)}...</p>
                     <p className="text-xs text-muted-foreground mt-1">{date}</p>
                   </div>
-                  <div className={`flex items-center gap-2 ${statusInfo.color}`}>
-                    <StatusIcon className="h-4 w-4" />
-                    <span className="text-sm font-semibold">{statusInfo.label}</span>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className={`flex items-center gap-2 ${statusInfo.color}`}>
+                      <StatusIcon className="h-4 w-4" />
+                      <span className="text-sm font-semibold">{statusInfo.label}</span>
+                    </div>
+                    {paymentBadge && (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${TONE_CLASS[paymentBadge.tone].badge}`}
+                        data-testid="order-payment-badge"
+                      >
+                        {paymentBadge.label}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -186,17 +240,17 @@ export default function OrdersPage() {
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
                   <div className="text-sm">
                     <span className="text-muted-foreground">Items: </span>
-                    <span className="font-semibold">{order.subtotal > 0 ? formatCurrency(order.subtotal) : "-"}</span>
+                    <span className="font-semibold">{order.subtotal > 0 ? formatCurrency(order.subtotal, order.currency) : "-"}</span>
                     {order.discount_amount > 0 && (
                       <span className="text-green-400 ml-2">
-                        -{formatCurrency(order.discount_amount)} discount
+                        -{formatCurrency(order.discount_amount, order.currency)} discount
                       </span>
                     )}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Total</p>
                     <p className="text-xl font-extrabold text-gradient-gold">
-                      {formatCurrency(order.total)}
+                      {formatCurrency(order.total, order.currency)}
                     </p>
                   </div>
                 </div>

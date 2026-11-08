@@ -43,14 +43,15 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get("payment");
 
-    // RLS: an owner can only read payments of their own orders.
+    // RLS: an owner can only read payments of their own orders. Provider is
+    // intentionally not filtered: historical Vodafone Cash orders and new
+    // external-wallet orders share this signed-URL endpoint.
     let query = SupabaseClient
       .from("payments")
       .select(
         "id, order_id, provider, status, amount, provider_payment_id, created_at, raw_response"
       )
-      .eq("order_id", id)
-      .eq("provider", "vodafone_cash");
+      .eq("order_id", id);
 
     if (paymentId) {
       query = query.eq("id", paymentId);

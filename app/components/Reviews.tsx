@@ -11,6 +11,8 @@ type Review = {
   rating: number;
   body: string | null;
   created_at: string;
+  helpful_count?: number;
+  not_helpful_count?: number;
 };
 
 type ReviewStats = {
@@ -195,49 +197,132 @@ export function ReviewsList({
   const [deleting, setDeleting] = useState<string | null>(null);
   const [voting, setVoting] = useState<string | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
+  const [voted, setVoted] = useState<Record<string, "helpful" | "not_helpful">>({});
+  const [reported, setReported] = useState<Record<string, boolean>>({});
+  const [feedback, setFeedback] = useState<
+    Record<string, { type: "success" | "error"; text: string }>
+  >({});
+
+  const setReviewFeedback = (
+    reviewId: string,
+    type: "success" | "error",
+    text: string
+  ) => {
+    setFeedback((previous) => ({ ...previous, [reviewId]: { type, text } }));
+  };
 
   const handleDelete = async (reviewId: string) => {
     setDeleting(reviewId);
+    setFeedback((previous) => {
+      const next = { ...previous };
+      delete next[reviewId];
+      return next;
+    });
+
     try {
       const token = await getToken();
-      await fetch(`/api/reviews?product_id=${productId}`, {
+      const res = await fetch(`/api/reviews?product_id=${productId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete the review");
+      }
+
       onReviewDeleted(productId);
-    } catch {
-      // ignore
+    } catch (error) {
+      setReviewFeedback(
+        reviewId,
+        "error",
+        error instanceof Error ? error.message : "Failed to delete the review"
+      );
     } finally {
       setDeleting(null);
     }
   };
 
   const handleVote = async (reviewId: string, voteType: "helpful" | "not_helpful") => {
-    if (!user) return;
+    if (!user) {
+      setReviewFeedback(reviewId, "error", "Log in to vote on reviews.");
+      return;
+    }
+
     setVoting(reviewId);
+    setFeedback((previous) => {
+      const next = { ...previous };
+      delete next[reviewId];
+      return next;
+    });
+
     try {
       const token = await getToken();
-      await fetch(`/api/reviews/${reviewId}/vote`, {
+      const res = await fetch(`/api/reviews/${reviewId}/vote`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ vote_type: voteType }),
       });
-    } catch { /* ignore */ }
-    finally { setVoting(null); }
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to record your vote");
+      }
+
+      setVoted((previous) => ({ ...previous, [reviewId]: voteType }));
+      setReviewFeedback(
+        reviewId,
+        "success",
+        voteType === "helpful" ? "Thanks for your feedback." : "Vote recorded."
+      );
+    } catch (error) {
+      setReviewFeedback(
+        reviewId,
+        "error",
+        error instanceof Error ? error.message : "Failed to record your vote"
+      );
+    } finally {
+      setVoting(null);
+    }
   };
 
   const handleReport = async (reviewId: string) => {
-    if (!user) return;
+    if (!user) {
+      setReviewFeedback(reviewId, "error", "Log in to report a review.");
+      return;
+    }
+
     setReporting(reviewId);
+    setFeedback((previous) => {
+      const next = { ...previous };
+      delete next[reviewId];
+      return next;
+    });
+
     try {
       const token = await getToken();
-      await fetch(`/api/reviews/${reviewId}/report`, {
+      const res = await fetch(`/api/reviews/${reviewId}/report`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ reason: "inappropriate" }),
       });
-    } catch { /* ignore */ }
-    finally { setReporting(null); }
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to submit the report");
+      }
+
+      setReported((previous) => ({ ...previous, [reviewId]: true }));
+      setReviewFeedback(reviewId, "success", "Report submitted for moderation.");
+    } catch (error) {
+      setReviewFeedback(
+        reviewId,
+        "error",
+        error instanceof Error ? error.message : "Failed to submit the report"
+      );
+    } finally {
+      setReporting(null);
+    }
   };
 
   if (reviews.length === 0) {
@@ -250,62 +335,110 @@ export function ReviewsList({
 
   return (
     <div className="space-y-3">
-      {reviews.map((review) => (
-        <div key={review.id} className="glass rounded-xl p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <ReviewStars rating={review.rating} size="h-3 w-3" showNumber={false} />
-              <p className="text-xs text-muted-foreground mt-1">
-                {new Date(review.created_at).toLocaleDateString()}
-              </p>
+      {reviews.map((review) => {
+        const reviewFeedback = feedback[review.id];
+        const castVote = voted[review.id];
+        const isOwnReview = Boolean(user && user.id === review.user_id);
+
+        return (
+          <div key={review.id} className="glass rounded-xl p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <ReviewStars rating={review.rating} size="h-3 w-3" showNumber={false} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {new Date(review.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                {isOwnReview && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(review.id)}
+                    disabled={deleting === review.id}
+                    className="text-red-400 hover:text-red-300 p-1 rounded transition-colors disabled:opacity-50"
+                    aria-label="Delete your review"
+                  >
+                    {deleting === review.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              {user && user.id === review.user_id && (
+
+            {review.body && <p className="text-sm">{review.body}</p>}
+
+            {reviewFeedback && (
+              <div
+                className={`mt-3 p-2 text-xs rounded-lg ${
+                  reviewFeedback.type === "success"
+                    ? "text-green-400 bg-green-950/40"
+                    : "text-red-400 bg-red-950/40"
+                }`}
+                role="status"
+              >
+                {reviewFeedback.text}
+              </div>
+            )}
+
+            {/* Vote & Report buttons */}
+            {!isOwnReview && (
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
                 <button
-                  onClick={() => handleDelete(review.id)}
-                  disabled={deleting === review.id}
-                  className="text-red-400 hover:text-red-300 p-1 rounded transition-colors disabled:opacity-50"
+                  type="button"
+                  onClick={() => handleVote(review.id, "helpful")}
+                  disabled={voting === review.id || Boolean(castVote)}
+                  className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-60 ${
+                    castVote === "helpful"
+                      ? "text-green-400"
+                      : "text-muted-foreground hover:text-green-400"
+                  }`}
+                  aria-pressed={castVote === "helpful"}
                 >
-                  {deleting === review.id ? (
+                  <ThumbsUp className="h-3 w-3" />
+                  Helpful
+                  {typeof review.helpful_count === "number" && review.helpful_count > 0
+                    ? ` (${review.helpful_count})`
+                    : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVote(review.id, "not_helpful")}
+                  disabled={voting === review.id || Boolean(castVote)}
+                  className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-60 ${
+                    castVote === "not_helpful"
+                      ? "text-red-400"
+                      : "text-muted-foreground hover:text-red-400"
+                  }`}
+                  aria-pressed={castVote === "not_helpful"}
+                  aria-label="Not helpful"
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                  {typeof review.not_helpful_count === "number" &&
+                  review.not_helpful_count > 0
+                    ? `(${review.not_helpful_count})`
+                    : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleReport(review.id)}
+                  disabled={reporting === review.id || Boolean(reported[review.id])}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-yellow-400 transition-colors ml-auto disabled:opacity-60"
+                >
+                  {reporting === review.id ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Trash2 className="h-3 w-3" />
+                    <Flag className="h-3 w-3" />
                   )}
+                  {reported[review.id] ? "Reported" : "Report"}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-          {review.body && (
-            <p className="text-sm">{review.body}</p>
-          )}
-          {/* Vote & Report buttons */}
-          {user && user.id !== review.user_id && (
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
-              <button
-                onClick={() => handleVote(review.id, "helpful")}
-                disabled={voting === review.id}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-green-400 transition-colors"
-              >
-                <ThumbsUp className="h-3 w-3" /> Helpful
-              </button>
-              <button
-                onClick={() => handleVote(review.id, "not_helpful")}
-                disabled={voting === review.id}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
-              >
-                <ThumbsDown className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => handleReport(review.id)}
-                disabled={reporting === review.id}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-yellow-400 transition-colors ml-auto"
-              >
-                <Flag className="h-3 w-3" /> Report
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

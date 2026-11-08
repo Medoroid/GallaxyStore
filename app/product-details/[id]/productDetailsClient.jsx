@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/app/components/SafeImage";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -32,10 +32,10 @@ import { useAuth } from "../../lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 
 const COLOR_OPTIONS = [
-  { id: "silver", name: "Silver / فضي", hex: "#C0C0C0" },
-  { id: "gold", name: "Gold / ذهبي", hex: "#FFD166" },
-  { id: "black", name: "Black / أسود", hex: "#120018" },
-  { id: "white", name: "White / أبيض", hex: "#F8FAFC" },
+  { id: "silver", name: "Silver", hex: "#C0C0C0" },
+  { id: "gold", name: "Gold", hex: "#FFD166" },
+  { id: "black", name: "Black", hex: "#120018" },
+  { id: "white", name: "White", hex: "#F8FAFC" },
 ];
 const NAMED_COLOR_HEX = {
   silver: "#C0C0C0",
@@ -58,9 +58,9 @@ const DEFAULT_SIZES = ["One Size"];
 const RING_SIZES = ["6", "7", "8", "9", "10", "11", "12"];
 
 function formatDate(value) {
-  if (!value) return "غير محدد";
+  if (!value) return "Not specified";
 
-  return new Intl.DateTimeFormat("ar-EG", {
+  return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -177,20 +177,6 @@ function ProductDetailsClient({ id }) {
     trackView();
   }, [productData?.id, user, getToken]);
 
-  // Fetch reviews when product loads or tab changes
-  useEffect(() => {
-    if (tab === "reviews" && productData?.id) {
-      fetchReviews();
-    }
-  }, [tab, productData?.id]);
-
-  // Auto-fetch reviews when tab changes to reviews
-  const handleTabChange = (newTab) => {
-    setTab(newTab);
-    if (newTab === "reviews" && productData?.id && reviews.length === 0) {
-      fetchReviews();
-    }
-  };
   const fetchReviews = async () => {
     if (!productData?.id) return;
     setReviewsLoading(true);
@@ -205,6 +191,23 @@ function ProductDetailsClient({ id }) {
       // ignore
     } finally {
       setReviewsLoading(false);
+    }
+  };
+
+  // Fetch reviews when product loads or tab changes
+  useEffect(() => {
+    if (tab === "reviews" && productData?.id) {
+      fetchReviews();
+    }
+    // fetchReviews is recreated with productData; adding it would refetch on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, productData?.id]);
+
+  // Auto-fetch reviews when tab changes to reviews
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    if (newTab === "reviews" && productData?.id && reviews.length === 0) {
+      fetchReviews();
     }
   };
 
@@ -282,16 +285,16 @@ function ProductDetailsClient({ id }) {
   const productFacts = [
     ["Product ID", productData.id],
     ["Slug", productData.slug],
-    ["Store", productData.stores?.name ?? "غير محدد"],
+    ["Store", productData.stores?.name ?? "Not specified"],
     ["Category", productData.categories?.name ?? "Uncategorized"],
     ["Brand", productData.brands?.name ?? "None"],
     ["Status", productData.status],
     ["Visibility", productData.visibility],
-    ["Color", productData.color ?? "غير محدد"],
-    ["Available colors", productData.available_colors?.join(", ") || "غير محدد"],
+    ["Color", productData.color ?? "Not specified"],
+    ["Available colors", productData.available_colors?.join(", ") || "Not specified"],
     ["Featured", productData.is_featured ? "Yes" : "No"],
     ["Base price", formatCurrency(productData.base_price, productData.currency)],
-    ["Compare price", productData.compare_at_price ? formatCurrency(productData.compare_at_price, productData.currency) : "غير محدد"],
+    ["Compare price", productData.compare_at_price ? formatCurrency(productData.compare_at_price, productData.currency) : "Not specified"],
     ["Currency", productData.currency],
     ["Rating", `${rating.toFixed(1)} / 5`],
     ["Rating count", productData.rating_count ?? 0],
@@ -333,7 +336,7 @@ function ProductDetailsClient({ id }) {
       <div className="grid lg:grid-cols-2 gap-10">
         <div className="space-y-4 animate-fade-in-up">
           <div className="relative glass-strong rounded-3xl overflow-hidden aspect-square group">
-            <Image
+            <SafeImage
               src={thumbs[Math.min(activeThumb, thumbs.length - 1)] ?? fallbackImage}
               alt={productData.name}
               fill
@@ -370,7 +373,7 @@ function ProductDetailsClient({ id }) {
                     : "hover:pink-glow opacity-70 hover:opacity-100"
                 }`}
               >
-                <Image
+                <SafeImage
                   src={thumb}
                   alt=""
                   fill
@@ -398,8 +401,8 @@ function ProductDetailsClient({ id }) {
             )}
             <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <ReviewStars rating={Math.round(rating)} size="h-4 w-4" />
-              <span className="text-muted-foreground">- {productData.rating_count ?? 0} تقييم</span>
-              <span className="text-muted-foreground">- {productData.view_count ?? 0} مشاهدة</span>
+              <span className="text-muted-foreground">- {productData.rating_count ?? 0} reviews</span>
+              <span className="text-muted-foreground">- {productData.view_count ?? 0} views</span>
             </div>
           </div>
 
@@ -414,7 +417,7 @@ function ProductDetailsClient({ id }) {
                 </span>
                 <span className="ml-auto text-sm font-bold text-secondary mb-1">
                   {comparePrice > currentPrice
-                    ? `وفرت ${formatCurrency(comparePrice - currentPrice, productData.currency)}`
+                    ? `You saved ${formatCurrency(comparePrice - currentPrice, productData.currency)}`
                     : " "}
                 </span>
               </>
@@ -427,7 +430,7 @@ function ProductDetailsClient({ id }) {
 
           <div>
             <p className="text-sm font-semibold mb-3">
-              اللون: <span className="text-muted-foreground">{selectedColor?.name ?? "غير محدد"}</span>
+              Color: <span className="text-muted-foreground">{selectedColor?.name ?? "Not specified"}</span>
               {selectedColor?.hex && <span className="mr-2 text-muted-foreground">({selectedColor.hex})</span>}
             </p>
             <div className="flex gap-3">
@@ -448,7 +451,7 @@ function ProductDetailsClient({ id }) {
           </div>
 
           <div>
-            <p className="text-sm font-semibold mb-3">المقاس</p>
+            <p className="text-sm font-semibold mb-3">Size</p>
             <div className="flex flex-wrap gap-2">
               {productOptions.sizes.map((s) => (
                 <button
@@ -465,9 +468,9 @@ function ProductDetailsClient({ id }) {
           </div>
 
           <div className="glass rounded-2xl p-4 grid sm:grid-cols-3 gap-3 text-sm">
-            <InfoPill label="المتجر" value={productData.stores?.name ?? "غير محدد"} />
-            <InfoPill label="التصنيف" value={productData.categories?.name ?? "غير محدد"} />
-            <InfoPill label="الحالة" value={productData.status} />
+            <InfoPill label="Store" value={productData.stores?.name ?? "Not specified"} />
+            <InfoPill label="Category" value={productData.categories?.name ?? "Not specified"} />
+            <InfoPill label="Status" value={productData.status} />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
@@ -494,7 +497,7 @@ function ProductDetailsClient({ id }) {
               onClick={handleAddToCart}
               className="flex-1 h-14 rounded-2xl bg-gradient-neon text-white font-bold flex items-center justify-center gap-2 pink-glow hover:scale-[1.02] transition-transform"
             >
-              <ShoppingBag className="h-5 w-5" /> أضف إلى السلة
+              <ShoppingBag className="h-5 w-5" /> Add to Cart
             </button>
 
             <button
@@ -519,14 +522,14 @@ function ProductDetailsClient({ id }) {
             id="buy-now-btn"
             className="w-full h-12 rounded-2xl border border-accent/40 text-accent font-semibold hover:bg-accent/10 transition-colors"
           >
-            اشتري الآن - دفع فوري
+            Buy Now - Pay Instantly
           </button>
 
           <div className="grid sm:grid-cols-3 gap-3 pt-2">
             {[
-              { icon: Truck, label: "شحن سريع", sub: "حسب سياسة المتجر" },
-              { icon: ShieldCheck, label: "منتج موثق", sub: productData.status === "published" ? "متاح للبيع" : productData.status },
-              { icon: Sparkles, label: "قطعة مميزة", sub: productData.is_featured ? "Featured product" : "Galaxy Store" },
+              { icon: Truck, label: "Fast shipping", sub: "Per store policy" },
+              { icon: ShieldCheck, label: "Verified product", sub: productData.status === "published" ? "Available for sale" : productData.status },
+              { icon: Sparkles, label: "Featured piece", sub: productData.is_featured ? "Featured product" : "Galaxy Store" },
             ].map((perk) => (
               <div key={perk.label} className="glass rounded-2xl p-3 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-gradient-neon grid place-items-center shrink-0">
@@ -545,10 +548,10 @@ function ProductDetailsClient({ id }) {
       <div className="mt-16">
         <div className="glass rounded-2xl p-1.5 inline-flex gap-1 flex-wrap">
           {[
-            ["desc", "الوصف"],
-            ["specs", "كل البيانات"],
-            ["images", `الصور (${productData.product_images?.length ?? 0})`],
-            ["reviews", `التقييمات (${productData.rating_count ?? 0})`],
+            ["desc", "Description"],
+            ["specs", "All details"],
+            ["images", `Images (${productData.product_images?.length ?? 0})`],
+            ["reviews", `Reviews (${productData.rating_count ?? 0})`],
           ].map(([tabId, label]) => (
             <button
               key={tabId}
@@ -567,11 +570,11 @@ function ProductDetailsClient({ id }) {
             <div className="prose prose-invert max-w-none space-y-3 text-muted-foreground">
               <p>{productData.description ?? productData.short_description ?? "No description available."}</p>
               <ul className="list-disc pr-6 space-y-1">
-                <li>اللون المعروض: {selectedColor?.name ?? "غير محدد"}</li>
-                <li>كود اللون: {selectedColor?.hex ?? "غير محدد"}</li>
-                <li>المقاس المختار: {currentSize}</li>
-                <li>المتجر: {productData.stores?.name ?? "غير محدد"}</li>
-                <li>عدد الصور: {productData.product_images?.length ?? 0}</li>
+                <li>Displayed color: {selectedColor?.name ?? "Not specified"}</li>
+                <li>Color code: {selectedColor?.hex ?? "Not specified"}</li>
+                <li>Selected size: {currentSize}</li>
+                <li>Store: {productData.stores?.name ?? "Not specified"}</li>
+                <li>Image count: {productData.product_images?.length ?? 0}</li>
               </ul>
             </div>
           )}
@@ -627,17 +630,17 @@ function ProductDetailsClient({ id }) {
         <div className="flex items-end justify-between mb-8">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-secondary font-semibold">
-              منتجات مشابهة
+              Similar Products
             </p>
             <h2 className="text-2xl md:text-3xl font-extrabold mt-1">
-              قد يعجبك <span className="text-gradient-neon">أيضًا</span>
+              You might <span className="text-gradient-neon">also</span> like
             </h2>
           </div>
           <Link
             href="/products"
             className="text-sm font-semibold text-foreground/70 hover:text-foreground transition-colors flex items-center gap-1"
           >
-            عرض الكل <ArrowLeft className="h-4 w-4 rotate-180" />
+            View All <ArrowLeft className="h-4 w-4 rotate-180" />
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">

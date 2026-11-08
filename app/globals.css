@@ -223,6 +223,10 @@
     100% { transform: translateX(-50%); }
   }
   .animate-slide-x { animation: slide-x 30s linear infinite; }
+  /* Pause the marquee when the user hovers so they can read card content */
+  .animate-slide-x:hover { animation-play-state: paused; }
+  /* Pause via parent hover — wrap the animate-slide-x div in a .marquee-track parent */
+  .marquee-track:hover .animate-slide-x { animation-play-state: paused; }
 
   .mask-fade {
     -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);

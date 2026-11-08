@@ -1,23 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/app/lib/auth-context";
-import { Printer, Clock, CheckCircle, AlertCircle, RotateCw } from "lucide-react";
+import { Printer, Clock, CheckCircle, AlertCircle, RotateCw, type LucideIcon } from "lucide-react";
 
 type PrintJob = {
-  id: string;
-  order_id: string;
+  print_job_id: string;
+  order_number: string | null;
   status: string;
-  product_name: string;
-  variant_info: string;
+  product_name_snapshot: string | null;
+  sku_snapshot: string | null;
   quantity: number;
-  priority: number;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
 };
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: LucideIcon }> = {
   queued: { label: "Queued", color: "text-gray-400", bg: "bg-gray-400/10", icon: Clock },
   printing: { label: "Printing", color: "text-blue-400", bg: "bg-blue-400/10", icon: Printer },
   completed: { label: "Completed", color: "text-green-400", bg: "bg-green-400/10", icon: CheckCircle },
@@ -29,27 +28,32 @@ export default function VendorPrintingPage() {
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+    setError(null);
     try {
       const token = await getToken();
       const res = await fetch("/api/vendor/stats", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (data.success) {
-        setJobs(data.dashboard?.printing_queue || []);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Unable to load the print queue.");
       }
-    } catch {
-      // ignore
+      setJobs(data.printing_queue || []);
+    } catch (fetchError) {
+      setError(
+        fetchError instanceof Error ? fetchError.message : "Unable to load the print queue."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   const filtered = jobs.filter(
     (j) => statusFilter === "all" || j.status === statusFilter
@@ -91,6 +95,17 @@ export default function VendorPrintingPage() {
         </button>
       </div>
 
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-300">
+          <span className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" /> {error}
+          </span>
+          <button onClick={fetchJobs} className="underline hover:text-red-200">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Status Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {(["all", "queued", "printing", "completed", "failed"] as const).map((status) => (
@@ -125,7 +140,7 @@ export default function VendorPrintingPage() {
             const status = STATUS_MAP[job.status] || STATUS_MAP.queued;
             const StatusIcon = status.icon;
             return (
-              <div key={job.id} className="glass rounded-2xl p-5 hover:border-white/[0.12] transition-colors">
+              <div key={job.print_job_id} className="glass rounded-2xl p-5 hover:border-white/[0.12] transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <div className={`w-10 h-10 rounded-xl ${status.bg} flex items-center justify-center`}>
@@ -133,13 +148,13 @@ export default function VendorPrintingPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white">{job.product_name}</span>
+                        <span className="text-sm font-medium text-white">{job.product_name_snapshot}</span>
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
                           {status.label}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Order #{job.order_id?.slice(0, 8) || "N/A"} • {job.variant_info} • Qty: {job.quantity}
+                        Order #{job.order_number || "N/A"} • {job.sku_snapshot || "—"} • Qty: {job.quantity}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         Created: {new Date(job.created_at).toLocaleString()}

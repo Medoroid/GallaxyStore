@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
@@ -13,8 +13,11 @@ function getSupabaseForUser(token) {
 
 // POST - Create return request
 export async function POST(request) {
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-  const { allowed } = checkRateLimit(`return:${ip}`);
+  const ip = getClientIp(request);
+  const { allowed } = await checkRateLimitAsync(`return:${ip}`, {
+    maxRequests: 10,
+    failureMode: "fail_closed",
+  });
 
   if (!allowed) {
     return Response.json(

@@ -19,9 +19,23 @@ type Order = {
   order_number: string;
   status: string;
   total: number;
+  currency?: string;
   created_at: string;
   items: OrderItem[];
 };
+
+// The live return_status enum is requested | approved | rejected |
+// item_received | completed — there is no "pending".
+const RETURN_STATUS: Record<string, { label: string; className: string }> = {
+  requested: { label: "Requested", className: "bg-yellow-500/20 text-yellow-400" },
+  approved: { label: "Approved", className: "bg-green-500/20 text-green-400" },
+  rejected: { label: "Rejected", className: "bg-red-500/20 text-red-400" },
+  item_received: { label: "Item received", className: "bg-blue-500/20 text-blue-400" },
+  completed: { label: "Completed", className: "bg-gray-500/20 text-gray-400" },
+};
+
+// Matches create_return_request()'s server-side eligibility check.
+const RETURNABLE_STATUSES = ["paid", "processing", "printing", "shipped", "delivered"];
 
 type ReturnRequest = {
   id: string;
@@ -38,6 +52,7 @@ export default function ReturnsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -60,7 +75,7 @@ export default function ReturnsPage() {
 
         if (ordersData.success) {
           const eligibleOrders = ordersData.orders.filter((o: Order) =>
-            ["delivered", "paid", "confirmed"].includes(o.status)
+            RETURNABLE_STATUSES.includes(o.status)
           );
           setOrders(eligibleOrders);
         }
@@ -82,6 +97,40 @@ export default function ReturnsPage() {
     setSelectedItems((prev) =>
       prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
     );
+  };
+
+  // /api/orders (list) returns orders without their line items, so fetch the
+  // order detail on demand. Without this the item checkboxes never render and a
+  // return can never be submitted.
+  const handleSelectOrder = async (order: Order) => {
+    if (selectedOrder?.id === order.id) {
+      setSelectedOrder(null);
+      setSelectedItems([]);
+      return;
+    }
+
+    setSelectedOrder(order);
+    setSelectedItems([]);
+
+    if (order.items?.length) return;
+
+    setItemsLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/orders/${order.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.success && Array.isArray(data.order?.items)) {
+        setSelectedOrder({ ...order, items: data.order.items });
+      } else {
+        setSelectedOrder({ ...order, items: [] });
+      }
+    } catch {
+      setSelectedOrder({ ...order, items: [] });
+    } finally {
+      setItemsLoading(false);
+    }
   };
 
   const handleSubmitReturn = async () => {
@@ -218,10 +267,7 @@ export default function ReturnsPage() {
                 {orders.map((order) => (
                   <button
                     key={order.id}
-                    onClick={() => {
-                      setSelectedOrder(selectedOrder?.id === order.id ? null : order);
-                      setSelectedItems([]);
-                    }}
+                    onClick={() => handleSelectOrder(order)}
                     className={`w-full p-4 rounded-xl text-left transition-all ${
                       selectedOrder?.id === order.id
                         ? "bg-gradient-neon/20 border border-secondary"
@@ -235,7 +281,7 @@ export default function ReturnsPage() {
                           {new Date(order.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <p className="font-bold text-sm text-gradient-gold">{formatCurrency(order.total)}</p>
+                      <p className="font-bold text-sm text-gradient-gold">{formatCurrency(order.total, order.currency)}</p>
                     </div>
                   </button>
                 ))}
@@ -247,6 +293,13 @@ export default function ReturnsPage() {
           {selectedOrder && (
             <div>
               <h2 className="text-lg font-extrabold mb-3">Select Items to Return</h2>
+              {itemsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading items…
+                </div>
+              ) : (selectedOrder.items || []).length === 0 ? (
+                <p className="text-muted-foreground text-sm">No returnable items were found for this order.</p>
+              ) : (
               <div className="space-y-2">
                 {(selectedOrder.items || []).map((item) => (
                   <label
@@ -266,12 +319,13 @@ export default function ReturnsPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{item.product_name_snapshot}</p>
                       <p className="text-xs text-muted-foreground">
-                        Qty: {item.quantity} | {formatCurrency(item.unit_price_snapshot)}
+                        Qty: {item.quantity} | {formatCurrency(item.unit_price_snapshot, selectedOrder.currency)}
                       </p>
                     </div>
                   </label>
                 ))}
               </div>
+              )}
             </div>
           )}
 
@@ -320,7 +374,13 @@ export default function ReturnsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {returns.map((ret) => (
+              {returns.map((ret) => {
+                const statusMeta =
+                  RETURN_STATUS[ret.status] ?? {
+                    label: ret.status,
+                    className: "bg-gray-500/20 text-gray-400",
+                  };
+                return (
                 <div key={ret.id} className="glass rounded-xl p-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -330,17 +390,13 @@ export default function ReturnsPage() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">Reason: {ret.reason}</p>
                     </div>
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                      ret.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                      ret.status === "approved" ? "bg-green-500/20 text-green-400" :
-                      ret.status === "rejected" ? "bg-red-500/20 text-red-400" :
-                      "bg-gray-500/20 text-gray-400"
-                    }`}>
-                      {ret.status}
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusMeta.className}`}>
+                      {statusMeta.label}
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -381,7 +437,7 @@ export default function ReturnsPage() {
         <section className="text-center pt-4 border-t border-white/10">
           <AlertTriangle className="h-8 w-8 mx-auto text-accent mb-3" />
           <p className="text-muted-foreground mb-4 text-sm">Questions about returns?</p>
-          <a href="mailto:support@galaxystore.com" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform text-sm">
+          <a href="/contact" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform text-sm">
             Contact Support
           </a>
         </section>

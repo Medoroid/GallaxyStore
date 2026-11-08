@@ -11,6 +11,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
+// A recovery link always leaves a marker in the URL: PKCE flow sends
+// ?code=..., the implicit flow sends #access_token=... and a failed/expired
+// link sends #error=... / ?error=....
+function urlHasResetToken(): boolean {
+  const { search, hash } = window.location;
+  return (
+    /[?&]code=/.test(search) ||
+    /[?&]error=/.test(search) ||
+    /access_token=/.test(hash) ||
+    /error=/.test(hash)
+  );
+}
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -19,15 +32,28 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [validSession, setValidSession] = useState(false);
+  // C1 — distinguish three situations instead of blaming every visitor:
+  //   checking  → the session/token check is still running
+  //   ready     → a recovery session exists (real reset link) → show the form
+  //   missing   → visitor opened the URL with NO token → friendly panel that
+  //               explains how to request a link (never "invalid link")
+  //   invalid   → a token WAS in the URL but the session is gone (expired or
+  //               already used) → the "Invalid or expired" message
+  const [linkState, setLinkState] = useState<"checking" | "ready" | "missing" | "invalid">(
+    "checking"
+  );
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setValidSession(true);
-      } else {
-        setError("Invalid or expired reset link. Please request a new one.");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setLinkState("ready");
+        } else {
+          setLinkState(urlHasResetToken() ? "invalid" : "missing");
+        }
+      } catch {
+        setLinkState(urlHasResetToken() ? "invalid" : "missing");
       }
     };
     checkSession();
@@ -97,7 +123,11 @@ export default function ResetPasswordPage() {
               Reset Password
             </h1>
             <p className="text-gray-400">
-              Enter your new password below
+              {linkState === "ready"
+                ? "Enter your new password below"
+                : linkState === "checking"
+                  ? "Checking your reset link..."
+                  : "Reset links are sent to your email"}
             </p>
           </div>
 
@@ -107,12 +137,46 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
-          {!validSession && !error ? (
+          {linkState === "checking" && (
             <div className="text-center py-8">
               <div className="w-12 h-12 border-2 border-[#FF4FD8]/30 border-t-[#FF4FD8] rounded-full animate-spin mx-auto mb-4" />
               <p className="text-gray-400">Verifying reset link...</p>
             </div>
-          ) : (
+          )}
+
+          {linkState === "missing" && (
+            <div className="text-center py-2">
+              <p className="text-gray-400 mb-6">
+                This page only opens from the secure password reset link we email
+                you. Request a new link and we&apos;ll send a fresh one to your
+                inbox.
+              </p>
+              <Link
+                href="/forgot-password"
+                className="inline-block w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+              >
+                Request a reset link
+              </Link>
+            </div>
+          )}
+
+          {linkState === "invalid" && (
+            <div className="text-center py-2">
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <p className="text-red-400 text-sm text-center">
+                  Invalid or expired reset link. Please request a new one.
+                </p>
+              </div>
+              <Link
+                href="/forgot-password"
+                className="inline-block w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+              >
+                Request a new link
+              </Link>
+            </div>
+          )}
+
+          {linkState === "ready" && (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm text-gray-400 mb-2">New Password</label>
@@ -153,7 +217,7 @@ export default function ResetPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading || !validSession}
+                disabled={loading}
                 className="w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (

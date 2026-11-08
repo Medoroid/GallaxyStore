@@ -16,10 +16,12 @@ import {
   Sparkles,
   Loader2,
   Package,
+  AlertTriangle,
 } from "lucide-react";
 import { useCartStore, type CartItem } from "../stores/cartStore";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { subtotalsByCurrency } from "@/lib/cartTotals";
 
 function CartItemRow({
   item,
@@ -74,11 +76,11 @@ function CartItemRow({
         </div>
         <div className="flex items-center gap-3 mt-2">
           <p className="text-lg md:text-xl font-extrabold text-gradient-gold">
-            {formatCurrency(item.price)}
+            {formatCurrency(item.price, item.currency)}
           </p>
           {item.quantity > 1 && (
             <p className="text-xs text-muted-foreground">
-              = {formatCurrency(item.price * item.quantity)}
+              = {formatCurrency(item.price * item.quantity, item.currency)}
             </p>
           )}
         </div>
@@ -90,7 +92,7 @@ function CartItemRow({
           <button
             onClick={() => onUpdateQty(item.id, item.quantity - 1)}
             className="h-8 w-8 grid place-items-center rounded-lg hover:bg-white/10 transition-colors"
-            aria-label="Decrease"
+            aria-label="Decrease quantity"
           >
             <Minus className="h-3 w-3" />
           </button>
@@ -100,7 +102,7 @@ function CartItemRow({
           <button
             onClick={() => onUpdateQty(item.id, item.quantity + 1)}
             className="h-8 w-8 grid place-items-center rounded-lg hover:bg-white/10 transition-colors"
-            aria-label="Increase"
+            aria-label="Increase quantity"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -130,26 +132,26 @@ function EmptyCart() {
         </div>
       </div>
       <h1 className="text-3xl md:text-4xl font-extrabold mb-3">
-        سلة <span className="text-gradient-neon">فارغة</span>
+        Your cart is <span className="text-gradient-neon">empty</span>
       </h1>
       <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">
-        لم تقم بإضافة أي منتجات بعد. تصفح متجرنا واكتشف منتجاتنا المميزة من
-        الملابس، الأكواب، الملصقات والمزيد.
+        You haven&apos;t added any products yet. Browse our store and discover
+        our featured clothing, mugs, stickers and more.
       </p>
       <Link
         href="/products"
         className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-neon text-white font-bold text-lg hover:scale-105 transition-transform pink-glow"
       >
         <ShoppingBag className="h-5 w-5" />
-        تصفح المنتجات
-        <ArrowRight className="h-5 w-5 rotate-180" />
+        Browse Products
+        <ArrowRight className="h-5 w-5" />
       </Link>
     </div>
   );
 }
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, clearCart, getTotal, getCount, syncing } =
+  const { items, removeItem, updateQuantity, clearCart, getCount, syncing } =
     useCartStore();
   const { user, getToken } = useAuth();
   const router = useRouter();
@@ -162,9 +164,14 @@ export default function CartPage() {
     return <EmptyCart />;
   }
 
-  const subtotal = getTotal();
-  const shipping = subtotal > 500 ? 0 : 49;
-  const total = subtotal + shipping - discount;
+  // Per-currency subtotals — a mixed-currency cart is never summed into a
+  // single fake number (B3). Shipping is NOT estimated here: the real fee
+  // comes from shipping_rates server-side based on the delivery address (B2).
+  const currencySubtotals = subtotalsByCurrency(items);
+  const mixedCurrencies = currencySubtotals.length > 1;
+  const currency = currencySubtotals[0]?.currency ?? "USD";
+  const subtotal = currencySubtotals[0]?.subtotal ?? 0;
+  const estimatedTotal = Math.max(0, subtotal - discount);
 
   const handleCheckout = () => {
     if (!user) {
@@ -216,14 +223,14 @@ export default function CartPage() {
           Shopping Cart
         </div>
         <h1 className="text-3xl md:text-5xl font-extrabold">
-          سلة <span className="text-gradient-neon">المشتريات</span>
+          Shopping <span className="text-gradient-neon">Cart</span>
         </h1>
         <p className="text-muted-foreground mt-2">
-          {getCount()} منتج في سلتك
+          {getCount()} {getCount() === 1 ? "item" : "items"} in your cart
           {syncing && (
             <span className="mr-2 inline-flex items-center gap-1 text-xs text-secondary">
               <Loader2 className="h-3 w-3 animate-spin" />
-              جاري المزامنة...
+              Syncing...
             </span>
           )}
         </p>
@@ -248,14 +255,14 @@ export default function CartPage() {
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowRight className="h-4 w-4 rotate-180" />
-              متابعة التسوق
+              Continue Shopping
             </Link>
             <button
               onClick={clearCart}
               className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 px-4 py-2 rounded-xl transition-all"
             >
               <Trash2 className="h-4 w-4" />
-              تفريغ السلة
+              Clear Cart
             </button>
           </div>
         </div>
@@ -265,12 +272,12 @@ export default function CartPage() {
           <div className="glass-strong rounded-3xl p-6 md:p-8 h-fit sticky top-28 space-y-6">
             <h2 className="text-xl font-extrabold flex items-center gap-2">
               <Tag className="h-5 w-5 text-accent" />
-              ملخص الطلب
+              Order Summary
             </h2>
 
             {/* Promo Code */}
             <div className="space-y-2">
-              <p className="text-sm font-semibold">كود الخصم</p>
+              <p className="text-sm font-semibold">Promo Code</p>
               <div className="flex gap-2">
                 <input
                   value={promoCode}
@@ -278,6 +285,7 @@ export default function CartPage() {
                   placeholder="GALAXY10"
                   className="flex-1 h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm"
                   disabled={promoApplied}
+                  aria-label="Promo code"
                 />
                 <button
                   onClick={handleApplyPromo}
@@ -288,13 +296,13 @@ export default function CartPage() {
                       : "glass hover:text-foreground"
                   }`}
                 >
-                  {promoApplied ? "تم" : "تطبيق"}
+                  {promoApplied ? "Applied" : "Apply"}
                 </button>
               </div>
               {promoApplied && (
                 <p className="text-xs text-green-400 flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  تم تطبيق الكوبون - وفرت {formatCurrency(discount)}
+                  Coupon applied — you saved {formatCurrency(discount, currency)}
                 </p>
               )}
               {promoError && (
@@ -304,39 +312,70 @@ export default function CartPage() {
 
             {/* Price Breakdown */}
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  المنتجات ({getCount()})
-                </span>
-                <span className="font-semibold">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">الشحن</span>
-                <span
-                  className={`font-semibold ${
-                    shipping === 0 ? "text-green-400" : ""
-                  }`}
-                >
-                  {shipping === 0 ? "مجاني" : formatCurrency(shipping)}
-                </span>
-              </div>
-              {shipping > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  الشحن مجاني للطلبات فوق {formatCurrency(500)}
-                </p>
-              )}
-              {discount > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>الخصم</span>
-                  <span>-{formatCurrency(discount)}</span>
+              {mixedCurrencies ? (
+                <>
+                  {/* Mixed-currency cart: honest per-currency breakdown (B3). */}
+                  <div
+                    role="status"
+                    className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-200 flex items-start gap-2"
+                  >
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400 mt-0.5" />
+                    <span>
+                      Your cart contains items in multiple currencies. Subtotals
+                      are shown per currency — shipping and the final total are
+                      calculated at checkout.
+                    </span>
+                  </div>
+                  {currencySubtotals.map(({ currency: code, subtotal: amount }) => (
+                    <div key={code} className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal ({code})</span>
+                      <span className="font-semibold">
+                        {formatCurrency(amount, code)}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Items ({getCount()})
+                  </span>
+                  <span className="font-semibold">
+                    {formatCurrency(subtotal, currency)}
+                  </span>
                 </div>
               )}
-              <div className="border-t border-white/10 pt-3 flex justify-between">
-                <span className="font-bold text-lg">المجموع</span>
-                <span className="font-extrabold text-2xl text-gradient-gold">
-                  {formatCurrency(total)}
+
+              {/* Shipping: no fake estimate — the real fee comes from
+                  shipping_rates based on the delivery address (B2). */}
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-muted-foreground shrink-0">Shipping</span>
+                <span className="text-xs text-muted-foreground text-right">
+                  Calculated at checkout based on your delivery address
                 </span>
               </div>
+
+              {discount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Discount</span>
+                  <span>-{formatCurrency(discount, currency)}</span>
+                </div>
+              )}
+
+              {!mixedCurrencies && (
+                <div className="border-t border-white/10 pt-3 flex justify-between items-center">
+                  <span className="font-bold text-lg">
+                    Estimated Total
+                  </span>
+                  <span className="font-extrabold text-2xl text-gradient-gold">
+                    {formatCurrency(estimatedTotal, currency)}
+                  </span>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Excludes shipping — the final amount, including shipping, is
+                confirmed at checkout.
+              </p>
             </div>
 
             {/* Checkout Button */}
@@ -345,7 +384,7 @@ export default function CartPage() {
               className="w-full h-14 rounded-2xl bg-gradient-neon text-white font-bold text-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform pink-glow"
             >
               <ShoppingBag className="h-5 w-5" />
-              {user ? "إتمام الشراء" : "تسجيل الدخول للشراء"}
+              {user ? "Proceed to Checkout" : "Sign in to Purchase"}
             </button>
 
             {!user && (
@@ -353,7 +392,7 @@ export default function CartPage() {
                 href="/login"
                 className="block text-center text-sm text-secondary hover:text-secondary/80 transition-colors"
               >
-                تسجيل الدخول أولاً للمتابعة
+                Sign in first to continue
               </Link>
             )}
 
@@ -361,11 +400,11 @@ export default function CartPage() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="glass rounded-xl p-3 flex items-center gap-2">
                 <Truck className="h-4 w-4 text-accent shrink-0" />
-                <p className="text-[11px] text-muted-foreground">شحن سريع</p>
+                <p className="text-[11px] text-muted-foreground">Fast shipping</p>
               </div>
               <div className="glass rounded-xl p-3 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-accent shrink-0" />
-                <p className="text-[11px] text-muted-foreground">دفع آمن</p>
+                <p className="text-[11px] text-muted-foreground">Secure checkout</p>
               </div>
             </div>
           </div>

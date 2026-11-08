@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { logger } from "@/lib/logger";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { handleApiError } from "@/lib/api-errors";
 
 function getSupabaseForUser(token) {
@@ -65,6 +65,18 @@ export async function GET(request) {
 // POST - Add or update a review
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = await checkRateLimitAsync(`review-write:${ip}`, {
+      maxRequests: 10,
+      failureMode: "fail_open",
+    });
+    if (!allowed) {
+      return Response.json(
+        { success: false, message: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
     if (!authHeader) {
       return Response.json(

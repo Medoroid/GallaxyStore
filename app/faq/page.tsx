@@ -9,7 +9,7 @@ const faqs = [
     items: [
       {
         question: "How long does shipping take?",
-        answer: "Standard shipping takes 5-7 business days. Express shipping (available for $49 extra) delivers within 2-3 business days. Free shipping on orders over $500.",
+        answer: "It depends on the delivery option you choose: each method shows its delivery window and exact fee next to it at checkout, based on your address and package weight. Custom-printed items additionally need production time, which is confirmed with your order.",
       },
       {
         question: "How can I track my order?",
@@ -17,7 +17,7 @@ const faqs = [
       },
       {
         question: "Do you ship internationally?",
-        answer: "Yes! We ship to over 50 countries worldwide. International shipping rates vary by location and are calculated at checkout.",
+        answer: "We ship to the destinations listed on our Shipping Policy page. International shipping rates are calculated at checkout based on destination and package weight.",
       },
     ],
   },
@@ -60,7 +60,7 @@ const faqs = [
     items: [
       {
         question: "What payment methods do you accept?",
-        answer: "We accept all major credit cards (Visa, MasterCard, American Express) via Stripe, as well as Cash on Delivery (COD) for select regions.",
+        answer: "We accept Cash on Delivery (COD) and mobile wallet transfers. For a wallet transfer, send the exact total to the account shown at checkout and upload a photo of the receipt so our team can verify it.",
       },
       {
         question: "How do I create an account?",
@@ -68,7 +68,7 @@ const faqs = [
       },
       {
         question: "Is my payment information secure?",
-        answer: "Absolutely. We use Stripe for payment processing, which is PCI DSS compliant and uses industry-standard encryption.",
+        answer: "We never ask for card numbers or wallet passwords. Wallet transfer receipts are stored in a private bucket and are visible only to you and authorized store staff. Cash is paid directly to the courier on delivery.",
       },
     ],
   },

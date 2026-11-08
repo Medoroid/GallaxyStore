@@ -9,40 +9,62 @@ import {
   Clock,
   ArrowUpRight,
   Users,
-  Image,
+  Image as ImageIcon,
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 
+type CurrencyRevenue = { currency: string; revenue: number };
+
 type Stats = {
   total_orders: number;
   total_products: number;
-  total_revenue: number;
+  total_revenue: number | null;
+  revenue_currency: string | null;
+  revenue_by_currency: CurrencyRevenue[];
   pending_orders: number;
   total_users: number;
   total_gallery: number;
-  daily_sales: Array<{ date: string; revenue: number; orders: number }>;
-  top_products: Array<{ product_name: string; total_revenue: number; total_sold: number }>;
-  inventory_alerts: Array<{ product_name: string; variant_sku: string; stock_quantity: number }>;
+  daily_sales: Array<{ sale_date: string; gross_revenue: number; order_count: number; currency: string }>;
+  top_products: Array<{
+    product_id: string;
+    name: string;
+    sku: string | null;
+    currency: string;
+    revenue: number;
+    units_sold: number;
+  }>;
+  inventory_alerts: Array<{
+    product_id: string;
+    product_name: string;
+    variant_sku: string | null;
+    stock_quantity: number;
+    low_stock_threshold: number;
+  }>;
 };
 
 type Order = {
   id: string;
+  order_number: string | null;
   status: string;
   total: number;
-  created_at: string;
-  shipping_address_snapshot: { full_name: string } | null;
+  currency: string | null;
+  placed_at: string | null;
+  created_at: string | null;
+  shipping_address_snapshot: { full_name?: string } | null;
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: "Pending", color: "text-yellow-400", bg: "bg-yellow-400/10" },
   paid: { label: "Paid", color: "text-blue-400", bg: "bg-blue-400/10" },
+  confirmed: { label: "Confirmed", color: "text-blue-400", bg: "bg-blue-400/10" },
   processing: { label: "Processing", color: "text-purple-400", bg: "bg-purple-400/10" },
   printing: { label: "Printing", color: "text-indigo-400", bg: "bg-indigo-400/10" },
   shipped: { label: "Shipped", color: "text-cyan-400", bg: "bg-cyan-400/10" },
   delivered: { label: "Delivered", color: "text-green-400", bg: "bg-green-400/10" },
   cancelled: { label: "Cancelled", color: "text-red-400", bg: "bg-red-400/10" },
+  refunded: { label: "Refunded", color: "text-amber-400", bg: "bg-amber-400/10" },
 };
 
 export default function AdminDashboard() {
@@ -50,6 +72,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,14 +81,17 @@ export default function AdminDashboard() {
         const statsRes = await fetch("/api/admin/stats", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const statsData = await statsRes.json();
+        const statsData = await statsRes.json().catch(() => null);
 
-        if (statsData.success) {
-          setStats(statsData.stats);
-          setRecentOrders(statsData.recent_orders || []);
+        if (!statsRes.ok || !statsData?.success) {
+          setError(statsData?.message || "Could not load dashboard statistics.");
+          return;
         }
+
+        setStats(statsData.stats);
+        setRecentOrders(statsData.recent_orders || []);
       } catch {
-        // ignore
+        setError("Network error while loading the dashboard.");
       } finally {
         setLoading(false);
       }
@@ -89,10 +115,19 @@ export default function AdminDashboard() {
     );
   }
 
+  const revenueDisplay =
+    stats?.total_revenue != null && stats.revenue_currency
+      ? formatCurrency(stats.total_revenue, stats.revenue_currency)
+      : stats?.revenue_by_currency?.length
+        ? stats.revenue_by_currency
+            .map((item) => formatCurrency(item.revenue, item.currency))
+            .join(" + ")
+        : formatCurrency(0, "USD");
+
   const statCards = [
     {
-      label: "Total Revenue",
-      value: formatCurrency(stats?.total_revenue || 0),
+      label: "Collected Revenue",
+      value: revenueDisplay,
       icon: DollarSign,
       color: "text-green-400",
       bg: "bg-green-400/10",
@@ -128,7 +163,7 @@ export default function AdminDashboard() {
     {
       label: "Gallery Images",
       value: stats?.total_gallery || 0,
-      icon: Image,
+      icon: ImageIcon,
       color: "text-pink-400",
       bg: "bg-pink-400/10",
     },
@@ -141,6 +176,12 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="text-gray-400 mt-1">Welcome back! Here&apos;s what&apos;s happening.</p>
       </div>
+
+      {error && (
+        <div className="glass rounded-2xl p-4 border border-red-500/30 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -165,11 +206,14 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-semibold text-white">Low Stock Alerts</h2>
           </div>
           <div className="space-y-2">
-            {stats.inventory_alerts.slice(0, 5).map((alert, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-yellow-500/5">
+            {stats.inventory_alerts.slice(0, 5).map((alert) => (
+              <div
+                key={`${alert.product_id}-${alert.variant_sku || "default"}`}
+                className="flex items-center justify-between p-3 rounded-xl bg-yellow-500/5"
+              >
                 <div>
                   <span className="text-sm font-medium text-white">{alert.product_name}</span>
-                  <span className="text-xs text-gray-500 block">{alert.variant_sku}</span>
+                  <span className="text-xs text-gray-500 block">{alert.variant_sku || "Default variant"}</span>
                 </div>
                 <span className="text-sm font-bold text-yellow-400">{alert.stock_quantity} left</span>
               </div>
@@ -200,7 +244,7 @@ export default function AdminDashboard() {
             href="/admin/reviews"
             className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[#FF4FD8]/30 transition-all"
           >
-            <Image className="w-5 h-5 text-cyan-400" />
+            <ImageIcon className="w-5 h-5 text-cyan-400" />
             <span className="text-sm font-medium text-white">Reviews</span>
           </Link>
           <Link
@@ -227,16 +271,19 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
-                {stats.top_products.map((product, i) => (
-                  <tr key={i} className="hover:bg-white/[0.02]">
+                {stats.top_products.map((product) => (
+                  <tr key={product.product_id} className="hover:bg-white/[0.02]">
                     <td className="py-4">
-                      <span className="text-sm font-medium text-white">{product.product_name}</span>
+                      <span className="text-sm font-medium text-white">{product.name}</span>
+                      {product.sku && <span className="text-xs text-gray-500 block">{product.sku}</span>}
                     </td>
                     <td className="py-4 text-right">
-                      <span className="text-sm text-gray-400">{product.total_sold}</span>
+                      <span className="text-sm text-gray-400">{product.units_sold}</span>
                     </td>
                     <td className="py-4 text-right">
-                      <span className="text-sm font-semibold text-white">{formatCurrency(product.total_revenue)}</span>
+                      <span className="text-sm font-semibold text-white">
+                        {formatCurrency(product.revenue, product.currency)}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -278,13 +325,18 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-white/[0.05]">
                 {recentOrders.map((order) => {
                   const status = STATUS_MAP[order.status] || STATUS_MAP.pending;
+                  const placedAt = order.placed_at || order.created_at;
                   return (
                     <tr key={order.id} className="hover:bg-white/[0.02]">
                       <td className="py-4">
-                        <span className="text-sm font-medium text-white">#{order.id.slice(0, 8)}</span>
+                        <span className="text-sm font-medium text-white">
+                          #{order.order_number || order.id.slice(0, 8)}
+                        </span>
                       </td>
                       <td className="py-4">
-                        <span className="text-sm text-gray-400">{order.shipping_address_snapshot?.full_name || "N/A"}</span>
+                        <span className="text-sm text-gray-400">
+                          {order.shipping_address_snapshot?.full_name || "N/A"}
+                        </span>
                       </td>
                       <td className="py-4">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
@@ -292,10 +344,14 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="py-4 text-right">
-                        <span className="text-sm font-medium text-white">{formatCurrency(order.total)}</span>
+                        <span className="text-sm font-medium text-white">
+                          {formatCurrency(order.total, order.currency || "USD")}
+                        </span>
                       </td>
                       <td className="py-4 text-right">
-                        <span className="text-sm text-gray-400">{new Date(order.created_at).toLocaleDateString()}</span>
+                        <span className="text-sm text-gray-400">
+                          {placedAt ? new Date(placedAt).toLocaleDateString() : "—"}
+                        </span>
                       </td>
                     </tr>
                   );

@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendOrderConfirmation, sendOrderStatusUpdate } from "@/lib/email";
-import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
 function getSupabaseForUser(token) {
@@ -63,7 +62,7 @@ export async function POST(request) {
       .eq("order_id", order_id);
 
     const customerName = order.shipping_address_snapshot?.full_name || "Customer";
-    const customerEmail = order.shipping_address_snapshot?.email || order.customer_note;
+    const customerEmail = order.shipping_address_snapshot?.email;
 
     if (!customerEmail) {
       return Response.json(

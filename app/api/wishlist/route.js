@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
+import { productImageUrl } from "@/lib/products";
 
 function getSupabaseForUser(token) {
   return createClient(
@@ -60,6 +60,7 @@ export async function GET(request) {
             id,
             name,
             base_price,
+            currency,
             slug,
             product_images (
               storage_path,
@@ -77,8 +78,6 @@ export async function GET(request) {
     const enrichedItems = (items || []).map((item) => {
       const variant = item.product_variants;
       const product = variant?.products;
-      const images = product?.product_images || [];
-      const primaryImage = images.find((img) => img.is_primary) || images[0];
 
       return {
         id: item.id,
@@ -86,8 +85,9 @@ export async function GET(request) {
         product_id: product?.id || null,
         product_name: product?.name || "Unknown Product",
         product_price: product?.base_price || 0,
+        product_currency: product?.currency || null,
         product_slug: product?.slug || "",
-        product_image: primaryImage?.storage_path || null,
+        product_image: product ? productImageUrl(product) : null,
         added_at: item.added_at,
         note: item.note,
       };

@@ -1,14 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { verifyAdmin } from "./_lib/verifyAdmin";
 import { logger } from "@/lib/logger";
-
-function getSupabaseForUser(token) {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-}
 
 export async function GET(request) {
   try {

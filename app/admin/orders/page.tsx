@@ -22,6 +22,10 @@ import { useAuth } from "@/app/lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { ReceiptViewer } from "@/app/components/payment/ReceiptViewer";
 import { apiErrorMessage } from "@/app/lib/api-error-message";
+import {
+  isManualTransferProvider,
+  paymentProviderLabel,
+} from "@/app/lib/payment-status";
 
 type Payment = {
   id?: string;
@@ -31,6 +35,16 @@ type Payment = {
   status: string;
   created_at?: string;
   receipt_url?: string | null;
+  receipt?: {
+    id: string;
+    receipt_url: string;
+    transfer_reference?: string | null;
+    payer_phone?: string | null;
+    status?: string;
+    admin_notes?: string | null;
+    signed_url?: string | null;
+    created_at?: string | null;
+  } | null;
   raw_response?: {
     payer_phone?: string;
     receipt_path?: string;
@@ -88,9 +102,11 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Shipped", icon: Truck, color: "text-cyan-400" },
   { value: "delivered", label: "Delivered", icon: CheckCircle2, color: "text-green-400" },
   { value: "cancelled", label: "Cancelled", icon: XCircle, color: "text-red-400" },
+  { value: "refunded", label: "Refunded", icon: XCircle, color: "text-gray-400" },
+  { value: "partially_refunded", label: "Partially Refunded", icon: XCircle, color: "text-gray-400" },
 ] as const;
 
-type PaymentFilter = "all" | "awaiting" | "paid" | "rejected" | "cod" | "vodafone";
+type PaymentFilter = "all" | "awaiting" | "paid" | "rejected" | "cod" | "wallet";
 
 const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -98,11 +114,15 @@ const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: "paid", label: "Paid" },
   { key: "rejected", label: "Rejected" },
   { key: "cod", label: "COD" },
-  { key: "vodafone", label: "Vodafone Cash" },
+  { key: "wallet", label: "Wallet transfer" },
 ];
 
 function hasReceipt(order: Order) {
-  return Boolean(order.payment?.raw_response?.receipt_path);
+  return Boolean(
+    order.payment?.receipt?.receipt_url ||
+      order.payment?.receipt_url ||
+      order.payment?.raw_response?.receipt_path
+  );
 }
 
 function paymentRejected(payment?: Payment | null) {
@@ -115,7 +135,7 @@ function isRejected(order: Order) {
 
 function isAwaitingVerification(order: Order) {
   const payment = order.payment;
-  if (!payment || payment.provider !== "vodafone_cash") return false;
+  if (!payment || !isManualTransferProvider(payment.provider)) return false;
   if (payment.status === "pending" || payment.status === "processing") return true;
   // A failed row without an admin rejection means the reconciliation sweep
   // timed it out — it still needs a human check, and is never called "Rejected".
@@ -136,8 +156,8 @@ function matchesPaymentFilter(order: Order, filter: PaymentFilter) {
       return isRejected(order);
     case "cod":
       return order.payment?.provider === "cod";
-    case "vodafone":
-      return order.payment?.provider === "vodafone_cash";
+    case "wallet":
+      return isManualTransferProvider(order.payment?.provider);
     default:
       return true;
   }
@@ -155,12 +175,13 @@ function paymentBadge(order: Order) {
     };
   }
 
-  if (payment.provider === "vodafone_cash") {
+  if (isManualTransferProvider(payment.provider)) {
+    const label = paymentProviderLabel(payment.provider);
     if (paymentRejected(payment)) {
       return {
         icon: XCircle,
         className: `${BADGE_BASE} text-red-300 bg-red-950/40 border-red-500/40`,
-        label: "Vodafone Cash",
+        label,
         detail: "Rejected",
       };
     }
@@ -168,7 +189,7 @@ function paymentBadge(order: Order) {
       return {
         icon: Smartphone,
         className: `${BADGE_BASE} text-amber-300 bg-amber-950/40 border-amber-500/40`,
-        label: "Vodafone Cash",
+        label,
         detail: "Awaiting verification",
       };
     }
@@ -176,7 +197,7 @@ function paymentBadge(order: Order) {
       return {
         icon: Wallet,
         className: `${BADGE_BASE} text-emerald-300 bg-emerald-950/40 border-emerald-500/40`,
-        label: "Vodafone Cash",
+        label,
         detail: "Paid",
       };
     }
@@ -286,6 +307,33 @@ export default function AdminOrdersPage() {
     },
   });
 
+  // The receiving account the admin configured in Settings. Shown next to each
+  // transfer so the reviewer can cross-check it against the money received.
+  const walletSettingsQuery = useQuery({
+    queryKey: ["admin", "settings", "external-wallet"],
+    enabled: isAdmin,
+    retry: false,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch("/api/admin/settings", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(apiErrorMessage(res.status, data, "Failed to load wallet settings"));
+      }
+      const raw = data.settings?.external_wallet;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+      const settings = raw as Record<string, unknown>;
+      return {
+        provider_name: typeof settings.provider_name === "string" ? settings.provider_name : "",
+        account_name: typeof settings.account_name === "string" ? settings.account_name : "",
+        account_number: typeof settings.account_number === "string" ? settings.account_number : "",
+        enabled: settings.enabled === true,
+      };
+    },
+  });
+
   const statusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
       const token = await getToken();
@@ -343,6 +391,38 @@ export default function AdminOrdersPage() {
     },
   });
 
+  const collectCodMutation = useMutation({
+    mutationFn: async ({
+      paymentId,
+      orderId,
+    }: {
+      paymentId: string;
+      orderId: string;
+    }) => {
+      const token = await getToken();
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: "mark_cod_collected",
+          payment_id: paymentId,
+          order_id: orderId,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(apiErrorMessage(res.status, data, "Failed to record the cash collection"));
+      }
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+  });
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -385,11 +465,13 @@ export default function AdminOrdersPage() {
   }
 
   const orders = ordersQuery.data ?? [];
+  const walletAccount = walletSettingsQuery.data ?? null;
   const filteredOrders = orders.filter(
     (order) => matchesPaymentFilter(order, paymentFilter) && (statusFilter === "all" || order.status === statusFilter)
   );
   const countFor = (filter: PaymentFilter) => orders.filter((order) => matchesPaymentFilter(order, filter)).length;
-  const verificationError = statusMutation.error ?? verifyMutation.error ?? null;
+  const verificationError =
+    statusMutation.error ?? verifyMutation.error ?? collectCodMutation.error ?? null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-28 pb-20">
@@ -484,8 +566,19 @@ export default function AdminOrdersPage() {
             const paymentRow = order.payment;
             const awaiting = isAwaitingVerification(order);
             const rejected = isRejected(order);
+            const previousAttempts = (order.payments ?? []).filter(
+              (attempt) =>
+                isManualTransferProvider(attempt.provider) && attempt.id !== paymentRow?.id
+            );
             const canVerify = Boolean(paymentRow && awaiting && hasReceipt(order));
-            const busy = statusMutation.isPending || verifyMutation.isPending;
+            const canCollectCod =
+              paymentRow?.provider === "cod" &&
+              paymentRow.status === "pending" &&
+              !["cancelled", "refunded", "partially_refunded"].includes(order.status);
+            const busy =
+              statusMutation.isPending ||
+              verifyMutation.isPending ||
+              collectCodMutation.isPending;
 
             return (
               <div key={order.id} className="glass-strong rounded-2xl p-5 hover:pink-glow transition-all">
@@ -533,13 +626,13 @@ export default function AdminOrdersPage() {
                   </span>
                 </div>
 
-                {/* Vodafone Cash: transfer details awaiting admin verification */}
-                {paymentRow?.provider === "vodafone_cash" && (
-                  <div className="glass rounded-xl p-4 mb-4 space-y-3" data-testid="vodafone-panel">
+                {/* Wallet transfer: details awaiting admin verification */}
+                {paymentRow && isManualTransferProvider(paymentRow.provider) && (
+                  <div className="glass rounded-xl p-4 mb-4 space-y-3" data-testid="wallet-transfer-panel">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-sm flex items-center gap-2">
                         <Smartphone className="h-4 w-4 text-emerald-400" aria-hidden="true" />
-                        Vodafone Cash transfer
+                        {paymentProviderLabel(paymentRow?.provider)} transfer
                       </p>
                       <span className="text-xs font-semibold px-2 py-1 rounded-lg border border-white/10 text-muted-foreground">
                         {awaiting
@@ -560,22 +653,33 @@ export default function AdminOrdersPage() {
                       <div>
                         <p className="text-xs text-muted-foreground">Amount due</p>
                         <p className="font-extrabold text-gradient-gold" data-testid="admin-amount-due">
-                          {formatCurrency(paymentRow.amount ?? order.total)}
+                          {formatCurrency(paymentRow.amount ?? order.total, order.currency)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Transfer reference</p>
-                        <p className="font-mono font-semibold">{paymentRow.provider_payment_id || "—"}</p>
+                        <p className="font-mono font-semibold">
+                          {paymentRow.receipt?.transfer_reference ||
+                            paymentRow.provider_payment_id ||
+                            "—"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Payer phone</p>
-                        <p className="font-mono">{paymentRow.raw_response?.payer_phone || "—"}</p>
+                        <p className="font-mono">
+                          {paymentRow.receipt?.payer_phone ||
+                            paymentRow.raw_response?.payer_phone ||
+                            "—"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Receipt uploaded</p>
                         <p>
-                          {paymentRow.raw_response?.uploaded_at
-                            ? new Date(paymentRow.raw_response.uploaded_at).toLocaleString()
+                          {paymentRow.receipt?.created_at || paymentRow.raw_response?.uploaded_at
+                            ? new Date(
+                                (paymentRow.receipt?.created_at ||
+                                  paymentRow.raw_response?.uploaded_at) as string
+                              ).toLocaleString()
                             : "—"}
                         </p>
                       </div>
@@ -583,36 +687,141 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-muted-foreground">Order</p>
                         <p className="font-mono text-xs">{order.order_number}</p>
                       </div>
+                      {walletAccount?.enabled && walletAccount.account_number && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Receiving account</p>
+                          <p className="font-mono font-semibold" data-testid="admin-receiving-account">
+                            {walletAccount.account_number}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {[
+                              walletAccount.account_name,
+                              walletAccount.provider_name || null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    {paymentRow.receipt_url ? (
+                    {paymentRow.receipt_url || paymentRow.receipt?.signed_url ? (
                       <ReceiptViewer
-                        src={paymentRow.receipt_url}
+                        src={paymentRow.receipt?.signed_url || paymentRow.receipt_url || ""}
                         alt={`Transfer receipt for order ${order.order_number || order.id.slice(0, 8)}`}
                         label="Open receipt"
                         className="max-w-md"
                         meta={[
                           { label: "Order", value: order.order_number || order.id.slice(0, 8) },
-                          { label: "Amount due", value: formatCurrency(paymentRow.amount ?? order.total) },
-                          { label: "Reference", value: paymentRow.provider_payment_id || null },
-                          { label: "Payer", value: paymentRow.raw_response?.payer_phone || null },
+                          {
+                            label: "Amount due",
+                            value: formatCurrency(
+                              paymentRow.amount ?? order.total,
+                              order.currency
+                            ),
+                          },
+                          {
+                            label: "Reference",
+                            value:
+                              paymentRow.receipt?.transfer_reference ||
+                              paymentRow.provider_payment_id ||
+                              null,
+                          },
+                          {
+                            label: "Payer",
+                            value:
+                              paymentRow.receipt?.payer_phone ||
+                              paymentRow.raw_response?.payer_phone ||
+                              null,
+                          },
                         ]}
                       />
                     ) : (
                       <div className="flex items-start gap-2 rounded-xl bg-amber-950/40 border border-amber-500/30 p-3 text-xs text-amber-200">
                         <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                         <p>
-                          {paymentRow.raw_response?.receipt_path
+                          {hasReceipt(order)
                             ? "The receipt image could not be loaded. Ask the customer to resend it before verifying."
                             : "The customer has not uploaded a receipt yet. Verification stays open until one arrives."}
                         </p>
                       </div>
                     )}
 
-                    {(paymentRow.raw_response?.verify_note || paymentRow.raw_response?.rejection_reason) && (
+                    {(paymentRow.receipt?.admin_notes ||
+                      paymentRow.raw_response?.verify_note ||
+                      paymentRow.raw_response?.rejection_reason) && (
                       <p className="text-xs text-muted-foreground">
-                        Note: {paymentRow.raw_response?.verify_note || paymentRow.raw_response?.rejection_reason}
+                        Note:{" "}
+                        {paymentRow.receipt?.admin_notes ||
+                          paymentRow.raw_response?.verify_note ||
+                          paymentRow.raw_response?.rejection_reason}
                       </p>
+                    )}
+
+                    {/* Every earlier transfer attempt stays on record — nothing
+                        is deleted when a receipt is rejected or superseded. */}
+                    {previousAttempts.length > 0 && (
+                      <details className="text-xs" data-testid="transfer-attempts-history">
+                        <summary className="cursor-pointer text-muted-foreground font-semibold">
+                          Previous transfer attempts ({previousAttempts.length})
+                        </summary>
+                        <ul className="mt-2 space-y-2">
+                          {previousAttempts.map((attempt) => {
+                            const attemptRejected = paymentRejected(attempt);
+                            const stateLabel =
+                              attempt.status === "succeeded"
+                                ? "Verified"
+                                : attemptRejected
+                                  ? "Rejected"
+                                  : attempt.status === "failed"
+                                    ? "Timed out — needs review"
+                                    : attempt.status === "pending" ||
+                                        attempt.status === "processing"
+                                      ? "Awaiting verification"
+                                      : attempt.status;
+                            return (
+                              <li
+                                key={attempt.id ?? `${attempt.created_at}-${attempt.provider}`}
+                                className="glass rounded-lg p-2 space-y-1"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-muted-foreground">
+                                    {attempt.created_at
+                                      ? new Date(attempt.created_at).toLocaleString()
+                                      : "—"}
+                                  </span>
+                                  <span
+                                    className={`font-semibold ${
+                                      attempt.status === "succeeded"
+                                        ? "text-emerald-300"
+                                        : attemptRejected
+                                          ? "text-red-300"
+                                          : "text-amber-300"
+                                    }`}
+                                  >
+                                    {stateLabel}
+                                  </span>
+                                </div>
+                                <p className="text-muted-foreground">
+                                  Reference:{" "}
+                                  <span className="font-mono">
+                                    {attempt.provider_payment_id || "—"}
+                                  </span>{" "}
+                                  · Payer:{" "}
+                                  <span className="font-mono">
+                                    {attempt.raw_response?.payer_phone || "—"}
+                                  </span>
+                                </p>
+                                {attempt.raw_response?.verify_note && (
+                                  <p className="text-muted-foreground">
+                                    Note: {attempt.raw_response.verify_note}
+                                  </p>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </details>
                     )}
 
                     {canVerify && rejectingId !== order.id && (
@@ -690,6 +899,62 @@ export default function AdminOrdersPage() {
                   </div>
                 )}
 
+                {/* Cash on delivery: record the cash only after it is collected */}
+                {paymentRow?.provider === "cod" && (
+                  <div className="glass rounded-xl p-4 mb-4 space-y-3" data-testid="cod-panel">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-sm flex items-center gap-2">
+                        <Banknote className="h-4 w-4 text-amber-400" aria-hidden="true" />
+                        Cash on delivery
+                      </p>
+                      <span className="text-xs font-semibold px-2 py-1 rounded-lg border border-white/10 text-muted-foreground">
+                        {paymentRow.status === "succeeded" ? "Cash collected" : "Due on delivery"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Amount to collect</p>
+                        <p className="font-extrabold text-gradient-gold">
+                          {formatCurrency(paymentRow.amount ?? order.total, order.currency)}
+                        </p>
+                      </div>
+                      {canCollectCod && paymentRow.id && (
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Record ${formatCurrency(
+                                  paymentRow.amount ?? order.total,
+                                  order.currency
+                                )} as collected in cash?\n\nOnly do this after the courier has the cash.`
+                              )
+                            ) {
+                              collectCodMutation.mutate({
+                                paymentId: paymentRow.id as string,
+                                orderId: order.id,
+                              });
+                            }
+                          }}
+                          disabled={busy}
+                          className="h-10 px-4 rounded-xl bg-emerald-600 text-white text-sm font-bold flex items-center gap-2 hover:bg-emerald-500 transition-colors disabled:opacity-60"
+                        >
+                          {collectCodMutation.isPending &&
+                          collectCodMutation.variables?.paymentId === paymentRow.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-label="Recording cash" />
+                          ) : (
+                            <Banknote className="h-4 w-4" aria-hidden="true" />
+                          )}
+                          Mark cash collected
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The order is marked paid only after this action is recorded. Do not use it
+                      before the cash is physically collected.
+                    </p>
+                  </div>
+                )}
+
                 {order.shipping_address_snapshot && (
                   <div className="glass rounded-xl p-3 mb-4 text-sm">
                     <p className="font-semibold">{order.shipping_address_snapshot.full_name}</p>
@@ -707,7 +972,9 @@ export default function AdminOrdersPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-xl font-extrabold text-gradient-gold">{formatCurrency(order.total)}</p>
+                    <p className="text-xl font-extrabold text-gradient-gold">
+                      {formatCurrency(order.total, order.currency)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -744,11 +1011,18 @@ export default function AdminOrdersPage() {
             <dl className="glass rounded-xl p-4 text-sm space-y-1">
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Order total</dt>
-                <dd className="font-extrabold text-gradient-gold">{formatCurrency(confirming.total)}</dd>
+                <dd className="font-extrabold text-gradient-gold">
+                  {formatCurrency(confirming.total, confirming.currency)}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Payment requested</dt>
-                <dd className="font-semibold">{formatCurrency(confirming.payment?.amount ?? confirming.total)}</dd>
+                <dd className="font-semibold">
+                  {formatCurrency(
+                    confirming.payment?.amount ?? confirming.total,
+                    confirming.currency
+                  )}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Transfer reference</dt>

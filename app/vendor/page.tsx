@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/app/lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 import {
   DollarSign,
   ShoppingBag,
   Package,
-  TrendingUp,
   Truck,
-  Printer,
-  Star,
 } from "lucide-react";
 
 type DashboardData = {
@@ -28,26 +25,27 @@ type DashboardData = {
   }>;
   top_products: Array<{
     product_name: string;
-    total_sold: number;
-    total_revenue: number;
+    units_sold: number;
+    revenue: number;
   }>;
   pending_shipments: Array<{
-    id: string;
+    shipment_id: string;
     order_id: string;
     status: string;
   }>;
   printing_queue: Array<{
-    id: string;
+    print_job_id: string;
     status: string;
   }>;
   conversion_metrics: {
-    conversion_rate?: number;
-    view_to_cart_rate?: number;
+    conversion_rate_pct?: number;
+    units_sold?: number;
   };
   refund_rate: {
-    refund_rate?: number;
-    total_refunds?: number;
+    refund_rate_pct?: number;
+    refunded_items?: number;
   };
+  products: Array<{ id: string; is_active: boolean }>;
 };
 
 export default function VendorDashboardPage() {
@@ -55,11 +53,7 @@ export default function VendorDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
       const token = await getToken();
       const res = await fetch("/api/vendor/stats", {
@@ -72,7 +66,11 @@ export default function VendorDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
   if (loading) {
     return (
@@ -108,7 +106,7 @@ export default function VendorDashboardPage() {
     },
     {
       label: "Active Products",
-      value: d.active_products || d.total_products || 0,
+      value: (data?.products || []).filter((product) => product.is_active).length,
       icon: Package,
       color: "text-purple-400",
       bg: "bg-purple-400/10",
@@ -164,10 +162,10 @@ export default function VendorDashboardPage() {
                       <span className="text-sm font-medium text-white">{product.product_name}</span>
                     </td>
                     <td className="py-4 text-right">
-                      <span className="text-sm text-gray-400">{product.total_sold}</span>
+                      <span className="text-sm text-gray-400">{product.units_sold}</span>
                     </td>
                     <td className="py-4 text-right">
-                      <span className="text-sm font-semibold text-white">{formatCurrency(product.total_revenue)}</span>
+                      <span className="text-sm font-semibold text-white">{formatCurrency(product.revenue)}</span>
                     </td>
                   </tr>
                 ))}
@@ -183,7 +181,7 @@ export default function VendorDashboardPage() {
           <h2 className="text-lg font-semibold text-white mb-4">Pending Shipments</h2>
           <div className="space-y-3">
             {data.pending_shipments.map((shipment) => (
-              <div key={shipment.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02]">
+              <div key={shipment.shipment_id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02]">
                 <div>
                   <span className="text-sm font-medium text-white">Order #{shipment.order_id.slice(0, 8)}</span>
                   <span className="text-xs text-gray-500 block">{shipment.status}</span>
@@ -205,11 +203,11 @@ export default function VendorDashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-400">Conversion Rate</span>
-                <span className="text-sm font-semibold text-white">{data.conversion_metrics.conversion_rate || 0}%</span>
+                <span className="text-sm font-semibold text-white">{data.conversion_metrics.conversion_rate_pct || 0}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-400">View to Cart Rate</span>
-                <span className="text-sm font-semibold text-white">{data.conversion_metrics.view_to_cart_rate || 0}%</span>
+                <span className="text-sm text-gray-400">Units Sold</span>
+                <span className="text-sm font-semibold text-white">{data.conversion_metrics.units_sold || 0}</span>
               </div>
             </div>
           </div>
@@ -221,11 +219,11 @@ export default function VendorDashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-400">Refund Rate</span>
-                <span className="text-sm font-semibold text-white">{data.refund_rate.refund_rate || 0}%</span>
+                <span className="text-sm font-semibold text-white">{data.refund_rate.refund_rate_pct || 0}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-400">Total Refunds</span>
-                <span className="text-sm font-semibold text-white">{data.refund_rate.total_refunds || 0}</span>
+                <span className="text-sm text-gray-400">Refunded Items</span>
+                <span className="text-sm font-semibold text-white">{data.refund_rate.refunded_items || 0}</span>
               </div>
             </div>
           </div>

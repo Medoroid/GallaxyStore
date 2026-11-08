@@ -1,11 +1,13 @@
 import { Shield, Lock, Eye, Database, Cookie, Mail } from "lucide-react";
+import { getPublicStoreSettings } from "@/lib/storeSettings";
 
 export const metadata = {
   title: "Privacy Policy",
   description: "Learn how we collect, use, and protect your personal information.",
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const settings = await getPublicStoreSettings();
   return (
     <div className="mx-auto max-w-4xl px-4 pt-28 pb-20">
       <header className="text-center mb-12">
@@ -39,7 +41,10 @@ export default function PrivacyPage() {
                 <li>Name and email address</li>
                 <li>Shipping and billing address</li>
                 <li>Phone number</li>
-                <li>Payment information (processed securely via Stripe)</li>
+                <li>
+                  Payment information: cash-on-delivery status or a private wallet-transfer receipt
+                  image and transfer reference
+                </li>
               </ul>
             </div>
             <div>
@@ -85,8 +90,9 @@ export default function PrivacyPage() {
           </h2>
           <p className="text-muted-foreground leading-relaxed text-sm">
             We implement industry-standard security measures to protect your personal information.
-            All payment transactions are processed through Stripe, which uses PCI-compliant encryption.
-            However, no method of transmission over the Internet is 100% secure.
+            We never store card numbers or wallet passwords. Wallet transfer receipts are kept in a
+            private storage bucket and are accessible only to the order owner and authorized store
+            staff. However, no method of transmission over the Internet is 100% secure.
           </p>
         </section>
 
@@ -107,8 +113,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-extrabold mb-4">Third-Party Services</h2>
           <ul className="space-y-2 text-muted-foreground text-sm">
             {[
-              { name: "Supabase", purpose: "Authentication and database" },
-              { name: "Stripe", purpose: "Payment processing" },
+              { name: "Supabase", purpose: "Authentication, database and private receipt storage" },
               { name: "Vercel", purpose: "Hosting and analytics" },
             ].map((item) => (
               <li key={item.name} className="flex items-start gap-2">
@@ -141,12 +146,24 @@ export default function PrivacyPage() {
           </ul>
         </section>
 
-        {/* Contact */}
+        {/* Contact — the address comes from store_settings; no invented inbox */}
         <section className="glass rounded-xl p-6 text-center">
           <Mail className="h-8 w-8 mx-auto text-accent mb-3" />
           <p className="font-bold mb-1">Questions about Privacy?</p>
           <p className="text-sm text-muted-foreground mb-4">
-            Contact us at <a href="mailto:privacy@galaxystore.com" className="text-secondary hover:text-secondary/80">privacy@galaxystore.com</a>
+            {settings.support_email ? (
+              <>
+                Contact us at{" "}
+                <a href={`mailto:${settings.support_email}`} className="text-secondary hover:text-secondary/80">
+                  {settings.support_email}
+                </a>
+              </>
+            ) : (
+              <>
+                Use the <a href="/contact" className="text-secondary hover:text-secondary/80">contact page</a> to
+                reach the team.
+              </>
+            )}
           </p>
         </section>
       </div>

@@ -8,6 +8,7 @@
 /** Exact provider values used by the payments table / API contract. */
 export const PAYMENT_PROVIDERS = [
   "cod",
+  "external_wallet",
   "vodafone_cash",
   "stripe",
   "paymob",
@@ -24,6 +25,8 @@ const PROVIDER_ALIASES: Record<string, PaymentProvider> = {
   vodafone: "vodafone_cash",
   vodafonecash: "vodafone_cash",
   voda_cash: "vodafone_cash",
+  wallet_transfer: "external_wallet",
+  mobile_wallet: "external_wallet",
 };
 
 export function toPaymentProvider(value: unknown): PaymentProvider | null {
@@ -41,6 +44,7 @@ export function isPaymentProvider(value: unknown): value is PaymentProvider {
 
 export const PAYMENT_PROVIDER_LABELS: Record<PaymentProvider, string> = {
   cod: "Cash on Delivery",
+  external_wallet: "Mobile wallet transfer",
   vodafone_cash: "Vodafone Cash",
   stripe: "Credit/Debit Card (Stripe)",
   paymob: "Paymob",
@@ -51,6 +55,56 @@ export function paymentProviderLabel(value: unknown): string {
   const provider = toPaymentProvider(value);
   if (provider) return PAYMENT_PROVIDER_LABELS[provider];
   return typeof value === "string" && value.trim() ? value : "Not recorded";
+}
+
+/** Both current and historical manual-transfer providers use a receipt. */
+export function isManualTransferProvider(value: unknown): boolean {
+  const provider = toPaymentProvider(value);
+  return provider === "external_wallet" || provider === "vodafone_cash";
+}
+
+export type ExternalWalletSettings = {
+  enabled: boolean;
+  provider_name: string;
+  account_name: string;
+  account_number: string;
+  instructions: string;
+  /** Present when the server knows why wallet transfers cannot be used yet. */
+  availability_message?: string | null;
+};
+
+export const EMPTY_EXTERNAL_WALLET_SETTINGS: ExternalWalletSettings = {
+  enabled: false,
+  provider_name: "",
+  account_name: "",
+  account_number: "",
+  instructions: "",
+  availability_message: null,
+};
+
+export function isExternalWalletSettings(value: unknown): value is ExternalWalletSettings {
+  if (!value || typeof value !== "object") return false;
+  const raw = value as Record<string, unknown>;
+  return (
+    typeof raw.enabled === "boolean" &&
+    typeof raw.provider_name === "string" &&
+    typeof raw.account_name === "string" &&
+    typeof raw.account_number === "string" &&
+    typeof raw.instructions === "string" &&
+    (raw.availability_message === undefined ||
+      raw.availability_message === null ||
+      typeof raw.availability_message === "string")
+  );
+}
+
+export function isExternalWalletEnabled(value: unknown): boolean {
+  return Boolean(
+    isExternalWalletSettings(value) &&
+      value.enabled &&
+      value.provider_name.trim() &&
+      value.account_name.trim() &&
+      value.account_number.trim()
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -141,10 +195,10 @@ export function getRejectionReason(payment: PaymentAttempt | null | undefined): 
 }
 
 /* ------------------------------------------------------------------ *
- * Vodafone Cash verification state
+ * Manual-transfer verification state (external wallet + legacy Vodafone)
  * ------------------------------------------------------------------ */
 
-export type VodafoneState =
+export type TransferState =
   /** Nothing to verify yet — the order is waiting for its first receipt. */
   | "receipt_required"
   /** A receipt exists and the team has not decided yet. */
@@ -155,25 +209,51 @@ export type VodafoneState =
   | "rejected"
   /** `failed` without an admin rejection (e.g. reconciliation timeout). */
   | "timed_out"
-  /** Not a Vodafone Cash order. */
+  /** Not a manual-transfer order. */
   | "not_applicable";
 
-export function getVodafoneState(input: {
+/** Backwards-compatible name used by older tests/imports. */
+export type VodafoneState = TransferState;
+
+/** Pick the transfer attempt for an order, preferring its persisted method. */
+export function pickTransferPayment(
+  payments: PaymentAttempt[] | null | undefined,
+  preferredProvider?: PaymentProvider | null
+): PaymentAttempt | null {
+  const pool = (payments ?? []).filter((payment) =>
+    isManualTransferProvider(payment.provider)
+  );
+  if (pool.length === 0) return null;
+
+  if (preferredProvider && isManualTransferProvider(preferredProvider)) {
+    const scoped = pool.filter(
+      (payment) => toPaymentProvider(payment.provider) === preferredProvider
+    );
+    if (scoped.length > 0) return pickPayment(scoped);
+  }
+
+  return pickPayment(pool);
+}
+
+export function getTransferState(input: {
   orderStatus?: string | null;
   payment?: PaymentAttempt | null;
-  /** See `rememberVodafoneOrder` — client hint only, never authoritative. */
+  /** Authoritative once the order row carries `payment_method`. */
+  paymentMethod?: PaymentProvider | string | null;
+  /** Legacy client hint for historical orders with no payment row yet. */
   hintedVodafone?: boolean;
-}): VodafoneState {
+}): TransferState {
   const payment = input.payment ?? null;
-  const provider = payment ? toPaymentProvider(payment.provider) : null;
+  const method = toPaymentProvider(input.paymentMethod);
 
   if (!payment) {
-    // No attempt recorded at all while the order still awaits payment.
-    return input.orderStatus === "pending" && input.hintedVodafone
-      ? "receipt_required"
-      : "not_applicable";
+    const pending = input.orderStatus === "pending";
+    if (!pending) return "not_applicable";
+    if (isManualTransferProvider(method)) return "receipt_required";
+    return input.hintedVodafone ? "receipt_required" : "not_applicable";
   }
-  if (provider !== "vodafone_cash") return "not_applicable";
+
+  if (!isManualTransferProvider(payment.provider)) return "not_applicable";
 
   switch (payment.status) {
     case "pending":
@@ -188,35 +268,62 @@ export function getVodafoneState(input: {
   }
 }
 
+/** Legacy wrapper retained for older order pages/tests. */
+export function getVodafoneState(input: {
+  orderStatus?: string | null;
+  payment?: PaymentAttempt | null;
+  hintedVodafone?: boolean;
+}): VodafoneState {
+  return getTransferState({
+    orderStatus: input.orderStatus,
+    payment: input.payment,
+    paymentMethod: input.payment
+      ? undefined
+      : input.hintedVodafone
+        ? "vodafone_cash"
+        : undefined,
+    hintedVodafone: input.hintedVodafone,
+  });
+}
+
 /** Can the customer upload (or re-upload) a receipt for this order? */
 export function canSubmitReceipt(input: {
   orderStatus?: string | null;
   payments?: PaymentAttempt[] | null;
+  paymentMethod?: PaymentProvider | string | null;
   hintedVodafone?: boolean;
 }): boolean {
   if (input.orderStatus !== "pending") return false;
 
   const payments = input.payments ?? [];
+  const method = toPaymentProvider(input.paymentMethod);
+
+  if (method === "cod") return false;
   if (payments.some((p) => toPaymentProvider(p.provider) === "cod")) return false;
 
-  const vodafone = pickPayment(payments, "vodafone_cash");
-  if (!vodafone) return Boolean(input.hintedVodafone);
+  const transfer = pickTransferPayment(payments, method);
+  if (!transfer) {
+    return isManualTransferProvider(method) || Boolean(input.hintedVodafone);
+  }
 
-  const state = getVodafoneState({ orderStatus: input.orderStatus, payment: vodafone });
+  const state = getTransferState({
+    orderStatus: input.orderStatus,
+    payment: transfer,
+    paymentMethod: method,
+  });
   return state === "rejected" || state === "timed_out";
 }
 
 /* ------------------------------------------------------------------ *
- * Client-side "this order is a Vodafone order" hint
+ * Legacy client-side Vodafone hint
  * ------------------------------------------------------------------
- * GAP: `orders` has no `payment_method` column, so before the first receipt
- * is submitted the API cannot tell a Vodafone order from a card order (card
- * payments only write a `payments` row once Stripe's webhook fires).
+ * Historical builds stored a non-authoritative local hint because orders had
+ * no payment method column. New orders persist `orders.payment_method` once
+ * migration 20261028 is applied and never rely on this value.
  *
- * Until the backend owns that field, checkout stores a *non-authoritative*
- * local hint so "I'll submit the receipt later" can still offer the uploader
- * on /orders/{id}. Nothing here decides success, amount or ownership — the
- * backend validates every submission regardless of the hint.
+ * The helpers remain for older localStorage entries and compatibility tests.
+ * Nothing here decides success, amount or ownership — the backend validates
+ * every submission regardless of the hint.
  */
 
 const VODAFONE_HINT_KEY = "galaxy:vodafone-hint:";
@@ -259,8 +366,8 @@ export function isVodafoneHintedOrder(orderId: string): boolean {
 
 export type Tone = "amber" | "emerald" | "red" | "slate";
 
-export const VODAFONE_STATE_COPY: Record<
-  VodafoneState,
+export const TRANSFER_STATE_COPY: Record<
+  TransferState,
   { badge: string; tone: Tone; title: string; body: string; adminLabel: string }
 > = {
   receipt_required: {
@@ -306,6 +413,9 @@ export const VODAFONE_STATE_COPY: Record<
     adminLabel: "",
   },
 };
+
+/** Backwards-compatible alias. */
+export const VODAFONE_STATE_COPY = TRANSFER_STATE_COPY;
 
 export const TONE_CLASS: Record<Tone, { badge: string; panel: string; text: string }> = {
   amber: {

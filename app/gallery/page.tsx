@@ -1,6 +1,5 @@
 "use client";
-import Image from "next/image";
-import { products } from "@/data/products";
+import { SafeImage } from "@/app/components/SafeImage";
 import { Eye } from "lucide-react";
 import useGetGallary from "../hooks/useGetGallary";
 import Spinner from "../components/spinner";
@@ -10,23 +9,18 @@ const heights = [
   "h-80", "h-64", "h-[26rem]", "h-72", "h-80", "h-96",
 ];
 
+/**
+ * B4/A3 — the gallery shows only real entries from the `gallery_images`
+ * table. The previously mixed-in Unsplash stock photos and the fabricated
+ * before/after section were removed: we never present stock imagery as
+ * "prints we've shipped".
+ */
+type GalleryImage = { id: string; image_url: string; title: string; category: string };
+
 export default function Gallery() {
   const { isLoading, data: galleryImages, error } = useGetGallary();
 
-  const allImages = [
-    ...(galleryImages ?? []).map((img: { id: string; image_url: string; title: string; category: string }) => ({
-      id: img.id,
-      image: img.image_url,
-      title: img.title,
-      category: img.category,
-    })),
-    ...products.map((p) => ({
-      id: p.name,
-      image: p.image,
-      title: p.name,
-      category: p.category,
-    })),
-  ].slice(0, 16);
+  const allImages: GalleryImage[] = (galleryImages ?? []) as GalleryImage[];
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-24">
@@ -38,7 +32,7 @@ export default function Gallery() {
           Our Print <span className="text-gradient-neon">Gallery</span>
         </h1>
         <p className="text-muted-foreground mt-3">
-          A glimpse at recent custom prints we&apos;ve shipped across the galaxy.
+          Real custom prints from our studio.
         </p>
       </header>
 
@@ -50,6 +44,11 @@ export default function Gallery() {
 
       {isLoading ? (
         <Spinner />
+      ) : allImages.length === 0 && !error ? (
+        <div className="mt-10 glass rounded-2xl p-10 text-center text-sm text-muted-foreground">
+          No gallery images have been published yet. Check back soon — or start designing your
+          own print in the <a href="/custom-print" className="text-secondary hover:text-foreground">Custom Print Studio</a>.
+        </div>
       ) : (
         <div className="mt-10 columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
           {allImages.map((p, i) => (
@@ -59,8 +58,8 @@ export default function Gallery() {
                 heights[i % heights.length]
               }`}
             >
-              <Image
-                src={p.image ?? "/product-tshirt.jpg"}
+              <SafeImage
+                src={p.image_url || "/product-tshirt.jpg"}
                 alt={p.title || "Gallery Image"}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -76,45 +75,15 @@ export default function Gallery() {
                     )}
                     <p className="font-semibold">{p.title}</p>
                   </div>
-                  <button className="h-10 w-10 rounded-full bg-gradient-neon grid place-items-center text-white">
+                  <span className="h-10 w-10 rounded-full bg-gradient-neon grid place-items-center text-white">
                     <Eye className="h-4 w-4" />
-                  </button>
+                  </span>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      <section className="mt-20 grid md:grid-cols-2 gap-6">
-        <BeforeAfter
-          label="Plain Tee → Neon Galaxy Print"
-          image={products[0].image}
-        />
-        <BeforeAfter
-          label="Blank Mug → Cosmic Glow Mug"
-          image={products[1].image}
-        />
-      </section>
-    </div>
-  );
-}
-
-function BeforeAfter({ label, image }: { label: string; image: string }) {
-  return (
-    <div className="glass-strong rounded-3xl p-5">
-      <p className="text-xs uppercase tracking-widest text-secondary font-semibold mb-3">
-        Before / After
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="aspect-square rounded-2xl bg-background/60 grid place-items-center text-muted-foreground text-sm border border-dashed border-white/15">
-          Blank
-        </div>
-        <div className="relative aspect-square rounded-2xl overflow-hidden pink-glow">
-          <Image src={image} alt="" fill sizes="50vw" className="object-cover" />
-        </div>
-      </div>
-      <p className="mt-3 font-semibold">{label}</p>
     </div>
   );
 }

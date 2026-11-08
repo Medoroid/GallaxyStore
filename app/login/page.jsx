@@ -80,7 +80,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#1a0a24] flex items-center justify-center p-6">
+    <div className="min-h-screen w-full flex items-center justify-center p-6">
       <div className="relative w-full max-w-md">
         {/* Outer glow */}
         <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-r from-purple-600/40 via-pink-500/40 to-purple-600/40 blur-2xl" />

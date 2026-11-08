@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/app/components/SafeImage";
 import {
   ArrowRight,
   Loader2,
@@ -17,22 +17,25 @@ import {
 import { useCartStore } from "../stores/cartStore";
 import { useAuth } from "../lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { computeOrderTotal } from "@/lib/checkout-calculations";
 import { ReceiptUploader } from "@/app/components/payment/ReceiptUploader";
-import { VodafoneInstructions } from "@/app/components/payment/VodafoneInstructions";
+import { ExternalWalletInstructions } from "@/app/components/payment/VodafoneInstructions";
 import { apiErrorMessage } from "@/app/lib/api-error-message";
 import {
+  EMPTY_EXTERNAL_WALLET_SETTINGS,
   formatDeliveryEstimate,
+  isExternalWalletEnabled,
+  isExternalWalletSettings,
   PAYMENT_PROVIDER_LABELS,
-  rememberVodafoneOrder,
-  resolveWalletNumber,
   toPaymentProvider,
-  type PaymentProvider,
+  type ExternalWalletSettings,
 } from "@/app/lib/payment-status";
 
-const WALLET = resolveWalletNumber();
+type CheckoutPaymentMethod = "cod" | "external_wallet";
 
 type ShippingAddress = {
   full_name: string;
+  email: string;
   phone: string;
   address: string;
   city: string;
@@ -45,38 +48,81 @@ type ShippingOption = {
   method_id: string;
   method_name: string;
   method_type?: string;
+  carrier?: string | null;
   fee: number;
   is_free: boolean;
   min_delivery_days?: number | null;
   max_delivery_days?: number | null;
 };
 
-const PAYMENT_OPTIONS: { id: PaymentProvider; label: string; desc: string }[] = [
-  { id: "cod", label: "Cash on Delivery", desc: "Pay when you receive your order" },
-  {
-    id: "stripe",
-    label: "Credit/Debit Card",
-    desc: "Pay securely online via Stripe",
-  },
-  {
-    id: "vodafone_cash",
-    label: "Vodafone Cash",
-    desc: "Transfer now, then upload your receipt for verification",
-  },
-];
+type PreviewItem = {
+  cart_item_id: string;
+  variant_id: string | null;
+  product_name: string | null;
+  quantity: number;
+  unit_price: number;
+  color: string | null;
+  size: string | null;
+};
+
+type CheckoutPreview = {
+  cart_id: string;
+  currency: string;
+  item_count: number;
+  subtotal: number;
+  discount: number;
+  stored_discount: number;
+  tax: number;
+  shipping_fee: number;
+  gift_wrap_fee: number;
+  gift_wrap_item_count: number;
+  total: number;
+  items: PreviewItem[];
+  coupon: { id: string; code: string; valid: boolean; error: string | null } | null;
+  coupon_error: string | null;
+  price_changes: Array<{
+    cart_item_id: string;
+    product_name: string | null;
+    old_price: number;
+    new_price: number;
+  }>;
+  stock_issues: Array<{
+    cart_item_id: string;
+    product_name: string | null;
+    requested: number;
+    available: number;
+  }>;
+  shipping_options: ShippingOption[];
+  selected_shipping_method_id: string | null;
+  selected_shipping_method: ShippingOption | null;
+};
+
+type PaymentOption = {
+  id: CheckoutPaymentMethod;
+  label: string;
+  desc: string;
+  disabled?: boolean;
+};
 
 export default function CheckoutPage() {
   const { user, getToken } = useAuth();
   const { items, getTotal, getCount, clearCart } = useCartStore();
-  const [step, setStep] = useState<"address" | "payment" | "confirm" | "vodafone" | "success">("address");
+  const [step, setStep] = useState<"address" | "payment" | "confirm" | "wallet" | "success">("address");
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [amountDue, setAmountDue] = useState(0);
+  const [orderCurrency, setOrderCurrency] = useState<string | null>(null);
+  const [freeOrder, setFreeOrder] = useState(false);
+  const [setupFailedOrder, setSetupFailedOrder] = useState<{
+    id: string;
+    number: string | null;
+  } | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [address, setAddress] = useState<ShippingAddress>({
     full_name: "",
+    email: "",
     phone: "",
     address: "",
     city: "",
@@ -85,18 +131,103 @@ export default function CheckoutPage() {
     country: "Egypt",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>("cod");
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("cod");
   const [notes, setNotes] = useState("");
+  const [walletSettings, setWalletSettings] = useState<ExternalWalletSettings>(
+    EMPTY_EXTERNAL_WALLET_SETTINGS
+  );
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<{
     method_id: string;
     fee: number;
   } | null>(null);
+  const [cartId, setCartId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CheckoutPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [finalTotalAdjusted, setFinalTotalAdjusted] = useState(false);
 
-  const subtotal = getTotal();
-  const shipping = selectedShipping?.fee ?? (subtotal > 500 ? 0 : 49);
-  const total = subtotal + shipping;
+  const localSubtotal = getTotal();
+  const currency = preview?.currency ?? items[0]?.currency ?? "USD";
+  // Shipping is server-owned: use the selected option's fee and never invent a
+  // fallback amount here, otherwise the displayed total would disagree with the
+  // total the checkout RPC actually charges.
+  const shipping = selectedShipping?.fee ?? preview?.shipping_fee ?? 0;
+  const subtotal = preview?.subtotal ?? localSubtotal;
+  const discount = preview?.discount ?? 0;
+  const tax = preview?.tax ?? 0;
+  const giftWrap = preview?.gift_wrap_fee ?? 0;
+  const total = computeOrderTotal({ subtotal, tax, shipping, giftWrap, discount });
+  const walletEnabled = isExternalWalletEnabled(walletSettings);
+  const previewPriceByKey = new Map(
+    (preview?.items ?? []).map((item) => [
+      `${item.variant_id ?? ""}|${item.color ?? ""}|${item.size ?? ""}`,
+      item.unit_price,
+    ])
+  );
+
+  const paymentOptions: PaymentOption[] = [
+    { id: "cod", label: "Cash on Delivery", desc: "Pay when you receive your order" },
+    {
+      id: "external_wallet",
+      label: walletSettings.provider_name
+        ? `${walletSettings.provider_name} transfer`
+        : "Mobile wallet transfer",
+      desc: walletEnabled
+        ? "Transfer now, then upload your receipt for verification"
+        : walletLoading
+          ? "Checking transfer availability…"
+          : walletSettings.availability_message || "Transfer details are not configured yet",
+      disabled: !walletEnabled,
+    },
+  ];
+
+  useEffect(() => {
+    if (!user?.email) return;
+    setAddress((prev) => (prev.email ? prev : { ...prev, email: user.email ?? "" }));
+  }, [user?.email]);
+
+  // Account details are private and server-owned. The browser only receives the
+  // display fields, and only after the user signs in.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const load = async () => {
+      setWalletLoading(true);
+      setWalletError(null);
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Please sign in again.");
+        const res = await fetch("/api/payment-methods", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(apiErrorMessage(res.status, data, "Could not load payment methods"));
+        }
+        if (cancelled) return;
+        setWalletSettings(
+          isExternalWalletSettings(data.external_wallet)
+            ? data.external_wallet
+            : EMPTY_EXTERNAL_WALLET_SETTINGS
+        );
+      } catch (error) {
+        if (cancelled) return;
+        setWalletSettings(EMPTY_EXTERNAL_WALLET_SETTINGS);
+        setWalletError(error instanceof Error ? error.message : "Could not load payment methods");
+      } finally {
+        if (!cancelled) setWalletLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, getToken]);
   // Derived from the data instead of a synchronous setState in the effect.
   const shippingLoading = step === "payment" && shippingOptions === null;
   const selectedOption =
@@ -109,7 +240,21 @@ export default function CheckoutPage() {
     if (!address.country || step !== "payment") return;
     let cancelled = false;
 
-    fetch(`/api/shipping?country=${encodeURIComponent(address.country)}&subtotal=${subtotal}`)
+    // B6 — send item ids/quantities so the server can compute the real
+    // package weight. The server never trusts a client-supplied weight.
+    const itemsParam = encodeURIComponent(
+      JSON.stringify(
+        items.map((i) => ({
+          product_id: i.product_id || null,
+          variant_id: i.variant_id || null,
+          quantity: i.quantity,
+        }))
+      )
+    );
+
+    fetch(
+      `/api/shipping?country=${encodeURIComponent(address.country)}&subtotal=${subtotal}&items=${itemsParam}`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -130,7 +275,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [address.country, step, subtotal]);
+  }, [address.country, step, subtotal, items]);
 
   if (!user) {
     return (
@@ -175,19 +320,180 @@ export default function CheckoutPage() {
     setStep("payment");
   };
 
-  const handlePaymentSubmit = () => {
-    setStep("confirm");
+  async function syncCartToServer(token: string) {
+    const cartRes = await fetch("/api/cart", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const cartData = await cartRes.json().catch(() => null);
+
+    if (!cartRes.ok || !cartData?.success || !cartData.cart_id) {
+      throw new Error(cartData?.message || "Failed to sync your cart. Please try again.");
+    }
+
+    const syncRes = await fetch("/api/cart", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        items: items.map((i) => ({
+          product_id: i.product_id,
+          variant_id: i.variant_id,
+          quantity: i.quantity,
+          price: i.price,
+          color: i.color,
+          size: i.size,
+        })),
+      }),
+    });
+    const syncData = await syncRes.json().catch(() => null);
+
+    if (!syncRes.ok || !syncData?.success) {
+      throw new Error(syncData?.message || "Failed to sync your cart. Please try again.");
+    }
+
+    const failedReasons = [
+      ...new Set(
+        (syncData.failed_items ?? []).map(
+          (f: { item?: { name?: string }; reason?: string }) =>
+            `${f.item?.name ?? "Item"}: ${f.reason ?? "unknown error"}`
+        )
+      ),
+    ];
+    const serverItemCount =
+      typeof syncData.item_count === "number" ? syncData.item_count : null;
+
+    if (failedReasons.length > 0 || serverItemCount === 0) {
+      throw new Error(
+        failedReasons.length > 0
+          ? `These items could not be added to your order: ${failedReasons.join(" | ")}`
+          : "Your cart is empty on the server. Please review your cart and try again."
+      );
+    }
+
+    setCartId(cartData.cart_id);
+    return cartData.cart_id as string;
+  }
+
+  async function fetchPreview(token: string, id: string, methodId: string | null) {
+    const response = await fetch("/api/checkout/preview", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        cart_id: id,
+        country: address.country,
+        shipping_address: address,
+        shipping_method_id: methodId,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.success) {
+      throw new Error(
+        apiErrorMessage(response.status, payload, "Could not calculate order totals")
+      );
+    }
+    return payload as CheckoutPreview;
+  }
+
+  const handlePaymentSubmit = async () => {
+    if (previewLoading) return;
+    if (paymentMethod === "external_wallet" && !walletEnabled) {
+      setMessage({
+        type: "error",
+        text: "Wallet transfers are not available right now. Please choose cash on delivery.",
+      });
+      return;
+    }
+    if (shippingOptions && shippingOptions.length > 0 && !selectedShipping) {
+      setMessage({ type: "error", text: "Please choose a shipping method." });
+      return;
+    }
+
+    setPreviewLoading(true);
+    setMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Please sign in again.");
+
+      const id = await syncCartToServer(token);
+      const nextPreview = await fetchPreview(
+        token,
+        id,
+        selectedShipping?.method_id ?? null
+      );
+      setPreview(nextPreview);
+
+      if (nextPreview.shipping_options?.length > 0) {
+        setShippingOptions(nextPreview.shipping_options);
+        const selected = nextPreview.selected_shipping_method;
+        setSelectedShipping(
+          selected ? { method_id: selected.method_id, fee: selected.fee } : null
+        );
+      }
+
+      if (nextPreview.stock_issues.length > 0) {
+        setMessage({
+          type: "error",
+          text: `Some items no longer have enough stock: ${nextPreview.stock_issues
+            .map(
+              (issue) =>
+                `${issue.product_name || "Item"} (requested ${issue.requested}, available ${issue.available})`
+            )
+            .join(", ")}. Please update your cart before continuing.`,
+        });
+        return;
+      }
+
+      if (nextPreview.coupon_error) {
+        setMessage({
+          type: "error",
+          text: `${nextPreview.coupon_error} Remove or change the coupon in your cart, then try again.`,
+        });
+        return;
+      }
+
+      if (nextPreview.price_changes.length > 0) {
+        setMessage({
+          type: "success",
+          text: "Some prices changed since you added these items. The review below uses the latest server prices.",
+        });
+      }
+
+      setStep("confirm");
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not calculate order totals. Please try again.",
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handlePlaceOrder = async () => {
     if (loading) return; // guard against a double click
 
-    // Reject unknown providers instead of silently falling back to COD.
+    // Only two methods are available. The server validates this again, so a
+    // stale tab cannot fall back to a disabled provider.
     const provider = toPaymentProvider(paymentMethod);
-    if (!provider) {
+    if (provider !== "cod" && provider !== "external_wallet") {
       setMessage({
         type: "error",
         text: `Unsupported payment method: ${String(paymentMethod)}. Please pick another option.`,
+      });
+      return;
+    }
+    if (provider === "external_wallet" && !walletEnabled) {
+      setMessage({
+        type: "error",
+        text: "Wallet transfers are not available right now. Please choose cash on delivery.",
       });
       return;
     }
@@ -201,70 +507,48 @@ export default function CheckoutPage() {
     setMessage(null);
     try {
       const token = await getToken();
-
-      // First, get or create the Supabase cart and sync items
-      const cartRes = await fetch("/api/cart", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const cartData = await cartRes.json();
-
-      if (!cartData.success || !cartData.cart_id) {
-        setMessage({ type: "error", text: "Failed to sync cart. Please try again." });
+      if (!token) {
+        setMessage({ type: "error", text: "Please sign in again." });
         setLoading(false);
         return;
       }
 
-      // Push current cart items to server before checkout
-      const syncRes = await fetch("/api/cart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          items: items.map((i) => ({
-            product_id: i.product_id,
-            variant_id: i.variant_id,
-            quantity: i.quantity,
-            price: i.price,
-            color: i.color,
-            size: i.size,
-          })),
-        }),
-      });
-      const syncData = await syncRes.json().catch(() => null);
+      const id = cartId ?? (await syncCartToServer(token));
+      let currentPreview = preview;
+      if (!currentPreview) {
+        currentPreview = await fetchPreview(
+          token,
+          id,
+          selectedShipping?.method_id ?? null
+        );
+        setPreview(currentPreview);
+      }
 
-      if (!syncRes.ok || !syncData?.success) {
+      if (currentPreview.stock_issues.length > 0) {
         setMessage({
           type: "error",
-          text: syncData?.message || "Failed to sync your cart. Please try again.",
+          text: "Some items are no longer available in the requested quantity. Please update your cart.",
+        });
+        setLoading(false);
+        return;
+      }
+      if (currentPreview.coupon_error) {
+        setMessage({
+          type: "error",
+          text: `${currentPreview.coupon_error} Remove or change the coupon in your cart, then try again.`,
         });
         setLoading(false);
         return;
       }
 
-      const failedReasons = [
-        ...new Set(
-          (syncData.failed_items ?? []).map(
-            (f: { item?: { name?: string }; reason?: string }) =>
-              `${f.item?.name ?? "Item"}: ${f.reason ?? "unknown error"}`
-          )
-        ),
-      ];
-      const serverItemCount =
-        typeof syncData.item_count === "number" ? syncData.item_count : null;
-
-      if (failedReasons.length > 0 || serverItemCount === 0) {
-        setMessage({
-          type: "error",
-          text:
-            failedReasons.length > 0
-              ? `These items could not be added to your order: ${failedReasons.join(" | ")}`
-              : "Your cart is empty on the server. Please review your cart and try again.",
-        });
-        setLoading(false);
-        return;
-      }
+      const orderShipping = selectedShipping?.fee ?? currentPreview.shipping_fee ?? 0;
+      const expectedTotal = computeOrderTotal({
+        subtotal: currentPreview.subtotal,
+        tax: currentPreview.tax,
+        shipping: orderShipping,
+        giftWrap: currentPreview.gift_wrap_fee,
+        discount: currentPreview.discount,
+      });
 
       // Create order via checkout RPC
       const orderRes = await fetch("/api/orders", {
@@ -274,10 +558,10 @@ export default function CheckoutPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          cart_id: cartData.cart_id,
+          cart_id: id,
           shipping_address: address,
           customer_note: notes || null,
-          shipping_fee: shipping,
+          shipping_fee: orderShipping,
           payment_method: provider,
           shipping_method_id: selectedShipping?.method_id || null,
         }),
@@ -286,69 +570,62 @@ export default function CheckoutPage() {
       const orderData = await orderRes.json().catch(() => null);
 
       if (!orderData?.success) {
-        setMessage({
-          type: "error",
-          text: apiErrorMessage(orderRes.status, orderData, "Failed to create order"),
-        });
+        // The order may already exist even when the request failed: the checkout
+        // RPC commits the order, then the payment RPC can still fail. The cart is
+        // already converted, so the customer cannot re-checkout — send them to the
+        // order page, where they can choose/resume a payment method.
+        if (orderData?.order_id) {
+          setOrderId(orderData.order_id);
+          setOrderNumber(orderData.order_number || null);
+          clearCart();
+          setMessage(null);
+          setSetupFailedOrder({
+            id: orderData.order_id,
+            number: orderData.order_number || null,
+          });
+          setLoading(false);
+          return;
+        }
+
+        const failure = apiErrorMessage(orderRes.status, orderData, "Failed to create order");
+        setMessage({ type: "error", text: failure });
         setLoading(false);
         return;
       }
 
       const newOrderId = orderData.order_id;
+      const actualTotal = Number(orderData.total ?? expectedTotal);
+      setOrderId(newOrderId);
+      setOrderNumber(orderData.order_number || null);
+      setAmountDue(actualTotal);
+      setOrderCurrency(orderData.currency || currency);
+      setFinalTotalAdjusted(Math.abs(actualTotal - expectedTotal) >= 0.01);
+      clearCart();
 
-      // Vodafone Cash: show the wallet number, then collect the transfer receipt
-      if (provider === "vodafone_cash") {
-        rememberVodafoneOrder(newOrderId);
-        setOrderId(newOrderId);
-        setOrderNumber(orderData.order_number || null);
-        setAmountDue(orderData.total ?? total);
+      // A fully discounted order is already settled, so there is nothing to
+      // transfer or collect. Go straight to the confirmation.
+      if (orderData.free_order) {
+        setFreeOrder(true);
         setMessage(null);
-        clearCart();
-        setStep("vodafone");
+        setStep("success");
         return;
       }
 
-      // If card payment, redirect to Stripe
-      if (provider === "stripe") {
-        const checkoutRes = await fetch("/api/checkout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            order_id: newOrderId,
-            order_number: orderData.order_number,
-            items: items.map((i) => ({
-              name: i.name,
-              price: i.price,
-              image: i.image,
-              quantity: i.quantity,
-            })),
-            total: orderData.total,
-            currency: "USD",
-          }),
-        });
-
-        const checkoutData = await checkoutRes.json();
-
-        if (checkoutData.success && checkoutData.url) {
-          clearCart();
-          window.location.href = checkoutData.url;
-          return;
-        } else {
-          setMessage({ type: "error", text: checkoutData.message || "Failed to create payment session" });
-          setLoading(false);
-          return;
-        }
+      // External wallet: show the transfer account, then collect the receipt.
+      // Uploading the receipt only creates a pending review; it never pays.
+      if (provider === "external_wallet") {
+        setMessage(null);
+        setStep("wallet");
+        return;
       }
 
-      // COD or wallet - complete directly
-      setOrderId(newOrderId);
-      clearCart();
+      // Cash on delivery: the order is placed, payment is due on delivery.
       setStep("success");
-    } catch {
-      setMessage({ type: "error", text: "Network error. Please try again." });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Network error. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -359,7 +636,8 @@ export default function CheckoutPage() {
     setStep("success");
   };
 
-  if (step === "vodafone") {
+  if (step === "wallet") {
+    const providerName = walletSettings.provider_name || "mobile wallet";
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="glass-strong rounded-3xl p-8 w-full max-w-lg space-y-5">
@@ -367,7 +645,7 @@ export default function CheckoutPage() {
             <div className="h-16 w-16 rounded-full bg-emerald-500/20 grid place-items-center mx-auto mb-3">
               <Wallet className="h-8 w-8 text-emerald-400" />
             </div>
-            <h1 className="text-2xl font-extrabold">Pay with Vodafone Cash</h1>
+            <h1 className="text-2xl font-extrabold">Pay with {providerName}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Your order is created. Transfer the amount below, then send us the receipt.
             </p>
@@ -385,14 +663,27 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <VodafoneInstructions
-            number={WALLET.number}
-            amountLabel={formatCurrency(amountDue)}
-            orderNumber={orderNumber}
-            showFileSpecs
-          />
+          {walletError ? (
+            <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
+              <p className="font-semibold">Transfer details could not be loaded.</p>
+              <p className="mt-1">{walletError}</p>
+              <p className="mt-2">
+                Please open the order and try again, or contact support before sending money.
+              </p>
+            </div>
+          ) : (
+            <ExternalWalletInstructions
+              number={walletSettings.account_number || null}
+              providerName={walletSettings.provider_name || null}
+              accountName={walletSettings.account_name || null}
+              instructions={walletSettings.instructions || null}
+              amountLabel={formatCurrency(amountDue, orderCurrency ?? currency)}
+              orderNumber={orderNumber}
+              showFileSpecs
+            />
+          )}
 
-          {orderId && (
+          {orderId && !walletError && walletEnabled && (
             <div className="border-t border-white/10 pt-4">
               <h2 className="text-sm font-extrabold mb-1">Upload your receipt</h2>
               <p className="text-xs text-muted-foreground mb-3">
@@ -411,11 +702,7 @@ export default function CheckoutPage() {
           )}
 
           <div className="text-center">
-            <Link
-              href={orderId ? `/orders/${orderId}?pay=vodafone_cash` : "/orders"}
-              onClick={() => orderId && rememberVodafoneOrder(orderId)}
-              className="text-xs text-secondary hover:underline"
-            >
+            <Link href={orderId ? `/orders/${orderId}` : "/orders"} className="text-xs text-secondary hover:underline">
               I will submit the receipt later
             </Link>
           </div>
@@ -424,44 +711,89 @@ export default function CheckoutPage() {
     );
   }
 
+  if (setupFailedOrder) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="glass-strong rounded-3xl p-8 text-center max-w-md">
+          <div className="h-20 w-20 rounded-full bg-amber-500/20 grid place-items-center mx-auto mb-4">
+            <Clock className="h-10 w-10 text-amber-400" />
+          </div>
+          <h1 className="text-2xl font-extrabold mb-2">Order Created</h1>
+          <p className="text-muted-foreground mb-4">
+            Your order was created, but we could not start the payment automatically. Open the
+            order to choose how you want to pay — nothing has been charged.
+          </p>
+          <p className="text-sm text-secondary mb-6">
+            Order:{" "}
+            <span className="font-mono">
+              {setupFailedOrder.number || `${setupFailedOrder.id.slice(0, 8)}...`}
+            </span>
+          </p>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Link
+              href={`/orders/${setupFailedOrder.id}`}
+              className="px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
+            >
+              Finish payment
+            </Link>
+            <Link
+              href="/orders"
+              className="px-6 py-3 rounded-2xl glass font-semibold hover:pink-glow transition-all"
+            >
+              View Orders
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "success") {
-    const vodafone = paymentMethod === "vodafone_cash";
+    const wallet = paymentMethod === "external_wallet" && !freeOrder;
+    const paid = freeOrder;
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="glass-strong rounded-3xl p-8 text-center max-w-md">
           <div
             className={`h-20 w-20 rounded-full grid place-items-center mx-auto mb-4 ${
-              vodafone ? "bg-amber-500/20" : "bg-green-500/20"
+              wallet ? "bg-amber-500/20" : "bg-green-500/20"
             }`}
           >
-            {vodafone ? (
+            {wallet ? (
               <Clock className="h-10 w-10 text-amber-400" />
             ) : (
               <CheckCircle2 className="h-10 w-10 text-green-400" />
             )}
           </div>
           <h1 className="text-3xl font-extrabold mb-2">
-            {vodafone ? "Receipt Submitted" : "Order Placed!"}
+            {wallet ? "Receipt Submitted" : paid ? "Order Confirmed!" : "Order Placed!"}
           </h1>
           <p className="text-muted-foreground mb-4">
-            {vodafone
+            {wallet
               ? "Your order is awaiting payment verification. We'll mark it as paid once our team confirms your transfer."
-              : "Thank you for your order. We'll send you a confirmation email shortly."}
+              : paid
+              ? "Your discount covered the full amount, so there is nothing to pay. We'll send you a confirmation email shortly."
+              : "Thank you for your order. Pay in cash when it arrives. We'll send you a confirmation email shortly."}
           </p>
           {orderId && (
-            <p className="text-sm text-secondary mb-6">
+            <p className="text-sm text-secondary mb-2">
               Order:{" "}
               <span className="font-mono">{orderNumber || `${orderId.slice(0, 8)}...`}</span>
+            </p>
+          )}
+          {finalTotalAdjusted && (
+            <p className="text-sm text-amber-300 mb-4">
+              The final total was recalculated on the server to{" "}
+              {formatCurrency(amountDue, orderCurrency ?? currency)}.
             </p>
           )}
           <div className="flex gap-3 justify-center flex-wrap">
             {orderId && (
               <Link
-                href={`/orders/${orderId}${vodafone ? "?pay=vodafone_cash" : ""}`}
-                onClick={() => vodafone && rememberVodafoneOrder(orderId)}
+                href={`/orders/${orderId}`}
                 className="px-6 py-3 rounded-2xl bg-gradient-neon text-white font-semibold hover:scale-105 transition-transform"
               >
-                {vodafone ? "Track this order" : "View Order"}
+                {wallet ? "Track this order" : "View Order"}
               </Link>
             )}
             <Link
@@ -571,6 +903,19 @@ export default function CheckoutPage() {
               </div>
 
               <div>
+                <label className="text-sm font-semibold mb-1 block">Email (for order confirmation)</label>
+                <input
+                  type="email"
+                  value={address.email}
+                  onChange={(e) => setAddress({ ...address, email: e.target.value })}
+                  className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              <div>
                 <label className="text-sm font-semibold mb-1 block">Address</label>
                 <input
                   type="text"
@@ -649,17 +994,20 @@ export default function CheckoutPage() {
               </h2>
 
               <div className="space-y-3" role="radiogroup" aria-label="Payment method">
-                {PAYMENT_OPTIONS.map((method) => (
+                {paymentOptions.map((method) => (
                   <button
                     key={method.id}
                     type="button"
                     role="radio"
                     aria-checked={paymentMethod === method.id}
-                    onClick={() => setPaymentMethod(method.id)}
+                    disabled={method.disabled}
+                    onClick={() => !method.disabled && setPaymentMethod(method.id)}
                     className={`w-full p-4 rounded-xl text-left transition-all ${
-                      paymentMethod === method.id
-                        ? "bg-gradient-neon/20 border border-secondary"
-                        : "glass hover:bg-white/5"
+                      method.disabled
+                        ? "glass opacity-50 cursor-not-allowed"
+                        : paymentMethod === method.id
+                          ? "bg-gradient-neon/20 border border-secondary"
+                          : "glass hover:bg-white/5"
                     }`}
                   >
                     <p className="font-semibold">{method.label}</p>
@@ -667,6 +1015,32 @@ export default function CheckoutPage() {
                   </button>
                 ))}
               </div>
+              {walletError && (
+                <p role="status" className="text-xs text-amber-300">
+                  Wallet transfer details could not be loaded. Cash on delivery is still available.
+                </p>
+              )}
+
+              {/* The transfer account is server-configured: show the current
+                  number before the order is placed, never a hard-coded value. */}
+              {paymentMethod === "external_wallet" && walletEnabled && !walletError && (
+                <div data-testid="checkout-wallet-preview">
+                  <p className="text-sm font-semibold mb-2">
+                    Where to send the transfer
+                  </p>
+                  <ExternalWalletInstructions
+                    number={walletSettings.account_number || null}
+                    providerName={walletSettings.provider_name || null}
+                    accountName={walletSettings.account_name || null}
+                    instructions={walletSettings.instructions || null}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    The exact amount and order number appear after the order is created. Uploading
+                    the receipt does not complete the payment — our team verifies the transfer
+                    first.
+                  </p>
+                </div>
+              )}
 
               {/* Shipping Options */}
               {shippingOptions && shippingOptions.length > 0 && (
@@ -698,7 +1072,7 @@ export default function CheckoutPage() {
                           <p className="text-sm font-bold">
                             {opt.is_free || opt.fee === 0
                               ? "Free"
-                              : formatCurrency(opt.fee)}
+                              : formatCurrency(opt.fee, currency)}
                           </p>
                         </div>
                         {estimate && (
@@ -740,10 +1114,15 @@ export default function CheckoutPage() {
                 </button>
                 <button
                   onClick={handlePaymentSubmit}
-                  className="flex-1 h-12 rounded-xl bg-gradient-neon text-white font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                  disabled={previewLoading}
+                  className="flex-1 h-12 rounded-xl bg-gradient-neon text-white font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
                 >
-                  Review Order
-                  <ArrowRight className="h-4 w-4" />
+                  {previewLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  {previewLoading ? "Calculating totals…" : "Review Order"}
                 </button>
               </div>
             </div>
@@ -758,23 +1137,35 @@ export default function CheckoutPage() {
               </h2>
 
               {/* Items */}
+              {preview && preview.price_changes.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3 text-xs text-amber-100">
+                  Some prices changed since you added these items. The line totals and order total
+                  below use the latest server prices.
+                </div>
+              )}
               <div className="space-y-3">
-                {items.map((item) => (
-                  <div key={item.id} className="glass rounded-xl p-3 flex gap-3 items-center">
-                    <div className="relative h-14 w-14 rounded-lg overflow-hidden shrink-0">
-                      <Image src={item.image} alt={item.name} fill sizes="56px" className="object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Qty: {item.quantity}
-                        {item.color && ` · ${item.color}`}
-                        {item.size && ` · ${item.size}`}
+                {items.map((item) => {
+                  const key = `${item.variant_id ?? ""}|${item.color ?? ""}|${item.size ?? ""}`;
+                  const unitPrice = previewPriceByKey.get(key) ?? item.price;
+                  return (
+                    <div key={item.id} className="glass rounded-xl p-3 flex gap-3 items-center">
+                      <div className="relative h-14 w-14 rounded-lg overflow-hidden shrink-0">
+                        <SafeImage src={item.image} alt={item.name} fill sizes="56px" className="object-cover" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Qty: {item.quantity}
+                          {item.color && ` · ${item.color}`}
+                          {item.size && ` · ${item.size}`}
+                        </p>
+                      </div>
+                      <p className="font-bold text-sm">
+                        {formatCurrency(unitPrice * item.quantity, currency)}
                       </p>
                     </div>
-                    <p className="font-bold text-sm">{formatCurrency(item.price * item.quantity)}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Address */}
@@ -791,18 +1182,14 @@ export default function CheckoutPage() {
               <div className="glass rounded-xl p-4">
                 <p className="text-xs text-muted-foreground mb-1">Payment:</p>
                 <p className="font-semibold" data-testid="confirm-payment-method">
-                  {paymentMethod === "vodafone_cash"
-                    ? "Vodafone Cash (transfer + receipt verification)"
+                  {paymentMethod === "external_wallet"
+                    ? `${walletSettings.provider_name || "Mobile wallet"} transfer (receipt verification)`
                     : PAYMENT_PROVIDER_LABELS[paymentMethod]}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {paymentMethod === "vodafone_cash"
+                  {paymentMethod === "external_wallet"
                     ? "Your order is created now and stays unpaid until our team verifies your transfer."
-                    : paymentMethod === "stripe"
-                      ? "You'll be redirected to a secure card payment page."
-                      : paymentMethod === "cod"
-                        ? "You'll pay in cash when the order arrives."
-                        : "Payment will be collected with your wallet balance."}
+                    : "You'll pay in cash when the order arrives."}
                 </p>
               </div>
 
@@ -845,18 +1232,14 @@ export default function CheckoutPage() {
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      {paymentMethod === "stripe" ? (
-                        <CreditCard className="h-5 w-5" />
-                      ) : paymentMethod === "vodafone_cash" ? (
+                      {paymentMethod === "external_wallet" ? (
                         <Wallet className="h-5 w-5" />
                       ) : (
                         <Truck className="h-5 w-5" />
                       )}
-                      {paymentMethod === "stripe"
-                        ? `Pay with Card · ${formatCurrency(total)}`
-                        : paymentMethod === "vodafone_cash"
-                          ? `Continue to Vodafone Cash · ${formatCurrency(total)}`
-                          : `Place Order · ${formatCurrency(total)}`}
+                      {paymentMethod === "external_wallet"
+                        ? `Continue to ${walletSettings.provider_name || "wallet"} · ${formatCurrency(total, currency)}`
+                        : `Place Order · ${formatCurrency(total, currency)}`}
                     </>
                   )}
                 </button>
@@ -872,15 +1255,41 @@ export default function CheckoutPage() {
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Items ({getCount()})</span>
-                <span className="font-semibold">{formatCurrency(subtotal)}</span>
+                <span className="text-muted-foreground">
+                  Items ({preview?.item_count ?? getCount()})
+                </span>
+                <span className="font-semibold">{formatCurrency(subtotal, currency)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Discount{preview?.coupon?.code ? ` · ${preview.coupon.code}` : ""}
+                  </span>
+                  <span className="font-semibold text-emerald-300">
+                    −{formatCurrency(discount, currency)}
+                  </span>
+                </div>
+              )}
+              {tax > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="font-semibold">{formatCurrency(tax, currency)}</span>
+                </div>
+              )}
+              {giftWrap > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Gift wrap{preview?.gift_wrap_item_count ? ` (${preview.gift_wrap_item_count})` : ""}
+                  </span>
+                  <span className="font-semibold">{formatCurrency(giftWrap, currency)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   Shipping{selectedOption ? ` · ${selectedOption.method_name}` : ""}
                 </span>
                 <span className={`font-semibold ${shipping === 0 ? "text-green-400" : ""}`}>
-                  {shipping === 0 ? "Free" : formatCurrency(shipping)}
+                  {shipping === 0 ? "Free" : formatCurrency(shipping, currency)}
                 </span>
               </div>
               {selectedOption &&
@@ -896,10 +1305,15 @@ export default function CheckoutPage() {
                     )}
                   </p>
                 )}
+              {previewLoading && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Recalculating on the server…
+                </p>
+              )}
               <div className="border-t border-white/10 pt-2 flex justify-between">
                 <span className="font-bold">Total</span>
                 <span className="font-extrabold text-lg text-gradient-gold">
-                  {formatCurrency(total)}
+                  {formatCurrency(total, currency)}
                 </span>
               </div>
             </div>

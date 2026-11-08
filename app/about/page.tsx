@@ -1,38 +1,83 @@
-"use client";
+import { Sparkles, Shield, Truck, Palette, Zap, Globe } from "lucide-react";
+import { getPublicServerClient } from "@/lib/supabase/public-server";
+import { getPublicStoreSettings } from "@/lib/storeSettings";
 
-import { Sparkles, Globe, Shield, Heart, Star, Truck, Palette, Zap } from "lucide-react";
+/**
+ * B4 — About page reads real numbers from the database.
+ * The previous fabricated stats (invented product/customer/country counts and
+ * a fake review score) are gone; every figure shown here is counted at
+ * request time, and sections without real data are hidden instead of being
+ * filled with placeholders.
+ */
+async function getRealStats() {
+  const supabase = getPublicServerClient();
 
-const stats = [
-  { label: "Products", value: "500+", icon: Sparkles },
-  { label: "Customers", value: "10K+", icon: Heart },
-  { label: "Countries", value: "50+", icon: Globe },
-  { label: "Reviews", value: "4.9★", icon: Star },
-];
+  const [productsRes, zonesRes] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published")
+      .eq("visibility", "visible")
+      .is("deleted_at", null),
+    supabase
+      .from("shipping_zones")
+      .select("countries")
+      .eq("is_active", true)
+      .is("deleted_at", null),
+  ]);
 
-const values = [
-  {
-    icon: Palette,
-    title: "Custom Design",
-    description: "Express yourself with our custom print studio. Upload your designs or choose from our collection.",
-  },
-  {
-    icon: Shield,
-    title: "Quality Guaranteed",
-    description: "Premium materials and printing techniques ensure your products last.",
-  },
-  {
-    icon: Truck,
-    title: "Fast Shipping",
-    description: "Free shipping on orders over $500. Express delivery available.",
-  },
-  {
-    icon: Zap,
-    title: "Lightning Support",
-    description: "24/7 customer support to help you with anything you need.",
-  },
-];
+  const countries = new Set<string>();
+  for (const zone of zonesRes.data ?? []) {
+    for (const code of zone.countries ?? []) countries.add(code);
+  }
 
-export default function AboutPage() {
+  return {
+    publishedProducts: productsRes.count ?? 0,
+    countriesServed: countries.size,
+    readFailed: Boolean(productsRes.error ?? zonesRes.error),
+  };
+}
+
+export const metadata = {
+  title: "About",
+  description: "Who we are and what Galaxy Store stands for.",
+};
+
+export default async function AboutPage() {
+  const [stats, settings] = await Promise.all([getRealStats(), getPublicStoreSettings()]);
+
+  const statCards = [
+    { label: "Published products", value: String(stats.publishedProducts), icon: Sparkles },
+    { label: "Countries served", value: String(stats.countriesServed), icon: Globe },
+  ];
+
+  const values = [
+    {
+      icon: Palette,
+      title: "Custom Design",
+      description:
+        "Express yourself with our custom print studio. Upload your designs or choose from our collection.",
+    },
+    {
+      icon: Shield,
+      title: "Quality Guaranteed",
+      description: "Premium materials and printing techniques ensure your products last.",
+    },
+    {
+      icon: Truck,
+      title: "Shipping at Checkout",
+      description:
+        "Delivery options, fees and timeframes are calculated on the server and shown at checkout — no surprises.",
+    },
+    {
+      icon: Zap,
+      title: "Responsive Support",
+      description: settings.support_email
+        ? "Reach our team by email at any time; we reply as soon as we can."
+        : "Message us through the contact page and we'll get back to you.",
+    },
+  ];
+
   return (
     <div className="min-h-screen">
       {/* Hero */}
@@ -50,10 +95,10 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Stats — counted from the live catalog and shipping zones */}
       <section className="py-16 px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
+        <div className="max-w-5xl mx-auto grid grid-cols-2 gap-6">
+          {statCards.map((stat, index) => (
             <div
               key={stat.label}
               className="glass rounded-2xl p-6 text-center animate-fade-in"
@@ -65,6 +110,11 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
+        {stats.readFailed && (
+          <p className="text-center text-xs text-gray-500 mt-4">
+            Live counts are temporarily unavailable.
+          </p>
+        )}
       </section>
 
       {/* Story */}
@@ -74,15 +124,15 @@ export default function AboutPage() {
             <h2 className="text-2xl font-bold text-white mb-6">Our Story</h2>
             <div className="space-y-4 text-gray-400">
               <p>
-                Galaxy Store was founded with a simple mission: to make unique, high-quality fashion accessible to everyone. 
+                Galaxy Store was founded with a simple mission: to make unique, high-quality fashion accessible to everyone.
                 We believe that what you wear should reflect who you are.
               </p>
               <p>
-                What started as a small custom print shop has grown into a full-fledged e-commerce platform offering 
+                What started as a small custom print shop has grown into a full-fledged e-commerce platform offering
                 everything from custom t-shirts and mugs to phone cases and posters.
               </p>
               <p>
-                Our galaxy theme isn&apos;t just about aesthetics—it represents the infinite possibilities of self-expression. 
+                Our galaxy theme isn&apos;t just about aesthetics—it represents the infinite possibilities of self-expression.
                 Like the universe, your style knows no bounds.
               </p>
             </div>

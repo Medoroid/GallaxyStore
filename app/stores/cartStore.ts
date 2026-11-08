@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabaseClient";
+import { productImageUrlFromPath } from "@/lib/products";
 
 export type CartItem = {
   id: string;
@@ -8,6 +9,7 @@ export type CartItem = {
   variant_id?: string;
   name: string;
   price: number;
+  currency?: string;
   image: string;
   quantity: number;
   color?: string;
@@ -65,6 +67,7 @@ export const useCartStore = create<CartStore>()(
                   variant_id: item.variant_id,
                   name: item.name,
                   price: item.price,
+                  currency: item.currency,
                   image: item.image,
                   quantity,
                   color: item.color,
@@ -146,6 +149,11 @@ export const useCartStore = create<CartStore>()(
           const data = await res.json();
 
           if (data.success && data.items) {
+            const cartCurrency =
+              typeof data.totals?.currency === "string" && data.totals.currency
+                ? data.totals.currency.toUpperCase()
+                : undefined;
+
             const serverItems: CartItem[] = data.items.map(
               (item: Record<string, unknown>) => {
                 const pid = String(item.product_id || "");
@@ -157,8 +165,11 @@ export const useCartStore = create<CartStore>()(
                   product_id: pid,
                   variant_id: vid,
                   name: String(item.product_name || item.sku || "Item"),
-                  price: Number(item.price || item.unit_price_snapshot || 0),
-                  image: String(item.product_image || ""),
+                  price: Number(item.current_price || item.unit_price_snapshot || 0),
+                  currency: cartCurrency,
+                  image: productImageUrlFromPath(
+                    typeof item.product_image === "string" ? item.product_image : null
+                  ) ?? "",
                   quantity: Number(item.quantity || 1),
                   color,
                   size,

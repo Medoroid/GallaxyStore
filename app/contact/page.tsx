@@ -1,20 +1,44 @@
-"use client";
+import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { getPublicStoreSettings } from "@/lib/storeSettings";
+import { ContactForm } from "./contact-form";
 
-import { useState } from "react";
-import { Mail, Phone, MapPin, Send, Loader2, CheckCircle2 } from "lucide-react";
+export const metadata = {
+  title: "Contact",
+  description: "Get in touch with the Galaxy Store team.",
+};
 
-export default function ContactPage() {
-  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+/**
+ * B4 — contact channels come from the admin-managed `store_settings` table.
+ * Unset channels are hidden (no invented phone numbers or inboxes).
+ */
+export default async function ContactPage() {
+  const settings = await getPublicStoreSettings();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSent(true);
-  };
+  const channels = [
+    settings.support_email && {
+      icon: Mail,
+      label: "Email",
+      value: settings.support_email,
+      href: `mailto:${settings.support_email}`,
+    },
+    settings.support_phone && {
+      icon: Phone,
+      label: "Phone",
+      value: settings.support_phone,
+      href: `tel:${settings.support_phone.replace(/[^\d+]/g, "")}`,
+    },
+    settings.address && {
+      icon: MapPin,
+      label: "Address",
+      value: settings.address,
+      href: undefined as string | undefined,
+    },
+  ].filter(Boolean) as Array<{
+    icon: typeof Mail;
+    label: string;
+    value: string;
+    href: string | undefined;
+  }>;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-28 pb-20">
@@ -28,114 +52,60 @@ export default function ContactPage() {
         </p>
       </header>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        {/* Contact Info */}
+      <div className="grid md:grid-cols-2 gap-10 items-start">
+        {/* Contact channels — only what the store owner has actually configured */}
         <div className="space-y-4">
-          {[
-            { icon: Mail, label: "Email", value: "support@galaxystore.com", href: "mailto:support@galaxystore.com" },
-            { icon: Phone, label: "Phone", value: "+1 (555) 123-4567", href: "tel:+15551234567" },
-            { icon: MapPin, label: "Address", value: "123 Galaxy Street, Cairo, Egypt", href: null },
-          ].map((item) => (
-            <div key={item.label} className="glass-strong rounded-2xl p-5 hover:pink-glow transition-all">
-              <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-neon grid place-items-center shrink-0">
-                  <item.icon className="h-5 w-5 text-white" />
+          {channels.map((channel) => {
+            const Inner = (
+              <div className="glass rounded-2xl p-5 flex items-start gap-4 hover:pink-glow transition-all">
+                <div className="h-11 w-11 rounded-xl bg-secondary/20 grid place-items-center shrink-0">
+                  <channel.icon className="h-5 w-5 text-secondary" />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{item.label}</p>
-                  {item.href ? (
-                    <a href={item.href} className="font-semibold hover:text-secondary transition-colors">
-                      {item.value}
-                    </a>
-                  ) : (
-                    <p className="font-semibold">{item.value}</p>
-                  )}
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">{channel.label}</p>
+                  <p className="font-semibold break-words">{channel.value}</p>
                 </div>
               </div>
+            );
+            return channel.href ? (
+              <a key={channel.label} href={channel.href}>
+                {Inner}
+              </a>
+            ) : (
+              <div key={channel.label}>{Inner}</div>
+            );
+          })}
+
+          {channels.length === 0 && (
+            <div className="glass rounded-2xl p-6 text-sm text-muted-foreground">
+              Contact details are being configured. Check back shortly — or use the form to
+              send us a message.
             </div>
-          ))}
+          )}
+
+          <div className="glass rounded-2xl p-5 flex items-start gap-4">
+            <div className="h-11 w-11 rounded-xl bg-primary/20 grid place-items-center shrink-0">
+              <Clock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Response time</p>
+              <p className="font-semibold">We reply as soon as we can, usually within 1-2 business days.</p>
+            </div>
+          </div>
         </div>
 
-        {/* Contact Form */}
-        <div className="md:col-span-2">
-          {sent ? (
-            <div className="glass-strong rounded-3xl p-12 text-center">
-              <div className="h-20 w-20 rounded-full bg-green-500/20 grid place-items-center mx-auto mb-4">
-                <CheckCircle2 className="h-10 w-10 text-green-400" />
-              </div>
-              <h2 className="text-2xl font-extrabold mb-2">Message Sent!</h2>
-              <p className="text-muted-foreground">
-                Thank you for reaching out. We&apos;ll get back to you within 24 hours.
-              </p>
-              <button
-                onClick={() => { setSent(false); setForm({ name: "", email: "", subject: "", message: "" }); }}
-                className="mt-6 px-6 py-3 rounded-xl glass font-semibold hover:pink-glow transition-all"
-              >
-                Send Another Message
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="glass-strong rounded-3xl p-6 space-y-4">
-              <h2 className="text-xl font-extrabold mb-4">Send us a Message</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold mb-1 block">Your Name</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold mb-1 block">Email</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-semibold mb-1 block">Subject</label>
-                <input
-                  type="text"
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold mb-1 block">Message</label>
-                <textarea
-                  value={form.message}
-                  onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  rows={5}
-                  className="w-full glass rounded-xl p-4 outline-none focus:pink-glow resize-none text-sm"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="h-12 px-6 rounded-xl bg-gradient-neon text-white font-bold flex items-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-5 w-5" />
-                    Send Message
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-        </div>
+        {/* Form — only shown when a real delivery address exists server-side */}
+        {settings.support_email ? (
+          <ContactForm />
+        ) : (
+          <div className="glass rounded-2xl p-8 text-center space-y-3">
+            <h3 className="text-lg font-bold">Contact form unavailable</h3>
+            <p className="text-sm text-muted-foreground">
+              The store support email has not been configured yet, so this form cannot deliver
+              messages. Please check back soon.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

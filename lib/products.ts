@@ -228,6 +228,52 @@ export async function fetchFeaturedProducts(limit = 8) {
   return (data ?? []) as unknown as SupabaseProduct[];
 }
 
+export type CategoryWithCount = {
+  id: string;
+  name: string;
+  slug: string | null;
+  count: number;
+};
+
+/**
+ * B4 — active categories with the real number of published products.
+ * Categories without published products are dropped so the storefront never
+ * advertises empty sections with invented counts.
+ */
+export async function fetchCategoriesWithCounts(): Promise<CategoryWithCount[]> {
+  const [categoriesRes, productsRes] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("id, name, slug")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("sort_order"),
+    supabase
+      .from("products")
+      .select("category_id")
+      .eq("status", "published")
+      .eq("visibility", "visible")
+      .is("deleted_at", null),
+  ]);
+
+  const firstError = categoriesRes.error ?? productsRes.error;
+  if (firstError) throw firstError;
+
+  const counts = new Map<string, number>();
+  for (const row of (productsRes.data ?? []) as Array<{ category_id: string | null }>) {
+    if (row.category_id) {
+      counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
+    }
+  }
+
+  return ((categoriesRes.data ?? []) as Array<{ id: string; name: string; slug: string | null }>)
+    .map((category) => ({
+      ...category,
+      count: counts.get(category.id) ?? 0,
+    }))
+    .filter((category) => category.count > 0);
+}
+
 export async function fetchProductById(id: string) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -383,31 +429,55 @@ export function productCardImage(product: Partial<SupabaseProduct>) {
   return "/product-tshirt.jpg";
 }
 
+export const PRODUCT_IMAGES_BUCKET = "product-images";
+
+export function productImageUrlFromPath(storagePath: string | null | undefined) {
+  const path = storagePath?.trim();
+  if (!path) return null;
+
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("/") ||
+    path.startsWith("data:")
+  ) {
+    return path;
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return null;
+
+  // Some legacy rows already store "product-images/..." while newer rows store
+  // a path relative to the bucket. Normalise instead of duplicating the bucket.
+  const objectPath = path.startsWith(`${PRODUCT_IMAGES_BUCKET}/`)
+    ? path.slice(PRODUCT_IMAGES_BUCKET.length + 1)
+    : path;
+
+  return `${supabaseUrl}/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/${objectPath}`;
+}
+
 export function productImageUrl(product: Partial<SupabaseProduct>) {
   const primaryImage = product.product_images
     ?.slice()
     .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order)
     .find((image) => image.storage_path);
-  const storagePath = primaryImage?.storage_path?.trim();
 
-  if (!storagePath) {
-    return productCardImage(product);
-  }
+  return productImageUrlFromPath(primaryImage?.storage_path) ?? productCardImage(product);
+}
 
-  if (storagePath.startsWith("http://") || storagePath.startsWith("https://") || storagePath.startsWith("/")) {
-    return storagePath;
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    return productCardImage(product);
-  }
-
-  return `${supabaseUrl}/storage/v1/object/public/${storagePath}`;
+export function validCompareAtPrice(product: Partial<SupabaseProduct>) {
+  const price = Number(product.base_price ?? 0);
+  const compareAt = Number(product.compare_at_price ?? 0);
+  return compareAt > price ? compareAt : null;
 }
 
 export function toProductCardProduct(product: SupabaseProduct) {
   const image = productImageUrl(product);
+  const price = Number(product.base_price ?? 0);
+  const originalPrice = validCompareAtPrice(product);
+  const discountPercentage = originalPrice
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
+    : 0;
 
   return {
     id: product.id,
@@ -416,10 +486,11 @@ export function toProductCardProduct(product: SupabaseProduct) {
     thumbnail: image,
     image,
     category: product.categories?.name ?? "Uncategorized",
-    price: Number(product.base_price ?? 0),
-    discountPercentage: product.compare_at_price
-      ? Math.round(((Number(product.compare_at_price) - Number(product.base_price ?? 0)) / Number(product.compare_at_price)) * 100)
-      : 0,
+    price,
+    // Only a genuine discount (compare_at_price > price) is exposed.
+    originalPrice,
+    discountPercentage,
+    currency: (product.currency || "USD").toUpperCase(),
     rating: Number(product.avg_rating ?? 0),
     badge: product.is_featured ? "Featured" : undefined,
   };

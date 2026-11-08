@@ -11,17 +11,22 @@ import "@testing-library/jest-dom";
 
 import {
   PLACEHOLDER_WALLET_NUMBER,
+  TRANSFER_STATE_COPY,
   VODAFONE_STATE_COPY,
   canSubmitReceipt,
   clearVodafoneHint,
   describeShippingMethod,
   formatDeliveryEstimate,
   getRejectionReason,
+  getTransferState,
   getVodafoneState,
   isExplicitlyRejected,
+  isExternalWalletEnabled,
+  isManualTransferProvider,
   isVodafoneHintedOrder,
   paymentProviderLabel,
   pickPayment,
+  pickTransferPayment,
   rememberVodafoneOrder,
   resolveWalletNumber,
   toPaymentProvider,
@@ -262,6 +267,117 @@ describe("vodafone state machine", () => {
   });
 });
 
+describe("external wallet state machine", () => {
+  const wallet = (overrides: Partial<PaymentAttempt> = {}): PaymentAttempt => ({
+    id: "wallet-1",
+    provider: "external_wallet",
+    status: "pending",
+    created_at: "2026-10-03T10:00:00.000Z",
+    ...overrides,
+  });
+
+  test("recognizes both manual-transfer providers", () => {
+    expect(isManualTransferProvider("external_wallet")).toBe(true);
+    expect(isManualTransferProvider("vodafone_cash")).toBe(true);
+    expect(isManualTransferProvider("cod")).toBe(false);
+    expect(paymentProviderLabel("external_wallet")).toBe("Mobile wallet transfer");
+    expect(toPaymentProvider("mobile_wallet")).toBe("external_wallet");
+  });
+
+  test("enables the method only with complete server settings", () => {
+    expect(
+      isExternalWalletEnabled({
+        enabled: true,
+        provider_name: "Vodafone Cash",
+        account_name: "Gallaxy Store",
+        account_number: "01012345678",
+        instructions: "",
+      })
+    ).toBe(true);
+    expect(
+      isExternalWalletEnabled({
+        enabled: true,
+        provider_name: "Vodafone Cash",
+        account_name: "Gallaxy Store",
+        account_number: "",
+        instructions: "",
+      })
+    ).toBe(false);
+    expect(isExternalWalletEnabled({ enabled: true })).toBe(false);
+  });
+
+  test("prefers the persisted provider when multiple attempts exist", () => {
+    const legacy = vodafone();
+    expect(pickTransferPayment([legacy, wallet()], "external_wallet")?.provider).toBe(
+      "external_wallet"
+    );
+    expect(pickTransferPayment([legacy, wallet()], "vodafone_cash")?.provider).toBe(
+      "vodafone_cash"
+    );
+  });
+
+  test("maps pending, confirmed and rejected transfers to UI states", () => {
+    expect(getTransferState({ orderStatus: "pending", payment: wallet() })).toBe(
+      "awaiting_verification"
+    );
+    expect(
+      getTransferState({ orderStatus: "pending", payment: wallet({ status: "succeeded" }) })
+    ).toBe("confirmed");
+    expect(
+      getTransferState({
+        orderStatus: "pending",
+        payment: wallet({ status: "failed", raw_response: { rejected: true, verify_note: "No match" } }),
+      })
+    ).toBe("rejected");
+    expect(TRANSFER_STATE_COPY.rejected.badge).toBe("Payment rejected");
+  });
+
+  test("a pending order with a wallet method needs a receipt before one exists", () => {
+    expect(
+      getTransferState({ orderStatus: "pending", paymentMethod: "external_wallet" })
+    ).toBe("receipt_required");
+    expect(getTransferState({ orderStatus: "paid", paymentMethod: "external_wallet" })).toBe(
+      "not_applicable"
+    );
+    expect(getTransferState({ orderStatus: "pending", paymentMethod: "cod" })).toBe(
+      "not_applicable"
+    );
+  });
+
+  test("receipt resubmission is limited to pending rejected/timed-out wallet orders", () => {
+    expect(
+      canSubmitReceipt({
+        orderStatus: "pending",
+        paymentMethod: "external_wallet",
+        payments: [],
+      })
+    ).toBe(true);
+    expect(
+      canSubmitReceipt({
+        orderStatus: "pending",
+        paymentMethod: "external_wallet",
+        payments: [wallet()],
+      })
+    ).toBe(false);
+    expect(
+      canSubmitReceipt({
+        orderStatus: "pending",
+        paymentMethod: "external_wallet",
+        payments: [
+          wallet({ status: "failed", raw_response: { rejected: true, verify_note: "Wrong amount" } }),
+        ],
+      })
+    ).toBe(true);
+    expect(
+      canSubmitReceipt({
+        orderStatus: "pending",
+        paymentMethod: "cod",
+        payments: [],
+      })
+    ).toBe(false);
+  });
+});
+
 describe("vodafone order hint (non-authoritative)", () => {
   test("round-trips per order id and can be cleared", () => {
     expect(isVodafoneHintedOrder("order-a")).toBe(false);
@@ -369,22 +485,34 @@ describe("receipt validation", () => {
   });
 });
 
-describe("VodafoneInstructions", () => {
+describe("ExternalWalletInstructions", () => {
   test("shows the configured wallet number, amount and order", () => {
     render(
       <VodafoneInstructions number="01012345678" amountLabel="EGP 480.00" orderNumber="GS-1001" />
     );
-    expect(screen.getByTestId("vodafone-number")).toHaveTextContent("01012345678");
+    expect(screen.getByTestId("wallet-number")).toHaveTextContent("01012345678");
     expect(screen.getByText("EGP 480.00")).toBeInTheDocument();
     expect(screen.getByText("GS-1001")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  test("shows the configured provider and account name", () => {
+    render(
+      <VodafoneInstructions
+        number="01012345678"
+        providerName="Vodafone Cash"
+        accountName="Gallaxy Store"
+      />
+    );
+    expect(screen.getByText(/Account name:/)).toBeInTheDocument();
+    expect(screen.getByText("Gallaxy Store")).toBeInTheDocument();
   });
 
   test("warns instead of inventing a number when unconfigured", () => {
     render(<VodafoneInstructions number={null} amountLabel="EGP 480.00" />);
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(/not configured/i);
-    expect(screen.queryByTestId("vodafone-number")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("wallet-number")).not.toBeInTheDocument();
     expect(screen.queryByText(PLACEHOLDER_WALLET_NUMBER)).not.toBeInTheDocument();
   });
 });
@@ -445,11 +573,11 @@ describe("ReceiptUploader", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("uploads the receipt and posts it to the payments endpoint", async () => {
+  test("uploads the receipt and posts it to the external-wallet endpoint", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 201,
-      json: async () => ({ success: true, payment: { id: "pmt-1" } }),
+      json: async () => ({ success: true, receipt: { id: "pmt-1", status: "pending" } }),
     });
     global.fetch = fetchMock as unknown as typeof fetch;
     uploadMock.mockResolvedValue({ error: null });
@@ -464,6 +592,7 @@ describe("ReceiptUploader", () => {
     expect(fromMock).toHaveBeenCalledWith("payment-receipts");
     expect(uploadMock).toHaveBeenCalledTimes(1);
     expect(uploadMock.mock.calls[0][0]).toMatch(/^user-1\/order-1\//);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/payments/external-wallet");
 
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse(init.body);
@@ -473,7 +602,29 @@ describe("ReceiptUploader", () => {
       transfer_reference: "TRX-998877",
       receipt_path: expect.stringContaining("user-1/order-1/"),
     });
-    expect(onSubmitted).toHaveBeenCalledWith({ id: "pmt-1" });
+    expect(onSubmitted).toHaveBeenCalledWith({ id: "pmt-1", status: "pending" });
+  });
+
+  test("keeps the legacy Vodafone endpoint available for historical orders", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ success: true, receipt: { id: "legacy-1", status: "pending" } }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    uploadMock.mockResolvedValue({ error: null });
+
+    render(
+      <ReceiptUploader
+        orderId="order-legacy"
+        endpoint="/api/payments/vodafone-cash"
+      />
+    );
+    fillForm(new File(["receipt-bytes"], "receipt.png", { type: "image/png" }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit receipt/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/payments/vodafone-cash");
   });
 
   test("shows a safe message and offers a retry when the backend rejects", async () => {

@@ -53,7 +53,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         });
         const data = await res.json();
 
-        if (data.success || res.status !== 404) {
+        if (data.success) {
           setIsVendor(true);
         } else {
           router.push("/");

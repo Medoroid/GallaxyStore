@@ -3,27 +3,30 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Package, Plus, Edit, Trash2, Loader2, X, Save,
-  Search, ChevronDown, ChevronUp, Eye, EyeOff, Star,
-  Ruler, Tag, Globe, BarChart3, Image as ImageIcon, Upload, XCircle
+  Search, ChevronDown, ChevronUp, Star,
+  Tag, Globe, BarChart3, Image as ImageIcon, Upload, XCircle
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
-import { createClient } from "@supabase/supabase-js";
+import { formatCurrency } from "@/lib/formatCurrency";
 import {
-  createProduct,
-  updateProduct,
-  archiveProduct,
-  fetchProductLookups,
-  fetchDefaultVariant,
   productToForm,
+  productImageUrl,
   type ProductFormValues,
   type ProductLookup,
   type SupabaseProduct,
 } from "@/lib/products";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+type AdminProduct = SupabaseProduct & {
+  default_variant?: { id: string; price: number; stock_quantity: number } | null;
+};
+
+type ProductImage = {
+  id: string;
+  storage_path: string | null;
+  alt_text: string | null;
+  is_primary: boolean;
+  sort_order: number;
+};
 
 const EMPTY_FORM: ProductFormValues = {
   name: "",
@@ -46,11 +49,12 @@ const EMPTY_FORM: ProductFormValues = {
 
 export default function AdminProductsPage() {
   const { getToken } = useAuth();
-  const [products, setProducts] = useState<SupabaseProduct[]>([]);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<SupabaseProduct | null>(null);
+  const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
@@ -72,47 +76,43 @@ export default function AdminProductsPage() {
   const [brands, setBrands] = useState<ProductLookup[]>([]);
   const [stores, setStores] = useState<ProductLookup[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const [lookupsResult, productsResult] = await Promise.all([
-          fetchProductLookups(),
-          supabase
-            .from("products")
-            .select(`
-              *,
-              categories(id, name, slug),
-              brands(id, name, slug),
-              stores(id, name),
-              product_images(id, storage_path, alt_text, is_primary, sort_order)
-            `)
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false }),
-        ]);
-
-        if (!cancelled) {
-          setCategories(lookupsResult.categories);
-          setBrands(lookupsResult.brands);
-          setStores(lookupsResult.stores);
-          if (!productsResult.error && productsResult.data) {
-            setProducts(productsResult.data as unknown as SupabaseProduct[]);
-          }
-        }
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setLoading(false);
+  const loadProducts = useCallback(async () => {
+    setError("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/products", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not load products.");
+        return;
       }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, []);
+      setProducts(data.products as AdminProduct[]);
+      setCategories(data.lookups?.categories ?? []);
+      setBrands(data.lookups?.brands ?? []);
+      setStores(data.lookups?.stores ?? []);
+    } catch {
+      setError("Network error while loading products.");
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken]);
 
-  const handleOpenModal = useCallback(async (product?: SupabaseProduct) => {
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const handleOpenModal = useCallback(async (product?: AdminProduct) => {
     if (product) {
       setEditingProduct(product);
-      const variant = await fetchDefaultVariant(product.id).catch(() => null);
+      const variant = product.default_variant
+        ? {
+            id: product.default_variant.id,
+            price: Number(product.default_variant.price),
+            stock_quantity: Number(product.default_variant.stock_quantity),
+          }
+        : null;
       setForm(productToForm(product, variant));
     } else {
       setEditingProduct(null);
@@ -120,6 +120,7 @@ export default function AdminProductsPage() {
     }
     setMainImage(null);
     setSecondaryImages([]);
+    setError("");
     setShowModal(true);
   }, []);
 
@@ -140,71 +141,152 @@ export default function AdminProductsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.base_price) return;
+    if (!form.name || !form.base_price) {
+      setError("Product name and base price are required.");
+      return;
+    }
     setSaving(true);
+    setError("");
 
     try {
-      const _token = await getToken();
+      const token = await getToken();
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: editingProduct ? "update" : "create",
+          product_id: editingProduct?.id,
+          product: form,
+          stock_quantity: form.stock_quantity,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not save the product.");
+        return;
+      }
 
-      if (editingProduct) {
-        await updateProduct(editingProduct.id, form);
-        // Refresh product data
-        const { data } = await supabase
-          .from("products")
-          .select(`
-            *,
-            categories(id, name, slug),
-            brands(id, name, slug),
-            stores(id, name),
-            product_images(id, storage_path, alt_text, is_primary, sort_order)
-          `)
-          .eq("id", editingProduct.id)
-          .single();
+      const productId = data.product_id as string;
 
-        if (data) {
-          setProducts((prev) =>
-            prev.map((p) => (p.id === editingProduct.id ? (data as unknown as SupabaseProduct) : p))
+      if (mainImage || secondaryImages.length > 0) {
+        const imageForm = new FormData();
+        imageForm.append("product_id", productId);
+        imageForm.append("is_primary", mainImage ? "true" : "false");
+        if (mainImage) imageForm.append("files", mainImage);
+        secondaryImages.forEach((file) => imageForm.append("files", file));
+
+        const imageRes = await fetch("/api/admin/products/images", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: imageForm,
+        });
+        const imageData = await imageRes.json().catch(() => null);
+        if (!imageRes.ok || !imageData?.success) {
+          await loadProducts();
+          setError(
+            imageData?.message ||
+              "The product was saved, but its images could not be uploaded. Try uploading them again."
           );
-        }
-      } else {
-        await createProduct(form);
-        // Refresh products list
-        const { data } = await supabase
-          .from("products")
-          .select(`
-            *,
-            categories(id, name, slug),
-            brands(id, name, slug),
-            stores(id, name),
-            product_images(id, storage_path, alt_text, is_primary, sort_order)
-          `)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false });
-
-        if (data) {
-          setProducts(data as unknown as SupabaseProduct[]);
+          return;
         }
       }
 
       setShowModal(false);
-    } catch (err) {
-      console.error("Save error:", err);
-      alert(
-        `Failed to save product: ${err instanceof Error ? err.message : String(err)}`
-      );
+      await loadProducts();
+    } catch {
+      setError("Network error while saving the product.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (productId: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    if (!confirm("Are you sure you want to archive this product?")) return;
 
+    setError("");
     try {
-      await archiveProduct(productId);
+      const token = await getToken();
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "archive", product_id: productId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not archive the product.");
+        return;
+      }
       setProducts((prev) => prev.filter((p) => p.id !== productId));
     } catch {
-      // ignore
+      setError("Network error while archiving the product.");
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    if (!confirm("Delete this image?")) return;
+    setError("");
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/products/images?id=${encodeURIComponent(imageId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not delete the image.");
+        return;
+      }
+      await loadProducts();
+      setEditingProduct((prev) =>
+        prev
+          ? {
+              ...prev,
+              product_images: (prev.product_images || []).filter((image) => image.id !== imageId),
+            }
+          : prev
+      );
+    } catch {
+      setError("Network error while deleting the image.");
+    }
+  };
+
+  const handleSetPrimaryImage = async (imageId: string) => {
+    setError("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/products/images", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ image_id: imageId, action: "set_primary" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not set the primary image.");
+        return;
+      }
+      await loadProducts();
+      setEditingProduct((prev) =>
+        prev
+          ? {
+              ...prev,
+              product_images: (prev.product_images || []).map((image) => ({
+                ...image,
+                is_primary: image.id === imageId,
+              })),
+            }
+          : prev
+      );
+    } catch {
+      setError("Network error while updating the image.");
     }
   };
 
@@ -223,12 +305,7 @@ export default function AdminProductsPage() {
       p.brands?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getProductImage = (product: SupabaseProduct) => {
-    const primary = product.product_images
-      ?.sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order)
-      .find((img) => img.storage_path);
-    return primary?.storage_path || null;
-  };
+  const getProductImage = (product: AdminProduct) => productImageUrl(product);
 
   return (
     <div className="space-y-6">
@@ -246,6 +323,12 @@ export default function AdminProductsPage() {
           Add Product
         </button>
       </div>
+
+      {error && (
+        <div className="glass rounded-2xl p-4 border border-red-500/30 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Search */}
       <div className="glass rounded-2xl p-4">
@@ -334,9 +417,13 @@ export default function AdminProductsPage() {
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#FF4FD8] font-bold">${product.base_price}</span>
+                      <span className="text-[#FF4FD8] font-bold">
+                        {formatCurrency(Number(product.base_price), product.currency)}
+                      </span>
                       {product.compare_at_price && (
-                        <span className="text-gray-500 text-sm line-through">${product.compare_at_price}</span>
+                        <span className="text-gray-500 text-sm line-through">
+                          {formatCurrency(Number(product.compare_at_price), product.currency)}
+                        </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-400">
@@ -378,6 +465,61 @@ export default function AdminProductsPage() {
               />
               {expandedSections.images && (
                 <div className="space-y-4 pl-1">
+                  {editingProduct && (editingProduct.product_images?.length ?? 0) > 0 && (
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1.5">
+                        Current Images
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {(editingProduct.product_images as ProductImage[])
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              Number(b.is_primary) - Number(a.is_primary) ||
+                              a.sort_order - b.sort_order
+                          )
+                          .map((image) => {
+                            const url = productImageUrl({
+                              product_images: [image],
+                            } as Partial<SupabaseProduct>);
+                            return (
+                              <div
+                                key={image.id}
+                                className="relative group rounded-xl overflow-hidden border border-white/10 bg-white/[0.03]"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={url} alt={image.alt_text || "Product"} className="w-full h-24 object-cover" />
+                                {image.is_primary && (
+                                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-[#FF4FD8] text-[10px] text-white font-bold">
+                                    Primary
+                                  </span>
+                                )}
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  {!image.is_primary && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetPrimaryImage(image.id)}
+                                      className="px-2 py-1 rounded bg-white/20 text-xs text-white"
+                                      title="Set as primary"
+                                    >
+                                      <Star className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteImage(image.id)}
+                                    className="px-2 py-1 rounded bg-red-500/40 text-xs text-white"
+                                    title="Delete image"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm text-gray-400 mb-1.5">Main Image <span className="text-[#FF4FD8]">*</span></label>
                     <div 

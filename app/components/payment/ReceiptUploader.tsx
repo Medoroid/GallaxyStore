@@ -69,8 +69,10 @@ export function validateTransferReference(value: string): string | null {
 
 type Props = {
   orderId: string;
-  onSubmitted?: (payment: PaymentAttempt | null) => void;
+  onSubmitted?: (receipt: PaymentAttempt | null) => void;
   submitLabel?: string;
+  /** Legacy Vodafone orders use their original endpoint. */
+  endpoint?: "/api/payments/external-wallet" | "/api/payments/vodafone-cash";
   /** Keeps label/input ids unique when the form is rendered twice. */
   idPrefix?: string;
   className?: string;
@@ -82,6 +84,7 @@ export function ReceiptUploader({
   orderId,
   onSubmitted,
   submitLabel = "Submit receipt",
+  endpoint = "/api/payments/external-wallet",
   idPrefix,
   className = "",
 }: Props) {
@@ -164,7 +167,7 @@ export function ReceiptUploader({
         return;
       }
 
-      const res = await fetch("/api/payments/vodafone-cash", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -189,7 +192,7 @@ export function ReceiptUploader({
 
       setDone(true);
       setFieldErrors({});
-      onSubmitted?.(data.payment ?? null);
+      onSubmitted?.(data.receipt ?? data.payment ?? null);
     } catch (networkError) {
       const message = networkError instanceof Error ? networkError.message : "";
       setError(

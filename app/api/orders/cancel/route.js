@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
@@ -13,8 +13,11 @@ function getSupabaseForUser(token) {
 
 // POST - Cancel an order
 export async function POST(request) {
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-  const { allowed } = checkRateLimit(`cancel:${ip}`);
+  const ip = getClientIp(request);
+  const { allowed } = await checkRateLimitAsync(`cancel:${ip}`, {
+    maxRequests: 10,
+    failureMode: "fail_closed",
+  });
 
   if (!allowed) {
     return Response.json(

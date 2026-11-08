@@ -61,7 +61,7 @@ export async function GET(request, { params }) {
       .select("*")
       .eq("order_id", id);
 
-    // Payment attempts (RLS: owner only). Needed by the Vodafone Cash panel
+    // Payment attempts (RLS: owner only). Needed by the manual-transfer panel
     // so the customer can see the state and submit/re-submit a receipt.
     const { data: payments, error: paymentsError } = await SupabaseClient
       .from("payments")

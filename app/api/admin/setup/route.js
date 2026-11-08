@@ -1,56 +1,62 @@
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
 
+/**
+ * Health/readiness probe for the admin bootstrap.
+ *
+ * Database changes are applied exclusively through versioned migrations in
+ * supabase/migrations. This endpoint used to execute raw DDL over an `exec_sql`
+ * RPC, which was both a privilege-escalation risk and impossible to audit.
+ */
 export async function POST(request) {
   try {
-    const { action } = await request.json();
+    // Body is accepted for backwards compatibility but is no longer used.
+    await request.json().catch(() => ({}));
 
-    const SupabaseClient = getServiceRoleClient();
-
-    // For setup actions, require a secret key
     const { searchParams } = new URL(request.url);
     const setupKey = searchParams.get("key");
 
-    if (setupKey !== process.env.ADMIN_SETUP_KEY && action !== "check") {
+    if (!process.env.ADMIN_SETUP_KEY) {
       return Response.json(
-        { success: false, message: "Invalid setup key" },
-        { status: 403 }
+        {
+          success: false,
+          message:
+            "Admin setup is disabled. Apply supabase/migrations with the Supabase CLI instead.",
+        },
+        { status: 410 }
       );
     }
+    if (setupKey !== process.env.ADMIN_SETUP_KEY) {
+      return Response.json({ success: false, message: "Invalid setup key" }, { status: 403 });
+    }
 
-    // Create admin_users table
-    const { error: createError } = await SupabaseClient.rpc("exec_sql", {
-      query: `
-        CREATE TABLE IF NOT EXISTS admin_users (
-          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-          user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-          role TEXT DEFAULT 'admin' CHECK (role IN ('admin', 'super_admin')),
-          created_at TIMESTAMPTZ DEFAULT now(),
-          UNIQUE(user_id)
-        );
-        
-        ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
-        
-        DROP POLICY IF EXISTS "Users can check own admin status" ON admin_users;
-        CREATE POLICY "Users can check own admin status"
-          ON admin_users FOR SELECT
-          USING (auth.uid() = user_id);
-      `
-    }).single();
+    const db = getServiceRoleClient();
+    const { count, error } = await db
+      .from("admin_users")
+      .select("user_id", { count: "exact", head: true });
 
-    if (createError) {
-      logger.warn("RPC failed, table might need manual creation", createError);
+    if (error) {
+      logger.error("[Admin Setup] admin_users probe failed:", error.message);
+      return Response.json(
+        {
+          success: false,
+          ready: false,
+          message:
+            "The admin_users table is not available. Apply the versioned migrations before using the admin panel.",
+        },
+        { status: 503 }
+      );
     }
 
     return Response.json({
       success: true,
-      message: "Setup complete. Now use /api/admin/make-admin to add admin user.",
+      ready: true,
+      admin_users: count ?? 0,
+      message:
+        "Schema is managed by versioned migrations; this endpoint performs no DDL.",
     });
   } catch (error) {
-    logger.error("[Setup Error]", error);
-    return Response.json(
-      { success: false, message: "Setup failed" },
-      { status: 500 }
-    );
+    logger.error("[Admin Setup] probe failed", error);
+    return Response.json({ success: false, message: "Admin setup probe failed" }, { status: 500 });
   }
 }

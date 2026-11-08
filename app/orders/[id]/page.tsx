@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,25 +22,26 @@ import { useAuth } from "../../lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { ReceiptUploader } from "@/app/components/payment/ReceiptUploader";
 import { ReceiptViewer } from "@/app/components/payment/ReceiptViewer";
-import { VodafoneInstructions } from "@/app/components/payment/VodafoneInstructions";
+import { ExternalWalletInstructions } from "@/app/components/payment/VodafoneInstructions";
 import { apiErrorMessage } from "@/app/lib/api-error-message";
 import {
   TONE_CLASS,
-  VODAFONE_STATE_COPY,
+  TRANSFER_STATE_COPY,
   canSubmitReceipt,
   describeShippingMethod,
   getRejectionReason,
-  getVodafoneState,
-  isVodafoneHintedOrder,
+  getTransferState,
+  isExternalWalletEnabled,
+  isExternalWalletSettings,
+  isManualTransferProvider,
   paymentProviderLabel,
   pickPayment,
-  rememberVodafoneOrder,
+  pickTransferPayment,
   resolveWalletNumber,
   toPaymentProvider,
+  type ExternalWalletSettings,
   type PaymentAttempt,
 } from "@/app/lib/payment-status";
-
-const WALLET = resolveWalletNumber();
 
 type OrderItem = {
   id: string;
@@ -74,6 +74,7 @@ type Order = {
   discount_amount: number;
   total: number;
   currency: string;
+  payment_method?: string | null;
   shipping_address_snapshot: Record<string, string>;
   customer_note: string | null;
   placed_at: string;
@@ -98,6 +99,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 const PROVIDER_ICONS: Record<string, typeof Package> = {
   cod: Banknote,
+  external_wallet: Smartphone,
   vodafone_cash: Smartphone,
   wallet: Wallet,
   stripe: CreditCard,
@@ -107,14 +109,17 @@ const PROVIDER_ICONS: Record<string, typeof Package> = {
 /** Human payment status — never claims "Rejected" without admin proof. */
 function paymentStatusCopy(payment: PaymentAttempt | null): { label: string; color: string } {
   if (!payment) return { label: "Awaiting payment", color: "text-slate-300" };
+  const provider = toPaymentProvider(payment.provider);
   switch (payment.status) {
     case "succeeded":
       return { label: "Paid", color: "text-emerald-300" };
     case "pending":
     case "processing":
-      return { label: "Awaiting verification", color: "text-amber-300" };
+      return provider === "cod"
+        ? { label: "Due on delivery", color: "text-amber-300" }
+        : { label: "Awaiting verification", color: "text-amber-300" };
     case "failed":
-      return toPaymentProvider(payment.provider) === "vodafone_cash"
+      return isManualTransferProvider(provider)
         ? payment.raw_response?.rejected
           ? { label: "Rejected", color: "text-red-300" }
           : { label: "Awaiting verification", color: "text-amber-300" }
@@ -130,16 +135,6 @@ export default function OrderDetailPage() {
   const queryClient = useQueryClient();
 
   const orderId = (params?.id as string) ?? "";
-
-  // Client-side hint only — see payment-status.ts (orders has no
-  // payment_method column yet). Never used to decide ownership or success.
-  const [hintedVodafone] = useState(() => {
-    if (typeof window === "undefined" || !orderId) return false;
-    const fromQuery =
-      new URLSearchParams(window.location.search).get("pay") === "vodafone_cash";
-    if (fromQuery) rememberVodafoneOrder(orderId);
-    return isVodafoneHintedOrder(orderId);
-  });
 
   const orderQuery = useQuery({
     queryKey: ["order", orderId],
@@ -162,19 +157,63 @@ export default function OrderDetailPage() {
   });
 
   const order = orderQuery.data ?? null;
+  const orderCurrency = order?.currency || "USD";
   const payments = order?.payments ?? [];
-  const vodafonePayment = pickPayment(payments, "vodafone_cash");
-  const receiptPath = vodafonePayment?.raw_response?.receipt_path;
+  const storedMethod = toPaymentProvider(order?.payment_method);
+  // A COD order can still have an older rejected wallet attempt. Keep that
+  // evidence in the database, but do not show it as the active payment UI.
+  const transferPayment =
+    storedMethod === "cod" ? null : pickTransferPayment(payments, storedMethod);
+  const receiptPath = transferPayment?.raw_response?.receipt_path;
+  // An order can be created with no payment at all when its payment RPC failed
+  // (a transient error, or the wallet setting was missing). The customer needs a
+  // way to choose a method and resume the payment instead of being stuck.
+  const needsPaymentSetup =
+    order?.status === "pending" &&
+    payments.length === 0 &&
+    !isManualTransferProvider(storedMethod);
+  const needsWalletSettings = Boolean(
+    storedMethod === "external_wallet" ||
+      toPaymentProvider(transferPayment?.provider) === "external_wallet" ||
+      needsPaymentSetup
+  );
+
+  // The account details live in a private store setting. Only the display-only
+  // shape is fetched, and only when this order actually uses a wallet transfer.
+  const walletSettingsQuery = useQuery({
+    queryKey: ["payment-methods"],
+    enabled: Boolean(user && needsWalletSettings),
+    retry: false,
+    staleTime: 60_000,
+    queryFn: async (): Promise<ExternalWalletSettings | null> => {
+      const token = await getToken();
+      if (!token) throw new Error("Please sign in again.");
+
+      const res = await fetch("/api/payment-methods", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(apiErrorMessage(res.status, data, "Failed to load transfer details"));
+      }
+      return isExternalWalletSettings(data.external_wallet) ? data.external_wallet : null;
+    },
+  });
+  const walletSettings = walletSettingsQuery.data ?? null;
 
   const receiptQuery = useQuery({
-    queryKey: ["order-receipt", orderId, vodafonePayment?.id ?? "none"],
+    queryKey: ["order-receipt", orderId, transferPayment?.id ?? "none"],
     enabled: Boolean(user && orderId && receiptPath),
     retry: false,
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("Please sign in again.");
 
-      const res = await fetch(`/api/orders/${orderId}/receipt`, {
+      const paymentQuery = transferPayment?.id
+        ? `?payment=${encodeURIComponent(transferPayment.id)}`
+        : "";
+      const res = await fetch(`/api/orders/${orderId}/receipt${paymentQuery}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json().catch(() => null);
@@ -205,6 +244,29 @@ export default function OrderDetailPage() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    },
+  });
+
+  const startPaymentMutation = useMutation({
+    mutationFn: async (method: "cod" | "external_wallet") => {
+      const token = await getToken();
+      const res = await fetch(`/api/orders/${orderId}/payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ payment_method: method }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(apiErrorMessage(res.status, data, "Failed to start the payment"));
+      }
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      void queryClient.invalidateQueries({ queryKey: ["order-receipt", orderId] });
     },
   });
 
@@ -259,30 +321,62 @@ export default function OrderDetailPage() {
   const StatusIcon = statusConfig.icon;
 
   const activePayment = pickPayment(payments);
-  const vodafoneState = getVodafoneState({
+  const transferState = getTransferState({
     orderStatus: order.status,
-    payment: vodafonePayment,
-    hintedVodafone,
+    payment: transferPayment,
+    paymentMethod: storedMethod,
   });
 
-  // Before the first receipt exists a Vodafone order has no payment row at all.
-  // The local hint lets us label it honestly instead of "Not recorded".
-  const displayProvider = activePayment?.provider ?? (vodafoneState !== "not_applicable" ? "vodafone_cash" : "");
-  const PaymentIcon = PROVIDER_ICONS[toPaymentProvider(displayProvider) ?? "stripe"] ?? CreditCard;
-  const statusCopy = activePayment
-    ? paymentStatusCopy(activePayment)
-    : vodafoneState === "receipt_required"
-      ? { label: "Receipt required", color: "text-amber-300" }
-      : { label: "Awaiting payment", color: "text-slate-300" };
+  // A zero-total (fully discounted) order is settled without a payment row, so
+  // it must read as paid rather than "awaiting payment".
+  const totalDue = Number(order.total ?? 0);
+  const isFreeOrder = order.status === "paid" && totalDue <= 0 && payments.length === 0;
 
-  const vodafoneCopy = VODAFONE_STATE_COPY[vodafoneState];
-  const vodafoneTone = TONE_CLASS[vodafoneCopy.tone];
-  const rejectionReason = getRejectionReason(vodafonePayment);
+  // `payment_method` is persisted on the order, so a wallet order is labelled
+  // correctly even before its first receipt creates a payment row.
+  const displayProvider =
+    activePayment?.provider ??
+    storedMethod ??
+    (transferState !== "not_applicable" ? "external_wallet" : "");
+  const PaymentIcon = PROVIDER_ICONS[toPaymentProvider(displayProvider) ?? "stripe"] ?? CreditCard;
+  const statusCopy = isFreeOrder
+    ? { label: "Paid", color: "text-emerald-300" }
+    : activePayment
+      ? paymentStatusCopy(activePayment)
+      : transferState === "receipt_required"
+        ? { label: "Receipt required", color: "text-amber-300" }
+        : { label: "Awaiting payment", color: "text-slate-300" };
+
+  const transferCopy = TRANSFER_STATE_COPY[transferState];
+  const transferTone = TONE_CLASS[transferCopy.tone];
+  const rejectionReason = getRejectionReason(transferPayment);
   const showReceiptForm = canSubmitReceipt({
     orderStatus: order.status,
     payments,
-    hintedVodafone,
+    paymentMethod: storedMethod,
   });
+
+  const legacyProvider =
+    storedMethod === "vodafone_cash" ||
+    toPaymentProvider(transferPayment?.provider) === "vodafone_cash";
+  const legacyWallet = resolveWalletNumber();
+  const walletProviderName = legacyProvider
+    ? "Vodafone Cash"
+    : walletSettings?.provider_name || "Mobile wallet";
+  const walletAccountName = legacyProvider ? null : walletSettings?.account_name || null;
+  const walletNumber = legacyProvider ? legacyWallet.number : walletSettings?.account_number || null;
+  const walletInstructions = legacyProvider ? null : walletSettings?.instructions || null;
+  const walletDetailsUnavailable = legacyProvider
+    ? !legacyWallet.number
+    : needsWalletSettings &&
+      !walletSettingsQuery.isPending &&
+      !walletSettings?.account_number;
+  const showTransferPanel = transferState !== "not_applicable" || Boolean(transferPayment);
+  const receiptEndpoint = legacyProvider
+    ? "/api/payments/vodafone-cash"
+    : "/api/payments/external-wallet";
+  const showCodNotice = toPaymentProvider(activePayment?.provider) === "cod";
+  const walletAvailable = isExternalWalletEnabled(walletSettings);
   const delivery = describeShippingMethod(order.shipping_method);
 
   return (
@@ -326,13 +420,13 @@ export default function OrderDetailPage() {
                 <p className="text-xs text-muted-foreground">Method</p>
                 <p className="font-semibold flex items-center gap-1.5 mt-0.5" data-testid="payment-method">
                   <PaymentIcon className="h-4 w-4" aria-hidden="true" />
-                  {paymentProviderLabel(displayProvider || undefined)}
+                  {isFreeOrder ? "Free order" : paymentProviderLabel(displayProvider || undefined)}
                 </p>
               </div>
               <div className="glass rounded-xl p-3">
                 <p className="text-xs text-muted-foreground">Amount</p>
                 <p className="font-extrabold text-gradient-gold mt-0.5">
-                  {formatCurrency(activePayment?.amount ?? order.total)}
+                  {isFreeOrder ? "Free" : formatCurrency(activePayment?.amount ?? order.total, orderCurrency)}
                 </p>
               </div>
               <div className="glass rounded-xl p-3">
@@ -343,21 +437,21 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {Boolean(vodafonePayment) && (
-              <div className={`rounded-xl border p-4 space-y-3 ${vodafoneTone.panel}`}>
+            {showTransferPanel && (
+              <div className={`rounded-xl border p-4 space-y-3 ${transferTone.panel}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-sm">Vodafone Cash transfer</p>
+                  <p className="font-semibold text-sm">{walletProviderName} transfer</p>
                   <span
-                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${vodafoneTone.badge}`}
-                    data-testid="vodafone-state"
+                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${transferTone.badge}`}
+                    data-testid="transfer-state"
                   >
-                    {vodafoneCopy.badge}
+                    {transferCopy.badge}
                   </span>
                 </div>
 
                 <div>
-                  <p className="font-semibold">{vodafoneCopy.title}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">{vodafoneCopy.body}</p>
+                  <p className="font-semibold">{transferCopy.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{transferCopy.body}</p>
                 </div>
 
                 {rejectionReason && (
@@ -367,25 +461,25 @@ export default function OrderDetailPage() {
                   </div>
                 )}
 
-                {vodafonePayment && (
+                {transferPayment && (
                   <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted-foreground">Reference</dt>
                       <dd className="font-mono font-semibold">
-                        {vodafonePayment.provider_payment_id || "—"}
+                        {transferPayment.provider_payment_id || "—"}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted-foreground">Sent from</dt>
                       <dd className="font-mono">
-                        {vodafonePayment.raw_response?.payer_phone || "—"}
+                        {transferPayment.raw_response?.payer_phone || "—"}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted-foreground">Submitted</dt>
                       <dd>
-                        {vodafonePayment.raw_response?.uploaded_at
-                          ? new Date(vodafonePayment.raw_response.uploaded_at).toLocaleString()
+                        {transferPayment.raw_response?.uploaded_at
+                          ? new Date(transferPayment.raw_response.uploaded_at).toLocaleString()
                           : "—"}
                       </dd>
                     </div>
@@ -407,16 +501,16 @@ export default function OrderDetailPage() {
                         className="max-w-xs"
                         meta={[
                           { label: "Order", value: order.order_number || order.id.slice(0, 8) },
-                          { label: "Amount", value: formatCurrency(order.total) },
+                          { label: "Amount", value: formatCurrency(order.total, orderCurrency) },
                           {
                             label: "Reference",
-                            value: vodafonePayment?.provider_payment_id ?? null,
+                            value: transferPayment?.provider_payment_id ?? null,
                           },
                           {
                             label: "Submitted",
-                            value: vodafonePayment?.raw_response?.uploaded_at
+                            value: transferPayment?.raw_response?.uploaded_at
                               ? new Date(
-                                  vodafonePayment.raw_response.uploaded_at
+                                  transferPayment.raw_response.uploaded_at
                                 ).toLocaleString()
                               : null,
                           },
@@ -438,63 +532,187 @@ export default function OrderDetailPage() {
               </div>
             )}
 
-            {/* Nothing recorded yet (e.g. card payment awaiting the webhook) */}
-            {!activePayment && !showReceiptForm && (
-              <p className="text-sm text-muted-foreground">
-                No payment has been recorded for this order yet. It will update automatically once
-                the payment provider confirms it.
+            {showCodNotice && (
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 text-sm">
+                <p className="font-semibold flex items-center gap-2 text-emerald-200">
+                  <Banknote className="h-4 w-4" aria-hidden="true" />
+                  Cash on delivery
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Pay the courier in cash when your order arrives. The payment is recorded only
+                  after the cash is actually collected.
+                </p>
+              </div>
+            )}
+
+            {/* Finish a checkout whose payment attempt failed after the order
+                was created — the customer would otherwise be stuck. */}
+            {needsPaymentSetup ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-3">
+                <div>
+                  <p className="font-semibold text-sm text-amber-100">Finish setting up your payment</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {totalDue <= 0
+                      ? "Your discount covers the full order, so there is nothing to pay. Confirm to complete it."
+                      : "This order has no payment method yet. Choose how you would like to pay."}
+                  </p>
+                </div>
+
+                {startPaymentMutation.error && (
+                  <p role="alert" className="text-sm text-red-300">
+                    {startPaymentMutation.error instanceof Error
+                      ? startPaymentMutation.error.message
+                      : "Failed to start the payment"}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  {totalDue <= 0 ? (
+                    <button
+                      onClick={() => startPaymentMutation.mutate("cod")}
+                      disabled={startPaymentMutation.isPending}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-neon text-white text-sm font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+                    >
+                      {startPaymentMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      Complete order
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startPaymentMutation.mutate("cod")}
+                        disabled={startPaymentMutation.isPending}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl glass text-sm font-semibold hover:pink-glow transition-all disabled:opacity-50"
+                      >
+                        {startPaymentMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Banknote className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        Pay cash on delivery
+                      </button>
+                      <button
+                        onClick={() => startPaymentMutation.mutate("external_wallet")}
+                        disabled={
+                          startPaymentMutation.isPending ||
+                          walletSettingsQuery.isPending ||
+                          !walletAvailable
+                        }
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl glass text-sm font-semibold hover:pink-glow transition-all disabled:opacity-50"
+                      >
+                        <Smartphone className="h-4 w-4" aria-hidden="true" />
+                        Pay by mobile wallet
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {totalDue > 0 && !walletSettingsQuery.isPending && !walletAvailable && (
+                  <p className="text-xs text-muted-foreground">
+                    Wallet transfers are unavailable right now. Cash on delivery is still available.
+                  </p>
+                )}
+              </div>
+            ) : isFreeOrder ? (
+              <p className="text-sm text-emerald-300">
+                This order was fully covered by a discount — no payment is due.
               </p>
+            ) : (
+              !activePayment &&
+              !showTransferPanel &&
+              !showReceiptForm && (
+                <p className="text-sm text-muted-foreground">
+                  No payment has been recorded for this order yet. It will update automatically once
+                  the payment provider confirms it.
+                </p>
+              )
             )}
           </section>
 
-          {/* Vodafone Cash: instructions + receipt submission */}
-          {vodafoneState !== "not_applicable" && (
+          {/* Wallet transfer: instructions + receipt submission */}
+          {showTransferPanel && (
               <section className="glass-strong rounded-3xl p-6" aria-labelledby="receipt-heading">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <h2 id="receipt-heading" className="text-lg font-extrabold flex items-center gap-2">
                     <Wallet className="h-5 w-5 text-emerald-400" aria-hidden="true" />
-                    Pay with Vodafone Cash
+                    Pay with {walletProviderName}
                   </h2>
                   <span
-                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${vodafoneTone.badge}`}
+                    className={`text-xs font-semibold px-2 py-1 rounded-lg border ${transferTone.badge}`}
                   >
-                    {vodafoneCopy.badge}
+                    {transferCopy.badge}
                   </span>
                 </div>
 
-                <VodafoneInstructions
-                  number={WALLET.number}
-                  amountLabel={formatCurrency(order.total)}
-                  orderNumber={order.order_number || order.id.slice(0, 8)}
-                  className="mb-4"
-                />
+                {!legacyProvider && walletSettingsQuery.isPending ? (
+                  <div className="glass rounded-2xl p-6 flex items-center gap-3 text-sm text-muted-foreground mb-4">
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    Loading transfer details…
+                  </div>
+                ) : (
+                  <ExternalWalletInstructions
+                    number={walletNumber}
+                    providerName={walletProviderName}
+                    accountName={walletAccountName}
+                    instructions={walletInstructions}
+                    amountLabel={formatCurrency(order.total, orderCurrency)}
+                    orderNumber={order.order_number || order.id.slice(0, 8)}
+                    showFileSpecs={showReceiptForm}
+                    className="mb-4"
+                  />
+                )}
+
+                {!legacyProvider && walletSettingsQuery.error && (
+                  <p role="alert" className="text-xs text-red-300 mb-3">
+                    {walletSettingsQuery.error instanceof Error
+                      ? walletSettingsQuery.error.message
+                      : "Transfer details could not be loaded."}
+                  </p>
+                )}
 
                 {showReceiptForm ? (
                   <div className="border-t border-white/10 pt-4">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {vodafoneState === "receipt_required"
-                        ? "Upload the receipt after you complete the transfer."
-                        : "Upload a new receipt to replace the one we could not verify."}
-                    </p>
-                    <ReceiptUploader
-                      orderId={order.id}
-                      idPrefix={`receipt-${order.id}`}
-                      onSubmitted={() => {
-                        void orderQuery.refetch();
-                        void receiptQuery.refetch();
-                      }}
-                      submitLabel={
-                        vodafoneState === "receipt_required"
-                          ? "Submit receipt for verification"
-                          : "Submit a new receipt"
-                      }
-                    />
+                    {!legacyProvider && walletSettingsQuery.isPending ? (
+                      <p className="text-xs text-muted-foreground">
+                        Loading transfer details before the receipt form…
+                      </p>
+                    ) : walletDetailsUnavailable ? (
+                      <p role="alert" className="text-sm text-amber-200">
+                        Transfer account details are unavailable right now. Please contact support
+                        before sending money.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {transferState === "receipt_required"
+                            ? "Upload the receipt after you complete the transfer."
+                            : "Upload a new receipt to replace the one we could not verify."}
+                        </p>
+                        <ReceiptUploader
+                          orderId={order.id}
+                          endpoint={receiptEndpoint}
+                          idPrefix={`receipt-${order.id}`}
+                          onSubmitted={() => {
+                            void orderQuery.refetch();
+                            void receiptQuery.refetch();
+                          }}
+                          submitLabel={
+                            transferState === "receipt_required"
+                              ? "Submit receipt for verification"
+                              : "Submit a new receipt"
+                          }
+                        />
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="border-t border-white/10 pt-4 text-sm text-muted-foreground flex items-start gap-2">
                     <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
                     <p>
-                      {vodafoneState === "confirmed"
+                      {transferState === "confirmed"
                         ? "Nothing else is needed — this order is paid."
                         : "Your receipt is with our payment team. No further action is needed from you."}
                     </p>
@@ -525,7 +743,7 @@ export default function OrderDetailPage() {
                         </p>
                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
-                      <p className="font-bold">{formatCurrency(item.line_total)}</p>
+                      <p className="font-bold">{formatCurrency(item.line_total, orderCurrency)}</p>
                     </div>
                   </div>
                 ))}
@@ -575,29 +793,29 @@ export default function OrderDetailPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-semibold">{formatCurrency(order.subtotal)}</span>
+                <span className="font-semibold">{formatCurrency(order.subtotal, orderCurrency)}</span>
               </div>
               {order.tax > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax</span>
-                  <span className="font-semibold">{formatCurrency(order.tax)}</span>
+                  <span className="font-semibold">{formatCurrency(order.tax, orderCurrency)}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
                 <span className={`font-semibold ${order.shipping_fee === 0 ? "text-green-400" : ""}`}>
-                  {order.shipping_fee === 0 ? "Free" : formatCurrency(order.shipping_fee)}
+                  {order.shipping_fee === 0 ? "Free" : formatCurrency(order.shipping_fee, orderCurrency)}
                 </span>
               </div>
               {order.discount_amount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Discount</span>
-                  <span className="font-semibold text-green-400">-{formatCurrency(order.discount_amount)}</span>
+                  <span className="font-semibold text-green-400">-{formatCurrency(order.discount_amount, orderCurrency)}</span>
                 </div>
               )}
               <div className="border-t border-white/10 pt-2 flex justify-between">
                 <span className="font-bold">Total</span>
-                <span className="font-extrabold text-lg text-gradient-gold">{formatCurrency(order.total)}</span>
+                <span className="font-extrabold text-lg text-gradient-gold">{formatCurrency(order.total, orderCurrency)}</span>
               </div>
             </div>
 

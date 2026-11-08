@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
@@ -11,66 +10,32 @@ function getSupabaseForUser(token) {
   );
 }
 
-// POST - Pay with wallet
+// POST - Blocked. Paying from the internal wallet balance is not an approved
+// payment method for new orders: checkout only accepts cash on delivery and a
+// manual wallet transfer with an admin-reviewed receipt. The route is kept so
+// old builds receive an explicit answer instead of a 404, and so no browser or
+// direct API call can settle an order through a disabled provider. Historical
+// wallet balances stay readable through GET.
 export async function POST(request) {
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-  const { allowed } = checkRateLimit(`wallet:${ip}`);
-
-  if (!allowed) {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) {
     return Response.json(
-      { success: false, message: "Too many requests. Please try again later." },
-      { status: 429 }
+      { success: false, message: "Authorization required" },
+      { status: 401 }
     );
   }
 
-  try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      return Response.json(
-        { success: false, message: "Authorization required" },
-        { status: 401 }
-      );
-    }
+  logger.warn("[Wallet] blocked a wallet-balance payment attempt");
 
-    const token = authHeader.replace("Bearer ", "");
-    const SupabaseClient = getSupabaseForUser(token);
-    const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
-
-    if (authError || !user) {
-      return Response.json(
-        { success: false, message: "Invalid token" },
-        { status: 401 }
-      );
-    }
-
-    const { order_id, amount } = await request.json();
-
-    if (!order_id) {
-      return Response.json(
-        { success: false, message: "order_id is required" },
-        { status: 400 }
-      );
-    }
-
-    // Use the pay_with_wallet RPC which handles ownership, balance validation, atomic deduction
-    const { data: payment, error: payError } = await SupabaseClient
-      .rpc("pay_with_wallet", {
-        p_order_id: order_id,
-        p_amount: amount || null,
-      });
-
-    if (payError) {
-      logger.error("[Wallet Payment Error]", payError);
-      return Response.json(
-        { success: false, message: payError.message || "Payment failed" },
-        { status: 400 }
-      );
-    }
-
-    return Response.json({ success: true, payment });
-  } catch (error) {
-    return handleApiError(error, "Wallet Payment POST", "Payment failed");
-  }
+  return Response.json(
+    {
+      success: false,
+      disabled: true,
+      message:
+        "Paying from the wallet balance is disabled. Choose cash on delivery or a manual wallet transfer with receipt verification.",
+    },
+    { status: 410 }
+  );
 }
 
 // GET - Get wallet balance

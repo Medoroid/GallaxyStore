@@ -22,8 +22,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem("galaxy-locale") as Locale;
-    if (saved && (saved === "en" || saved === "ar") && saved !== locale) {
-      setLocaleState(saved);
+    if (saved === "en" || saved === "ar") {
+      setLocaleState((current) => (saved === current ? current : saved));
     }
   }, []);
 

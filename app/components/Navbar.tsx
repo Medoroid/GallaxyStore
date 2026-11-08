@@ -18,6 +18,8 @@ export function Navbar() {
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; body: string; is_read: boolean; created_at: string }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  /* Track AnnouncementBar height so the Navbar always sits right below it. */
+  const [announcementHeight, setAnnouncementHeight] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,7 +172,7 @@ export function Navbar() {
                 />
               </form>
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-12 left-0 right-0 glass rounded-xl p-2 min-w-[220px] animate-fade-in-up z-50">
+                <div className="absolute top-12 left-0 right-0 glass rounded-xl p-2 min-w-[220px] animate-fade-in-up z-[200]">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
@@ -194,7 +196,7 @@ export function Navbar() {
                 <Globe className="h-4 w-4" />
               </button>
               {langOpen && (
-                <div className="absolute right-0 top-12 glass rounded-xl p-2 min-w-[120px] animate-fade-in-up z-50">
+                <div className="absolute right-0 top-12 glass rounded-xl p-2 min-w-[120px] animate-fade-in-up z-[200]">
                   {(Object.keys(localeNames) as Locale[]).map((l) => (
                     <button
                       key={l}
@@ -226,7 +228,7 @@ export function Navbar() {
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 top-12 glass rounded-xl p-2 min-w-[300px] max-h-[400px] overflow-y-auto animate-fade-in-up z-50">
+                  <div className="absolute right-0 top-12 glass rounded-xl p-2 min-w-[300px] max-h-[400px] overflow-y-auto animate-fade-in-up z-[200]">
                     <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                       <span className="text-sm font-semibold">Notifications</span>
                       {unreadCount > 0 && (

@@ -18,6 +18,9 @@ import {
   Star,
   RotateCcw,
   Store,
+  Palette,
+  ClipboardList,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 
@@ -25,11 +28,14 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/custom-prints", label: "Custom Prints", icon: Palette },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/refunds", label: "Refunds", icon: RotateCcw },
   { href: "/admin/vendors", label: "Vendors", icon: Store },
   { href: "/admin/gallery", label: "Gallery", icon: Image },
+  { href: "/admin/content", label: "Content", icon: Megaphone },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/audit", label: "Audit Log", icon: ClipboardList },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

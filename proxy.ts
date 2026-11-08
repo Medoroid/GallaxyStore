@@ -84,8 +84,57 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Protect checkout, orders, wishlist, profile (require auth)
-  const protectedPaths = ["/checkout", "/orders", "/wishlist", "/profile"];
+  // Protect vendor pages: login required AND vendor/admin role required.
+  // Defense in depth: /api/vendor/* re-verifies auth + ownership server-side,
+  // and the vendor layout re-checks client-side — this proxy check only ensures
+  // the page shell itself is never served to guests or customers.
+  if (request.nextUrl.pathname.startsWith("/vendor")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    let isVendor = false;
+
+    // Role from profiles (vendor or admin may open the panel)
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (data?.role === "vendor" || data?.role === "admin" || data?.role === "superadmin") {
+        isVendor = true;
+      }
+    } catch {
+      // lookup failed — fall through to store check
+    }
+
+    // Owner of a store counts as vendor (mirrors /api/vendor/stats logic)
+    if (!isVendor) {
+      try {
+        const { data } = await supabase
+          .from("stores")
+          .select("id")
+          .eq("owner_id", user.id)
+          .single();
+        if (data) isVendor = true;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Admin allow-list (env) can open the vendor panel too
+    if (!isVendor && getAdminEmails().includes((user.email || "").toLowerCase())) {
+      isVendor = true;
+    }
+
+    if (!isVendor) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
+  // Protect checkout, orders, wishlist, profile, returns (require auth)
+  const protectedPaths = ["/checkout", "/orders", "/wishlist", "/profile", "/returns"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -100,9 +149,11 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/:path*",
+    "/vendor/:path*",
     "/checkout/:path*",
     "/orders/:path*",
     "/wishlist/:path*",
     "/profile/:path*",
+    "/returns",
   ],
 };

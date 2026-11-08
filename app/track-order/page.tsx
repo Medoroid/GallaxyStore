@@ -1,28 +1,47 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Package, Clock, CheckCircle2, Truck, XCircle } from "lucide-react";
+import { Search, Package, Clock, CheckCircle2, Truck, XCircle, Printer, CreditCard, RotateCcw } from "lucide-react";
+import { formatCurrency } from "@/lib/formatCurrency";
+
+type OrderItem = {
+  product_name_snapshot: string | null;
+  sku_snapshot?: string | null;
+  quantity: number;
+  unit_price_snapshot: number;
+  line_total: number | null;
+  status?: string | null;
+};
 
 type Order = {
   id: string;
+  order_number: string | null;
   status: string;
+  subtotal: number;
+  tax: number | null;
+  shipping_fee: number | null;
+  discount_amount: number | null;
   total: number;
-  created_at: string;
-  items: Array<{ product_name_snapshot: string; quantity: number; unit_price_snapshot: number }>;
-  shipping_address_snapshot: { full_name: string; city: string; country: string } | null;
+  currency: string | null;
+  placed_at: string | null;
+  items: OrderItem[];
+  shipping_address_snapshot: { full_name?: string; city?: string; country?: string } | null;
 };
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Package; color: string }> = {
-  pending: { label: "Pending", icon: Clock, color: "text-yellow-400" },
-  confirmed: { label: "Confirmed", icon: CheckCircle2, color: "text-blue-400" },
+  pending: { label: "Pending payment", icon: Clock, color: "text-yellow-400" },
+  paid: { label: "Paid", icon: CreditCard, color: "text-emerald-400" },
   processing: { label: "Processing", icon: Package, color: "text-purple-400" },
+  printing: { label: "Printing", icon: Printer, color: "text-fuchsia-400" },
   shipped: { label: "Shipped", icon: Truck, color: "text-cyan-400" },
   delivered: { label: "Delivered", icon: CheckCircle2, color: "text-green-400" },
   cancelled: { label: "Cancelled", icon: XCircle, color: "text-red-400" },
+  refunded: { label: "Refunded", icon: RotateCcw, color: "text-amber-400" },
+  partially_refunded: { label: "Partially Refunded", icon: RotateCcw, color: "text-amber-400" },
 };
 
 export default function TrackOrderPage() {
-  const [orderId, setOrderId] = useState("");
+  const [orderRef, setOrderRef] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
@@ -30,20 +49,21 @@ export default function TrackOrderPage() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderId.trim() || !email.trim()) return;
+    if (!orderRef.trim() || !email.trim()) return;
 
     setLoading(true);
     setError("");
     setOrder(null);
 
     try {
-      const res = await fetch(`/api/orders/track?order_id=${orderId.trim()}&email=${email.trim()}`);
-      const data = await res.json();
+      const params = new URLSearchParams({ order_id: orderRef.trim(), email: email.trim() });
+      const res = await fetch(`/api/orders/track?${params.toString()}`);
+      const data = await res.json().catch(() => null);
 
-      if (data.success && data.order) {
+      if (res.ok && data?.success && data.order) {
         setOrder(data.order);
       } else {
-        setError(data.message || "Order not found. Please check your order ID and email.");
+        setError(data?.message || "Order not found. Please check your order number and email.");
       }
     } catch {
       setError("Network error. Please try again.");
@@ -53,6 +73,9 @@ export default function TrackOrderPage() {
   };
 
   const statusInfo = order ? STATUS_MAP[order.status] || STATUS_MAP.pending : null;
+  const currency = order?.currency || "USD";
+  const placedAt = order?.placed_at;
+  const orderLabel = order?.order_number || order?.id?.slice(0, 8);
 
   return (
     <div className="min-h-screen py-20 px-6">
@@ -65,7 +88,7 @@ export default function TrackOrderPage() {
             </span>
           </h1>
           <p className="text-gray-400">
-            Enter your order ID and email to check the status
+            Enter your order number and the email used for the purchase
           </p>
         </div>
 
@@ -73,12 +96,12 @@ export default function TrackOrderPage() {
         <div className="glass rounded-3xl p-8 mb-8 animate-fade-in">
           <form onSubmit={handleSearch} className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Order ID</label>
+              <label className="block text-sm text-gray-400 mb-2">Order Number</label>
               <input
                 type="text"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                placeholder="e.g., abc12345"
+                value={orderRef}
+                onChange={(e) => setOrderRef(e.target.value)}
+                placeholder="e.g., GS-2026-000123"
                 className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
                 required
               />
@@ -90,6 +113,7 @@ export default function TrackOrderPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
+                autoComplete="email"
                 className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
                 required
               />
@@ -124,7 +148,7 @@ export default function TrackOrderPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-sm text-gray-400">Order</p>
-                <p className="text-lg font-bold text-white">#{order.id.slice(0, 8)}</p>
+                <p className="text-lg font-bold text-white">#{orderLabel}</p>
               </div>
               <div className={`flex items-center gap-2 ${statusInfo.color}`}>
                 <statusInfo.icon className="w-5 h-5" />
@@ -134,17 +158,50 @@ export default function TrackOrderPage() {
 
             <div className="space-y-4 mb-6">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Date</span>
-                <span className="text-white">{new Date(order.created_at).toLocaleDateString()}</span>
+                <span className="text-gray-400">Placed</span>
+                <span className="text-white">
+                  {placedAt ? new Date(placedAt).toLocaleString() : "—"}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Total</span>
-                <span className="text-white font-semibold">${order.total.toFixed(2)}</span>
+                <span className="text-gray-400">Subtotal</span>
+                <span className="text-white">{formatCurrency(order.subtotal, currency)}</span>
               </div>
-              {order.shipping_address_snapshot && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Shipping</span>
+                <span className="text-white">
+                  {Number(order.shipping_fee || 0) === 0
+                    ? "Free"
+                    : formatCurrency(Number(order.shipping_fee || 0), currency)}
+                </span>
+              </div>
+              {Number(order.tax || 0) > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Tax</span>
+                  <span className="text-white">{formatCurrency(Number(order.tax), currency)}</span>
+                </div>
+              )}
+              {Number(order.discount_amount || 0) > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Discount</span>
+                  <span className="text-emerald-400">
+                    -{formatCurrency(Number(order.discount_amount), currency)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm border-t border-white/[0.08] pt-3">
+                <span className="text-gray-400">Total</span>
+                <span className="text-white font-bold">{formatCurrency(order.total, currency)}</span>
+              </div>
+              {order.shipping_address_snapshot?.city && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Deliver to</span>
-                  <span className="text-white">{order.shipping_address_snapshot.city}, {order.shipping_address_snapshot.country}</span>
+                  <span className="text-white">
+                    {order.shipping_address_snapshot.city}
+                    {order.shipping_address_snapshot.country
+                      ? `, ${order.shipping_address_snapshot.country}`
+                      : ""}
+                  </span>
                 </div>
               )}
             </div>
@@ -153,12 +210,23 @@ export default function TrackOrderPage() {
             <div className="border-t border-white/[0.08] pt-4">
               <p className="text-sm text-gray-400 mb-3">Items</p>
               <div className="space-y-2">
-                {order.items?.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-white">{item.product_name_snapshot} × {item.quantity}</span>
-                    <span className="text-gray-400">${(item.unit_price_snapshot * item.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+                {order.items?.length ? (
+                  order.items.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm gap-3">
+                      <span className="text-white">
+                        {item.product_name_snapshot || item.sku_snapshot || "Item"} × {item.quantity}
+                      </span>
+                      <span className="text-gray-400 whitespace-nowrap">
+                        {formatCurrency(
+                          Number(item.line_total ?? item.unit_price_snapshot * item.quantity),
+                          currency
+                        )}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">No items recorded for this order.</p>
+                )}
               </div>
             </div>
           </div>

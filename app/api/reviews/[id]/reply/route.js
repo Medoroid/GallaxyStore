@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
 function getSupabaseForUser(token) {

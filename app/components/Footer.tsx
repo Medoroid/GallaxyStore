@@ -1,13 +1,32 @@
-"use client";
 import Link from "next/link";
 import {
   FaInstagram,
-  FaWhatsapp,
-  FaTiktok,
+  FaFacebook,
+  FaTwitter,
 } from "react-icons/fa";
 
 import { HiSparkles } from "react-icons/hi2";
-export function Footer() {
+import { getPublicStoreSettings } from "@/lib/storeSettings";
+
+/**
+ * B4 — footer reads the public store settings. Social icons only render when
+ * the owner has actually configured a URL (no dead "#" links), and the store
+ * name falls back to the Galaxy Store brand when unset.
+ */
+export async function Footer() {
+  const settings = await getPublicStoreSettings();
+  const storeName = settings.store_name ?? "Galaxy Store";
+
+  const socials = [
+    settings.instagram_url && {
+      Icon: FaInstagram,
+      label: "Instagram",
+      href: settings.instagram_url,
+    },
+    settings.facebook_url && { Icon: FaFacebook, label: "Facebook", href: settings.facebook_url },
+    settings.twitter_url && { Icon: FaTwitter, label: "X (Twitter)", href: settings.twitter_url },
+  ].filter(Boolean) as Array<{ Icon: typeof FaInstagram; label: string; href: string }>;
+
   return (
     <footer className="relative mt-24">
       <div className="mx-auto max-w-7xl px-4 pb-10">
@@ -17,30 +36,28 @@ export function Footer() {
               <div className="h-10 w-10 rounded-xl bg-gradient-neon grid place-items-center animate-pulse-glow">
                 <HiSparkles className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-extrabold">
-                Galaxy<span className="text-gradient-neon">Store</span>
-              </span>
+              <span className="text-xl font-extrabold">{storeName}</span>
             </Link>
             <p className="text-sm text-muted-foreground max-w-md">
-              Premium custom printing & galaxy-themed gifts. Bring your ideas to life with stellar
+              Premium custom printing &amp; galaxy-themed gifts. Bring your ideas to life with stellar
               quality, neon-bright colors, and out-of-this-world delivery.
             </p>
-            <div className="flex items-center gap-3 pt-2">
-              {[
-                { Icon: FaInstagram, label: "Instagram", href: "#" },
-                { Icon: FaTiktok, label: "TikTok", href: "#" },
-                { Icon: FaWhatsapp, label: "WhatsApp", href: "#" },
-              ].map(({ Icon, label, href }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className="h-11 w-11 rounded-xl glass grid place-items-center hover:pink-glow hover:scale-110 transition-all"
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
+            {socials.length > 0 && (
+              <div className="flex items-center gap-3 pt-2">
+                {socials.map(({ Icon, label, href }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="h-11 w-11 rounded-xl glass grid place-items-center hover:pink-glow hover:scale-110 transition-all"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -66,11 +83,11 @@ export function Footer() {
         </div>
         <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
           <Link href="/about" className="hover:text-foreground">About Us</Link>
-          <Link href="/terms" className="hover:text-foreground">Terms & Conditions</Link>
+          <Link href="/terms" className="hover:text-foreground">Terms &amp; Conditions</Link>
           <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Galaxy Store. Crafted across the cosmos.
+          © {new Date().getFullYear()} {storeName}. Crafted across the cosmos.
         </p>
       </div>
     </footer>
