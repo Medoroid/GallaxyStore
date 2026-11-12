@@ -272,7 +272,12 @@ export default function AdminDashboard() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {stats.top_products.map((product) => (
-                  <tr key={product.product_id} className="hover:bg-white/[0.02]">
+                  // The view groups by product + sku + currency, so one product
+                  // legitimately appears once per currency it sold in.
+                  <tr
+                    key={`${product.product_id}|${product.sku ?? ""}|${product.currency ?? ""}`}
+                    className="hover:bg-white/[0.02]"
+                  >
                     <td className="py-4">
                       <span className="text-sm font-medium text-white">{product.name}</span>
                       {product.sku && <span className="text-xs text-gray-500 block">{product.sku}</span>}
