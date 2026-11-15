@@ -44,6 +44,7 @@ const EMPTY_FORM: ProductFormValues = {
   currency: "USD",
   color: "",
   available_colors: "",
+  available_sizes: "",
   stock_quantity: "100",
 };
 
@@ -60,7 +61,7 @@ export default function AdminProductsPage() {
     basic: true,
     images: true,
     pricing: true,
-    physical: false,
+    attributes: true,
     seo: false,
     specs: false,
   });
@@ -144,6 +145,16 @@ export default function AdminProductsPage() {
     if (!form.name || !form.base_price) {
       setError("Product name and base price are required.");
       return;
+    }
+    if (form.compare_at_price.trim()) {
+      const compareAt = Number(form.compare_at_price);
+      const base = Number(form.base_price);
+      if (!Number.isFinite(compareAt) || compareAt <= base) {
+        setError(
+          "Compare-at price must be higher than the base price — it is the original price before the discount. Leave it empty if the product has no discount."
+        );
+        return;
+      }
     }
     setSaving(true);
     setError("");
@@ -304,6 +315,20 @@ export default function AdminProductsPage() {
       p.categories?.name?.toLowerCase().includes(search.toLowerCase()) ||
       p.brands?.name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Compare-at is the ORIGINAL price before the discount, so it has to be
+  // higher than the selling price. The API drops anything else (the storefront
+  // would otherwise advertise a fake discount), so tell the admin up-front
+  // instead of losing the value silently.
+  const basePriceNumber = Number(form.base_price || 0);
+  const compareAtNumber = Number(form.compare_at_price || 0);
+  const hasCompareAt = form.compare_at_price.trim() !== "";
+  const compareAtInvalid =
+    hasCompareAt && (!Number.isFinite(compareAtNumber) || compareAtNumber <= basePriceNumber);
+  const discountPercent =
+    hasCompareAt && !compareAtInvalid && compareAtNumber > 0
+      ? Math.round(((compareAtNumber - basePriceNumber) / compareAtNumber) * 100)
+      : 0;
 
   const getProductImage = (product: AdminProduct) => productImageUrl(product);
 
@@ -744,6 +769,19 @@ export default function AdminProductsPage() {
                         className={INPUT_CLASS}
                         placeholder="0.00"
                       />
+                      {compareAtInvalid ? (
+                        <p className="mt-1 text-xs text-red-400">
+                          Must be higher than the base price (original price before discount).
+                        </p>
+                      ) : discountPercent > 0 ? (
+                        <p className="mt-1 text-xs text-green-400">
+                          Discount: {discountPercent}% off
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Original price before the discount — shown crossed out on the storefront.
+                        </p>
+                      )}
                     </FormField>
                     <FormField label="Currency">
                       <select
@@ -774,14 +812,14 @@ export default function AdminProductsPage() {
                 </div>
               )}
 
-              {/* Colors Section */}
+              {/* Colors & Sizes Section */}
               <SectionHeader
-                title="Colors"
+                title="Colors & Sizes"
                 icon={<Tag className="w-4 h-4" />}
-                expanded={expandedSections.physical}
-                onToggle={() => toggleSection("physical")}
+                expanded={expandedSections.attributes}
+                onToggle={() => toggleSection("attributes")}
               />
-              {expandedSections.physical && (
+              {expandedSections.attributes && (
                 <div className="space-y-4 pl-1">
                   <FormField label="Primary Color">
                     <input
@@ -789,7 +827,7 @@ export default function AdminProductsPage() {
                       value={form.color}
                       onChange={(e) => updateForm("color", e.target.value)}
                       className={INPUT_CLASS}
-                      placeholder="e.g., Black, White, Silver"
+                      placeholder="e.g., Black"
                     />
                   </FormField>
                   <FormField label="Available Colors (comma separated)">
@@ -800,6 +838,19 @@ export default function AdminProductsPage() {
                       className={INPUT_CLASS}
                       placeholder="e.g., Black, White, Silver, Gold"
                     />
+                  </FormField>
+                  <FormField label="Available Sizes (comma separated)">
+                    <input
+                      type="text"
+                      value={form.available_sizes}
+                      onChange={(e) => updateForm("available_sizes", e.target.value)}
+                      className={INPUT_CLASS}
+                      placeholder="e.g., S, M, L, XL — or One Size"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      These sizes show as the size selector on the product page. Leave empty to
+                      let the storefront use its default (e.g. ring sizes).
+                    </p>
                   </FormField>
                 </div>
               )}

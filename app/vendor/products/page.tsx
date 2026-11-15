@@ -66,6 +66,7 @@ type Product = {
   visibility: string;
   color: string | null;
   available_colors: string[] | null;
+  available_sizes: string[] | null;
   short_description: string | null;
   description: string | null;
   category_id: string | null;
@@ -86,6 +87,7 @@ type FormState = {
   stock_quantity: string;
   color: string;
   available_colors: string;
+  available_sizes: string;
   short_description: string;
   description: string;
 };
@@ -102,6 +104,7 @@ const EMPTY_FORM: FormState = {
   stock_quantity: "0",
   color: "",
   available_colors: "",
+  available_sizes: "",
   short_description: "",
   description: "",
 };
@@ -122,6 +125,7 @@ function productToForm(product: Product): FormState {
     stock_quantity: String(product.default_variant?.stock_quantity ?? 0),
     color: product.color ?? "",
     available_colors: (product.available_colors ?? []).join(", "),
+    available_sizes: (product.available_sizes ?? []).join(", "),
     short_description: product.short_description ?? "",
     description: product.description ?? "",
   };
@@ -539,6 +543,10 @@ export default function VendorProductsPage() {
             .split(",")
             .map((entry) => entry.trim())
             .filter(Boolean),
+          available_sizes: form.available_sizes
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean),
           short_description: form.short_description,
           description: form.description,
         },
@@ -818,6 +826,16 @@ export default function VendorProductsPage() {
                 onChange={(event) => updateField("available_colors", event.target.value)}
                 className="w-full glass rounded-xl h-11 px-4 outline-none focus:pink-glow"
                 placeholder="Black, White"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span className="text-gray-300">Available sizes (comma separated)</span>
+              <input
+                value={form.available_sizes}
+                onChange={(event) => updateField("available_sizes", event.target.value)}
+                className="w-full glass rounded-xl h-11 px-4 outline-none focus:pink-glow"
+                placeholder="S, M, L, XL"
               />
             </label>
 

@@ -44,9 +44,43 @@ export type ProductPayload = {
   currency: string;
   color: string | null;
   available_colors: string[];
+  available_sizes: string[];
   published_at: string | null;
   updated_at: string;
 };
+
+/** Split "S, M, L" (or an array) into a clean, de-duplicated option list. */
+function parseOptionList(value: unknown) {
+  const items = Array.isArray(value) ? value : String(value || "").split(",");
+  const seen = new Set<string>();
+  for (const item of items) {
+    const option = String(item ?? "").trim();
+    if (option) seen.add(option);
+  }
+  return [...seen];
+}
+
+/**
+ * `products.available_sizes` ships in migration 20261115120000. If the app is
+ * deployed before that SQL runs, PostgREST rejects the whole row with
+ * PGRST204. These helpers let the routes retry the write without the column so
+ * saving a product never breaks while waiting for the migration.
+ */
+export function isMissingSizesColumn(
+  error: { code?: string; message?: string } | null | undefined
+) {
+  return Boolean(
+    error &&
+      error.code === "PGRST204" &&
+      String(error.message || "").includes("available_sizes")
+  );
+}
+
+export function omitAvailableSizes<T extends Record<string, unknown>>(payload: T) {
+  const copy: Record<string, unknown> = { ...payload };
+  delete copy.available_sizes;
+  return copy as Omit<T, "available_sizes">;
+}
 
 type ParseOptions = {
   /**
@@ -84,10 +118,8 @@ export function parseProductPayload(body: Record<string, unknown> | null | undef
   const currency = String(body?.currency || "USD").trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error("Currency must be a 3-letter code");
 
-  const colors = Array.isArray(body?.available_colors)
-    ? body.available_colors
-    : String(body?.available_colors || "").split(",");
-  const availableColors = colors.map((color) => String(color).trim()).filter(Boolean);
+  const colors = parseOptionList(body?.available_colors);
+  const sizes = parseOptionList(body?.available_sizes);
 
   const slug = slugify(body?.slug || name);
   if (!slug) throw new Error("Could not derive a slug from the product name");
@@ -112,7 +144,8 @@ export function parseProductPayload(body: Record<string, unknown> | null | undef
     compare_at_price: compareAt !== null && compareAt > basePrice ? compareAt : null,
     currency,
     color: String(body?.color || "").trim() || null,
-    available_colors: availableColors,
+    available_colors: colors,
+    available_sizes: sizes,
     published_at: status === "published" ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
@@ -219,4 +252,32 @@ export async function syncDefaultVariant(
     is_active: true,
   });
   if (insertError) throw insertError;
+}
+
+/**
+ * Variant writes fire `trg_product_variants_sync_colors`, which used to clear
+ * the colours stored on the product row (see migration 20261115120000). Once
+ * the default variant is synced, put the option lists the caller sent back on
+ * the product so the save is authoritative even on databases where the guard
+ * migration has not run yet.
+ */
+export async function reapplyProductAttributes(
+  db: SupabaseClient,
+  productId: string,
+  payload: ProductPayload
+) {
+  const attributes = {
+    color: payload.color,
+    available_colors: payload.available_colors,
+    available_sizes: payload.available_sizes,
+  };
+
+  let { error } = await db.from("products").update(attributes).eq("id", productId);
+
+  if (error && isMissingSizesColumn(error)) {
+    const { color, available_colors } = attributes;
+    ({ error } = await db.from("products").update({ color, available_colors }).eq("id", productId));
+  }
+
+  if (error) throw error;
 }

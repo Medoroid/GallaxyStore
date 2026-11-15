@@ -33,6 +33,7 @@ export type SupabaseProduct = {
   deleted_at: string | null;
   color: string | null;
   available_colors: string[];
+  available_sizes: string[];
   categories: ProductLookup | null;
   brands: ProductLookup | null;
   stores: ProductLookup | null;
@@ -61,6 +62,7 @@ export type ProductFormValues = {
   currency: string;
   color: string;
   available_colors: string;
+  available_sizes: string;
   stock_quantity: string;
 };
 
@@ -80,6 +82,7 @@ export const emptyProductForm: ProductFormValues = {
   currency: "USD",
   color: "",
   available_colors: "",
+  available_sizes: "",
   stock_quantity: "100",
 };
 
@@ -107,6 +110,7 @@ export const productSelect = `
   deleted_at,
   color,
   available_colors,
+  available_sizes,
   categories(id, name, slug),
   brands(id, name, slug),
   stores(id, name),
@@ -160,6 +164,7 @@ export function productToForm(
     currency: product.currency ?? "USD",
     color: product.color ?? "",
     available_colors: product.available_colors?.join(", ") ?? "",
+    available_sizes: product.available_sizes?.join(", ") ?? "",
     // المنتجات اللى ملهاش variant بتيجي من الفورم بمخزون افتراضى
     stock_quantity: variant ? String(variant.stock_quantity) : "100",
   };
@@ -187,6 +192,10 @@ export function formToProductPayload(values: ProductFormValues) {
     available_colors: values.available_colors
       .split(",")
       .map((color) => color.trim())
+      .filter(Boolean),
+    available_sizes: values.available_sizes
+      .split(",")
+      .map((size) => size.trim())
       .filter(Boolean),
     published_at: status === "published" ? new Date().toISOString() : null,
   };

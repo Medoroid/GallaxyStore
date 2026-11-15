@@ -262,7 +262,7 @@ describe("POST /api/vendor/products", () => {
   });
 
   test("a partial update keeps fields that were not sent", async () => {
-    let updated: Record<string, unknown> | null = null;
+    const updates: Array<Record<string, unknown>> = [];
 
     mockDbFrom.mockImplementation(
       dbWith(({ table, operation, terminal, payload, filters }) => {
@@ -274,7 +274,7 @@ describe("POST /api/vendor/products", () => {
           return { data: owned ? EXISTING_PRODUCT : null, error: null };
         }
         if (table === "products" && operation === "update") {
-          updated = payload as Record<string, unknown>;
+          updates.push(payload as Record<string, unknown>);
           return { data: { id: EXISTING_PRODUCT.id }, error: null };
         }
         if (table === "product_variants" && operation === "select") {
@@ -293,7 +293,7 @@ describe("POST /api/vendor/products", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(updated).toMatchObject({
+    expect(updates[0]).toMatchObject({
       name: "New name",
       description: "Old description",
       short_description: "Old short",
@@ -301,6 +301,12 @@ describe("POST /api/vendor/products", () => {
       base_price: 50,
       currency: "EGP",
       store_id: "store-1",
+    });
+    // A second write re-applies the option lists after the default variant is
+    // synced (a variant write would otherwise clear the colours).
+    expect(updates.at(-1)).toMatchObject({
+      color: "Black",
+      available_colors: ["Black"],
     });
   });
 

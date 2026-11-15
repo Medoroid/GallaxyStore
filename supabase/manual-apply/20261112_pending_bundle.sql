@@ -1,17 +1,17 @@
 -- ============================================================================
 -- PENDING MIGRATIONS BUNDLE - run once in the Supabase SQL Editor
--- Generated: 2026-11-12 | Project: httywgkwfqvrbuwuzutu (galaxy-store)
+-- Generated: 2026-11-15 | Project: httywgkwfqvrbuwuzutu (galaxy-store)
 --
 -- WHY THIS FILE EXISTS:
---   supabase db push is blocked on this repo (remote history holds ~200 July
+--   `supabase db push` is blocked on this repo (remote history holds ~200 July
 --   migrations that have no local files -> LegacyDbPushMissingLocalError), so
---   the six pending migrations below must be applied manually. Every section
---   is idempotent (IF NOT EXISTS / OR REPLACE / ON CONFLICT DO NOTHING), so
+--   the pending migrations below must be applied manually. Every section is
+--   idempotent (IF NOT EXISTS / OR REPLACE / ON CONFLICT DO NOTHING), so
 --   re-running the whole bundle is safe.
 --
 -- HOW TO APPLY:
 --   1. Supabase Dashboard -> SQL Editor -> New query
---   2. Paste this ENTIRE file and press Run (one run, all six migrations)
+--   2. Paste this ENTIRE file and press Run (one run, all migrations)
 --   3. The verification SELECTs at the end must all report ok / one row
 --
 -- CONTENTS (in dependency order):
@@ -21,6 +21,7 @@
 --   4. 20261110120000_creator_studio_core      - creator studio tables + buckets
 --   5. 20261110160000_creator_studio_seed      - creator template seed data
 --   6. 20261112090000_fix_admin_product_*      - top-products view: exclude pending orders
+--   7. 20261115120000_product_available_sizes  - product sizes column + stop colours being wiped on save
 -- ============================================================================
 
 -- ============================================================================
@@ -1298,9 +1299,106 @@ grant select on public.admin_product_performance to service_role;
 -- END 20261112090000_fix_admin_product_performance.sql
 
 -- ============================================================================
+-- BEGIN 20261115120000_product_available_sizes_and_color_sync_guard.sql
+-- ============================================================================
+-- Product sizes + stop the variant colour sync from wiping manual colours.
+--
+-- Two production bugs fixed here:
+--
+-- 1. SIZES DID NOT EXIST ANYWHERE.
+--    products had no size column, the admin/vendor product forms had no size
+--    field, and the storefront fell back to hard-coded ["One Size"] (or ring
+--    sizes guessed from the product name). `available_sizes` mirrors the
+--    existing `available_colors` text[] so a single product row carries the
+--    options the admin actually entered.
+--
+-- 2. COLOURS WERE SILENTLY WIPED ON EVERY SAVE.
+--    `trg_product_variants_sync_colors` (AFTER INSERT OR UPDATE OF is_active,
+--    deleted_at, is_default on product_variants) calls
+--    sync_product_available_colors(), which rewrote products.available_colors
+--    and products.color from the variant attribute options. The default variant
+--    created by the admin/vendor product APIs has no colour options, so the
+--    function wrote `available_colors = '{}'` and `color = NULL` right after
+--    the colours had been saved. The guard below keeps manually entered
+--    colours when there is nothing to sync from.
+--
+-- Idempotent: safe to run more than once.
+
+alter table public.products
+  add column if not exists available_sizes text[] not null default '{}';
+
+-- Backfill sizes from variant attribute options that already exist, so the
+-- seeded catalogue starts with real sizes instead of heuristics.
+update public.products p
+set available_sizes = s.sizes
+from (
+  select
+    pv.product_id,
+    array_agg(distinct pav.value order by pav.value) as sizes
+  from public.product_variants pv
+  join public.product_variant_options pvo on pvo.variant_id = pv.id
+  join public.product_attribute_values pav on pav.id = pvo.attribute_value_id
+  join public.product_attributes pa
+    on pa.id = pav.attribute_id
+   and pa.slug = 'size'
+  where pv.deleted_at is null
+    and pv.is_active
+  group by pv.product_id
+) s
+where p.id = s.product_id
+  and (p.available_sizes is null or cardinality(p.available_sizes) = 0);
+
+create or replace function public.sync_product_available_colors(p_product_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_colors text[];
+  v_default_color text;
+begin
+  select array_agg(distinct pav.value order by pav.value)
+  into v_colors
+  from public.product_variants pv
+  join public.product_variant_options pvo on pvo.variant_id = pv.id
+  join public.product_attribute_values pav on pav.id = pvo.attribute_value_id
+  where pv.product_id = p_product_id
+    and pv.deleted_at is null
+    and pv.is_active
+    and pav.attribute_id = (select id from public.product_attributes where slug = 'color');
+
+  -- Nothing to sync from (the normal case for products created in the admin
+  -- form): keep the colours that were entered on the product row.
+  if v_colors is null or cardinality(v_colors) = 0 then
+    return;
+  end if;
+
+  select pav.value
+  into v_default_color
+  from public.product_variants pv
+  join public.product_variant_options pvo on pvo.variant_id = pv.id
+  join public.product_attribute_values pav on pav.id = pvo.attribute_value_id
+  where pv.product_id = p_product_id
+    and pv.deleted_at is null
+    and pv.is_active
+    and pav.attribute_id = (select id from public.product_attributes where slug = 'color')
+  order by pv.is_default desc, pv.created_at asc
+  limit 1;
+
+  update public.products
+  set available_colors = v_colors,
+      color = coalesce(v_default_color, color)
+  where id = p_product_id;
+end;
+$function$;
+
+-- END 20261115120000_product_available_sizes_and_color_sync_guard.sql
+
+-- ============================================================================
 -- VERIFICATION - run these after the bundle; every check must pass
 -- ============================================================================
--- 1) All new tables exist (each value must be a name, never null):
+-- 1) All new tables/columns exist (each value must be a name, never null):
 select to_regclass('public.site_banners')               as site_banners,
        to_regclass('public.site_sections')               as site_sections,
        to_regclass('public.store_themes')                as store_themes,
@@ -1309,7 +1407,7 @@ select to_regclass('public.site_banners')               as site_banners,
        to_regclass('public.creator_profiles')            as creator_profiles,
        to_regclass('public.creator_product_templates')   as creator_templates;
 
--- 2) gift_box allowed + theme-assets bucket public (both must be true):
+-- 2) gift_box allowed + theme-assets bucket + products.available_sizes (all true):
 select exists (
          select 1 from pg_constraint
          where conname = 'custom_print_requests_product_type_check'
@@ -1317,7 +1415,12 @@ select exists (
        ) as gift_box_enabled,
        exists (
          select 1 from storage.buckets where id = 'theme-assets'
-       ) as theme_bucket_exists;
+       ) as theme_bucket_exists,
+       exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = 'products'
+           and column_name = 'available_sizes'
+       ) as product_sizes_column;
 
 -- 3) Top-products view fixed: exactly ONE row for the ring, the paid USD 1000
 --    (the phantom 3000 pending row must be gone):

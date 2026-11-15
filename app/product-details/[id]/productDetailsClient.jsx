@@ -77,13 +77,13 @@ function normalizeHex(value) {
 function colorOptionFromValue(value, index) {
   if (typeof value !== "string" || !value.trim()) return null;
   const label = value.trim();
-  const hex = normalizeHex(label) ?? NAMED_COLOR_HEX[label.toLowerCase()] ?? NAMED_COLOR_HEX[label];
-
-  if (!hex) return null;
+  const hex = normalizeHex(label) ?? NAMED_COLOR_HEX[label.toLowerCase()] ?? NAMED_COLOR_HEX[label] ?? null;
 
   return {
-    id: `${hex}-${index}`,
-    name: normalizeHex(label) ? hex : label,
+    id: `${hex ?? label.toLowerCase()}-${index}`,
+    // A custom colour name (anything not in the palette map) still shows — as a
+    // text chip — instead of silently disappearing from the selector.
+    name: hex ? (normalizeHex(label) ? hex : label) : label,
     hex,
   };
 }
@@ -97,27 +97,42 @@ function getProductOptions(product) {
     .map(colorOptionFromValue)
     .filter(Boolean);
 
-  const colors = [...new Map(supabaseColors.map((item) => [item.hex, item])).values()];
+  const colors = [...new Map(supabaseColors.map((item) => [item.hex ?? item.name.toLowerCase(), item])).values()];
 
-  if (haystack.includes("silver") || haystack.includes("فضة") || haystack.includes("فضي")) {
-    colors.push(COLOR_OPTIONS[0]);
+  // Only decorate with the palette when the product has NO colours configured
+  // (legacy products whose colours live in the name only). Admin-entered
+  // colours are the source of truth.
+  if (colors.length === 0) {
+    if (haystack.includes("silver") || haystack.includes("فضة") || haystack.includes("فضي")) {
+      colors.push(COLOR_OPTIONS[0]);
+    }
+
+    if (haystack.includes("gold") || haystack.includes("ذهبي")) {
+      colors.push(COLOR_OPTIONS[1]);
+    }
+
+    if (haystack.includes("black") || haystack.includes("أسود")) {
+      colors.push(COLOR_OPTIONS[2]);
+    }
+
+    if (haystack.includes("white") || haystack.includes("أبيض")) {
+      colors.push(COLOR_OPTIONS[3]);
+    }
   }
 
-  if (haystack.includes("gold") || haystack.includes("ذهبي")) {
-    colors.push(COLOR_OPTIONS[1]);
-  }
-
-  if (haystack.includes("black") || haystack.includes("أسود")) {
-    colors.push(COLOR_OPTIONS[2]);
-  }
-
-  if (haystack.includes("white") || haystack.includes("أبيض")) {
-    colors.push(COLOR_OPTIONS[3]);
-  }
+  const configuredSizes = (Array.isArray(product.available_sizes) ? product.available_sizes : [])
+    .map((size) => String(size ?? "").trim())
+    .filter(Boolean);
 
   return {
-    colors: colors.length ? colors : COLOR_OPTIONS,
-    sizes: haystack.includes("ring") || haystack.includes("خاتم") ? RING_SIZES : DEFAULT_SIZES,
+    colors,
+    sizes:
+      configuredSizes.length > 0
+        ? configuredSizes
+        : haystack.includes("ring") || haystack.includes("خاتم")
+          ? RING_SIZES
+          : DEFAULT_SIZES,
+    hasConfiguredSizes: configuredSizes.length > 0,
   };
 }
 
@@ -292,6 +307,7 @@ function ProductDetailsClient({ id }) {
     ["Visibility", productData.visibility],
     ["Color", productData.color ?? "Not specified"],
     ["Available colors", productData.available_colors?.join(", ") || "Not specified"],
+    ["Available sizes", productData.available_sizes?.join(", ") || "Not specified"],
     ["Featured", productData.is_featured ? "Yes" : "No"],
     ["Base price", formatCurrency(productData.base_price, productData.currency)],
     ["Compare price", productData.compare_at_price ? formatCurrency(productData.compare_at_price, productData.currency) : "Not specified"],
@@ -433,20 +449,37 @@ function ProductDetailsClient({ id }) {
               Color: <span className="text-muted-foreground">{selectedColor?.name ?? "Not specified"}</span>
               {selectedColor?.hex && <span className="mr-2 text-muted-foreground">({selectedColor.hex})</span>}
             </p>
-            <div className="flex gap-3">
-              {productOptions.colors.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setColor(c.id)}
-                  aria-label={c.name}
-                  className={`relative h-10 w-10 rounded-full border-2 transition-all ${
-                    currentColor === c.id ? "border-white scale-110 pink-glow" : "border-white/20 hover:scale-105"
-                  }`}
-                  style={{ background: c.hex }}
-                >
-                  {currentColor === c.id && <Check className="absolute inset-0 m-auto h-4 w-4 text-white drop-shadow" />}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-3">
+              {productOptions.colors.length === 0 && (
+                <span className="text-sm text-muted-foreground">Not specified</span>
+              )}
+              {productOptions.colors.map((c) =>
+                c.hex ? (
+                  <button
+                    key={c.id}
+                    onClick={() => setColor(c.id)}
+                    aria-label={c.name}
+                    className={`relative h-10 w-10 rounded-full border-2 transition-all ${
+                      currentColor === c.id ? "border-white scale-110 pink-glow" : "border-white/20 hover:scale-105"
+                    }`}
+                    style={{ background: c.hex }}
+                  >
+                    {currentColor === c.id && <Check className="absolute inset-0 m-auto h-4 w-4 text-white drop-shadow" />}
+                  </button>
+                ) : (
+                  <button
+                    key={c.id}
+                    onClick={() => setColor(c.id)}
+                    className={`h-10 px-4 rounded-full border-2 text-sm font-medium transition-all ${
+                      currentColor === c.id
+                        ? "border-white bg-white/10 text-foreground"
+                        : "border-white/20 text-foreground/80 hover:scale-105"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                )
+              )}
             </div>
           </div>
 

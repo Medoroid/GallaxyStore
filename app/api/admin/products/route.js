@@ -3,7 +3,10 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 import {
+  isMissingSizesColumn,
+  omitAvailableSizes,
   parseProductPayload,
+  reapplyProductAttributes,
   syncDefaultVariant,
   uuidOrNull,
 } from "@/lib/product-admin";
@@ -23,7 +26,7 @@ export async function GET(request) {
           `id, store_id, brand_id, category_id, name, slug, short_description, description,
            status, visibility, is_featured, base_price, compare_at_price, currency,
            avg_rating, rating_count, view_count, published_at, created_at, updated_at,
-           deleted_at, color, available_colors,
+           deleted_at, color, available_colors, available_sizes,
            categories(id, name, slug), brands(id, name, slug), stores(id, name),
            product_images(id, storage_path, alt_text, is_primary, sort_order),
            product_variants(id, price, stock_quantity, is_default, is_active, deleted_at)`
@@ -121,23 +124,41 @@ export async function POST(request) {
         return Response.json({ success: false, message: "Product not found" }, { status: 404 });
       }
 
-      const { data, error } = await db
+      let { data, error } = await db
         .from("products")
         .update(payload)
         .eq("id", productId)
         .select("id")
         .single();
+
+      if (error && isMissingSizesColumn(error)) {
+        ({ data, error } = await db
+          .from("products")
+          .update(omitAvailableSizes(payload))
+          .eq("id", productId)
+          .select("id")
+          .single());
+      }
       if (error) throw error;
 
       await syncDefaultVariant(db, productId, payload, body?.stock_quantity);
+      await reapplyProductAttributes(db, productId, payload);
       return Response.json({ success: true, product_id: data.id });
     }
 
-    const { data, error } = await db
+    let { data, error } = await db
       .from("products")
       .insert(payload)
       .select("id")
       .single();
+
+    if (error && isMissingSizesColumn(error)) {
+      ({ data, error } = await db
+        .from("products")
+        .insert(omitAvailableSizes(payload))
+        .select("id")
+        .single());
+    }
 
     if (error) {
       if (error.code === "23505") {
@@ -151,6 +172,7 @@ export async function POST(request) {
 
     try {
       await syncDefaultVariant(db, data.id, payload, body?.stock_quantity);
+      await reapplyProductAttributes(db, data.id, payload);
     } catch (variantError) {
       // Do not leave a product that cannot be added to a cart.
       await db.from("products").delete().eq("id", data.id);
