@@ -60,7 +60,10 @@ export default function AdminCustomPrintsPage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<
-    Record<string, { status: string; quoted_amount: string; admin_notes: string }>
+    Record<
+      string,
+      { status: string; quoted_amount: string; currency: string; admin_notes: string }
+    >
   >({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -86,6 +89,7 @@ export default function AdminCustomPrintsPage() {
               status: request.status,
               quoted_amount:
                 request.quoted_amount == null ? "" : String(request.quoted_amount),
+              currency: request.currency || "USD",
               admin_notes: request.admin_notes || "",
             },
           ])
@@ -119,6 +123,7 @@ export default function AdminCustomPrintsPage() {
           id: request.id,
           status: draft.status,
           quoted_amount: draft.quoted_amount === "" ? null : Number(draft.quoted_amount),
+          currency: draft.currency,
           admin_notes: draft.admin_notes,
         }),
       });
@@ -280,7 +285,7 @@ export default function AdminCustomPrintsPage() {
                 )}
 
                 {draft && (
-                  <div className="grid md:grid-cols-[160px_160px_1fr_auto] gap-3 items-end">
+                  <div className="grid md:grid-cols-[150px_130px_105px_1fr_auto] gap-3 items-end">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Status</label>
                       <select
@@ -301,9 +306,7 @@ export default function AdminCustomPrintsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
-                        Quote ({request.currency})
-                      </label>
+                      <label className="block text-xs text-gray-500 mb-1">Quote</label>
                       <input
                         type="number"
                         min="0"
@@ -318,6 +321,25 @@ export default function AdminCustomPrintsPage() {
                         placeholder="0.00"
                         className="w-full px-3 py-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-sm text-white"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Currency</label>
+                      <select
+                        value={draft.currency}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [request.id]: { ...prev[request.id], currency: e.target.value },
+                          }))
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-sm text-white"
+                      >
+                        {["USD", "EUR", "GBP", "SAR", "AED", "EGP"].map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">

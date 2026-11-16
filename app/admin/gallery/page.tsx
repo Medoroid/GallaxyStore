@@ -359,6 +359,19 @@ export default function AdminGallery() {
                   </button>
                 </div>
 
+                <textarea
+                  defaultValue={image.description ?? ""}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (image.description ?? "")) {
+                      patchImage(image.id, { description: value });
+                    }
+                  }}
+                  placeholder="Description (optional)"
+                  maxLength={500}
+                  className={`${INPUT_CLASS} min-h-[68px] resize-y`}
+                />
+
                 <div className="flex items-center justify-between">
                   <div className="flex gap-1">
                     <button

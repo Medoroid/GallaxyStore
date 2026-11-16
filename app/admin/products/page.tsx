@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Package, Plus, Edit, Trash2, Loader2, X, Save,
-  Search, ChevronDown, ChevronUp, Star,
+  Search, ChevronDown, ChevronUp, Star, ArchiveRestore,
   Tag, Globe, BarChart3, Image as ImageIcon, Upload, XCircle
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
@@ -57,6 +57,7 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
     images: true,
@@ -81,9 +82,10 @@ export default function AdminProductsPage() {
     setError("");
     try {
       const token = await getToken();
-      const res = await fetch("/api/admin/products", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `/api/admin/products${includeArchived ? "?include_archived=1" : ""}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         setError(data?.message || "Could not load products.");
@@ -98,7 +100,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, includeArchived]);
 
   useEffect(() => {
     loadProducts();
@@ -239,6 +241,29 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleRestore = async (productId: string) => {
+    setError("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "restore", product_id: productId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not restore the product.");
+        return;
+      }
+      await loadProducts();
+    } catch {
+      setError("Network error while restoring the product.");
+    }
+  };
+
   const handleDeleteImage = async (imageId: string) => {
     if (!confirm("Delete this image?")) return;
     setError("");
@@ -340,13 +365,27 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold text-white">Products</h1>
           <p className="text-gray-400 mt-1">{products.length} products total</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-semibold hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIncludeArchived((prev) => !prev)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold transition-all ${
+              includeArchived
+                ? "bg-white/[0.12] text-white"
+                : "bg-white/[0.05] text-gray-300 hover:bg-white/[0.08]"
+            }`}
+            title="Archived products are hidden by default; restore them from here"
+          >
+            <ArchiveRestore className="w-4 h-4" />
+            {includeArchived ? "Hide archived" : "Show archived"}
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-semibold hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -425,12 +464,22 @@ export default function AdminProductsPage() {
                     >
                       <Edit className="w-5 h-5 text-white" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="p-3 bg-red-500/20 rounded-xl hover:bg-red-500/30 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5 text-red-400" />
-                    </button>
+                    {product.deleted_at ? (
+                      <button
+                        onClick={() => handleRestore(product.id)}
+                        className="p-3 bg-green-500/20 rounded-xl hover:bg-green-500/30 transition-colors"
+                        title="Restore archived product"
+                      >
+                        <ArchiveRestore className="w-5 h-5 text-green-400" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="p-3 bg-red-500/20 rounded-xl hover:bg-red-500/30 transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5 text-red-400" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="p-4">

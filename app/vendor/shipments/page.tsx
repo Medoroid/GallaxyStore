@@ -277,7 +277,10 @@ export default function VendorShipmentsPage() {
           tracking_number: form.tracking_number,
           tracking_url: form.tracking_url,
           carrier: form.carrier,
-          note: form.note,
+          // Only send a note when one was typed: the route replaces the stored
+          // notes whenever the key is present, so an empty string would erase
+          // the history of the previous update.
+          ...(form.note.trim() ? { note: form.note.trim() } : {}),
         }),
       });
       const payload = await response.json().catch(() => null);

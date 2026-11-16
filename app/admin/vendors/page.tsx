@@ -55,6 +55,19 @@ export default function AdminVendorsPage() {
   }, [fetchVendors]);
 
   const handleVendorAction = async (storeId: string, action: string) => {
+    // Rejections and suspensions are audited with a reason; without one the
+    // vendor is never told why their store changed state.
+    let reason = "";
+    if (action === "reject_store" || action === "suspend_store") {
+      const input = window.prompt(
+        action === "reject_store"
+          ? "Why is this store being rejected? (stored in the audit log)"
+          : "Why is this store being suspended? (stored in the audit log)",
+        ""
+      );
+      if (input === null) return;
+      reason = input.trim();
+    }
     setActingId(storeId);
     setError("");
     try {
@@ -65,7 +78,7 @@ export default function AdminVendorsPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action, store_id: storeId }),
+        body: JSON.stringify({ action, store_id: storeId, ...(reason ? { reason } : {}) }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {

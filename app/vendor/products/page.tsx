@@ -512,9 +512,22 @@ export default function VendorProductsPage() {
       setMessage({ type: "error", text: "Enter a valid base price." });
       return;
     }
-    if (form.compare_at_price && Number(form.compare_at_price) < 0) {
-      setMessage({ type: "error", text: "Compare-at price cannot be negative." });
-      return;
+    if (form.compare_at_price.trim()) {
+      const compareAt = Number(form.compare_at_price);
+      if (!Number.isFinite(compareAt) || compareAt < 0) {
+        setMessage({ type: "error", text: "Compare-at price cannot be negative." });
+        return;
+      }
+      // The API drops a compare-at that is not above the selling price (it is
+      // the original price before the discount), so fail loudly instead of
+      // "saving" a product with the discount silently removed.
+      if (compareAt <= basePrice) {
+        setMessage({
+          type: "error",
+          text: "Compare-at price must be higher than the base price — it is the original price before the discount.",
+        });
+        return;
+      }
     }
 
     setSaving(true);

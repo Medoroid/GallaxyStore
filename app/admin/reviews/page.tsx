@@ -24,6 +24,9 @@ export default function AdminReviewsPage() {
   const [error, setError] = useState("");
   const [actingId, setActingId] = useState<string | null>(null);
   const [filter, setFilter] = useState("pending");
+  // The moderation RPC stores an optional note; without an input every decision
+  // was recorded with no explanation.
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const fetchReviews = useCallback(async () => {
     setError("");
@@ -60,7 +63,11 @@ export default function AdminReviewsPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ review_id: reviewId, new_status: status }),
+        body: JSON.stringify({
+          review_id: reviewId,
+          new_status: status,
+          note: notes[reviewId]?.trim() || null,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -188,7 +195,7 @@ export default function AdminReviewsPage() {
                   )}
                 </div>
               </div>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <span
                   className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
                     review.status === "approved"
@@ -200,6 +207,15 @@ export default function AdminReviewsPage() {
                 >
                   {review.status}
                 </span>
+                <input
+                  value={notes[review.id] ?? ""}
+                  onChange={(e) =>
+                    setNotes((prev) => ({ ...prev, [review.id]: e.target.value }))
+                  }
+                  placeholder="Moderation note (optional) — saved with the decision"
+                  maxLength={1000}
+                  className="flex-1 min-w-[220px] px-3 py-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-sm text-white placeholder:text-gray-600"
+                />
               </div>
             </div>
           ))}

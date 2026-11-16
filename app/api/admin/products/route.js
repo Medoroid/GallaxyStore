@@ -19,20 +19,26 @@ export async function GET(request) {
     }
 
     const db = getServiceRoleClient();
+    const includeArchived =
+      new URL(request.url).searchParams.get("include_archived") === "1";
+    let productsQuery = db
+      .from("products")
+      .select(
+        `id, store_id, brand_id, category_id, name, slug, short_description, description,
+         status, visibility, is_featured, base_price, compare_at_price, currency,
+         avg_rating, rating_count, view_count, published_at, created_at, updated_at,
+         deleted_at, color, available_colors, available_sizes,
+         categories(id, name, slug), brands(id, name, slug), stores(id, name),
+         product_images(id, storage_path, alt_text, is_primary, sort_order),
+         product_variants(id, price, stock_quantity, is_default, is_active, deleted_at)`
+      )
+      .order("created_at", { ascending: false });
+    if (!includeArchived) {
+      productsQuery = productsQuery.is("deleted_at", null);
+    }
+
     const [productsResult, categories, brands, stores] = await Promise.all([
-      db
-        .from("products")
-        .select(
-          `id, store_id, brand_id, category_id, name, slug, short_description, description,
-           status, visibility, is_featured, base_price, compare_at_price, currency,
-           avg_rating, rating_count, view_count, published_at, created_at, updated_at,
-           deleted_at, color, available_colors, available_sizes,
-           categories(id, name, slug), brands(id, name, slug), stores(id, name),
-           product_images(id, storage_path, alt_text, is_primary, sort_order),
-           product_variants(id, price, stock_quantity, is_default, is_active, deleted_at)`
-        )
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false }),
+      productsQuery,
       db.from("categories").select("id, name, slug").is("deleted_at", null).order("sort_order"),
       db.from("brands").select("id, name, slug").is("deleted_at", null).order("name"),
       db.from("stores").select("id, name").is("deleted_at", null).order("name"),
@@ -94,6 +100,24 @@ export async function POST(request) {
       return Response.json({ success: true });
     }
 
+    // Archive is a soft delete; restoring puts the product back as a draft so
+    // it is never re-published by accident.
+    if (action === "restore") {
+      if (!productId) {
+        return Response.json({ success: false, message: "Invalid product id" }, { status: 400 });
+      }
+      const { error } = await db
+        .from("products")
+        .update({
+          deleted_at: null,
+          status: "draft",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", productId);
+      if (error) throw error;
+      return Response.json({ success: true });
+    }
+
     if (action !== "create" && action !== "update") {
       return Response.json({ success: false, message: "Invalid action" }, { status: 400 });
     }
@@ -115,13 +139,20 @@ export async function POST(request) {
 
       const { data: existing, error: existingError } = await db
         .from("products")
-        .select("id")
+        .select("id, published_at")
         .eq("id", productId)
         .is("deleted_at", null)
         .maybeSingle();
       if (existingError) throw existingError;
       if (!existing) {
         return Response.json({ success: false, message: "Product not found" }, { status: 404 });
+      }
+
+      // parseProductPayload always stamps published_at; re-saving an already
+      // published product must not move its publish date (the vendor route
+      // does the same).
+      if (payload.status === "published" && existing.published_at) {
+        payload.published_at = existing.published_at;
       }
 
       let { data, error } = await db
