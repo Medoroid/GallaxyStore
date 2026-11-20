@@ -156,6 +156,14 @@ test.describe("Creator Studio", () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.design.version.version_number).toBe(1);
+
+    // Regression: uploading identical artwork into another design must not
+    // collide with the global checksum index (formerly 23505 -> 500).
+    const second = await page.request.post("/api/designs", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: { file: { name: "regression.svg", mimeType: "image/svg+xml", buffer: svg } },
+    });
+    expect(second.status(), await second.text()).toBe(201);
   });
 
   test("admin review workflow", async ({ page }) => {

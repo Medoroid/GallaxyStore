@@ -21,7 +21,7 @@
 - First deploy: Ready but 404 — Vercel project had Framework Preset "Other". Fixed via `vercel project update --framework nextjs` + auto-detect. Second deploy: **Ready**, homepage/products/apis return 200.
 
 ## 4. Browser test results (against the live URL)
-`npx playwright test --config playwright.staging.config.ts` → **11 passed / 11**:
+`npx playwright test --config playwright.staging.config.ts` → **12 passed / 12**:
 - Registration form contract (live signup blocked by Supabase free-tier SMTP rate limit — documented).
 - Login, `?next=` preservation, logout.
 - Unauthorized admin access denied.
@@ -33,6 +33,13 @@
 - Admin review workflow.
 - Vendor dashboard/printing/payout.
 - Dual-role authorization matrix.
+- **Creator design creation regression** (version trigger + SELECT policy) — added after fixing the 403.
+
+## Critical bug fixed after tester report (POST /api/designs → 403)
+Tester reported `403 Forbidden` when creating a design. Investigation of the deployed Vercel logs showed two stacked schema defects (not app-code bugs):
+1. `owns_design()` (SECURITY DEFINER, STABLE) could not see the just-inserted row during `INSERT … RETURNING`, so the SELECT policy rejected the returned row → 42501 → 403. Fixed by migration `20261122120000_designs_select_policy_own_id.sql` (check `owner_id = auth.uid()` directly).
+2. `design_versions.version_number` is NOT NULL but no trigger ever assigned it — `set_design_version_number()` existed in the baseline but was never wired. Fixed by migration `20261122110000_design_version_number_trigger.sql`.
+Both migrations applied to Staging and Local; regression test added to `e2e-staging/workflows.spec.ts`; deployed suite re-run → **12/12 pass**. Commit `634a2bb` pushed to `origin/staging`.
 - Production request leak check: **0** requests to production host.
 
 ## 5. Tested on deployed URL
