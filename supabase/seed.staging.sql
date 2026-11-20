@@ -36,8 +36,14 @@ on conflict do nothing;
 -- Custom-print templates mapped to real synthetic products/variants.
 insert into public.mockup_templates (template_key, name, category, store_product_id, store_variant_id, is_active)
 values
+  ('tshirt','T-Shirt (staging)','apparel','11111111-1111-1111-1111-111111111301','11111111-1111-1111-1111-111111111401',true),
   ('hoodie','Hoodie (staging)','apparel','11111111-1111-1111-1111-111111111302','11111111-1111-1111-1111-111111111403',true),
-  ('tshirt','T-Shirt (staging)','apparel','11111111-1111-1111-1111-111111111301','11111111-1111-1111-1111-111111111401',true)
+  ('sweatshirt','Sweatshirt (staging)','apparel','11111111-1111-1111-1111-111111111302','11111111-1111-1111-1111-111111111403',true),
+  ('mug','Coffee Mug (staging)','drinkware','11111111-1111-1111-1111-111111111303','11111111-1111-1111-1111-111111111404',true),
+  ('phone_case','Phone Case (staging)','tech','11111111-1111-1111-1111-111111111305','11111111-1111-1111-1111-111111111406',true),
+  ('tote_bag','Tote Bag (staging)','accessories','11111111-1111-1111-1111-111111111301','11111111-1111-1111-1111-111111111401',true),
+  ('poster','Art Poster (staging)','wall_art','11111111-1111-1111-1111-111111111304','11111111-1111-1111-1111-111111111405',true),
+  ('mouse_pad','Mouse Pad (staging)','accessories','11111111-1111-1111-1111-111111111303','11111111-1111-1111-1111-111111111404',true)
 on conflict (template_key) do update set
   store_product_id = excluded.store_product_id,
   store_variant_id = excluded.store_variant_id,

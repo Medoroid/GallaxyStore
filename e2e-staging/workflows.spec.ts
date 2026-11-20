@@ -185,21 +185,25 @@ test.describe("Creator Studio", () => {
     const designId = (await designRes.json()).design.id as string;
     expect(designId).toBeTruthy();
 
-    const cartRes = await request.post("/api/custom-print/cart", {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      data: {
-        design_id: designId,
-        template_key: "hoodie",
-        view_key: "front",
-        color_key: "white",
-        size_key: "s",
-        quantity: 1,
-        transform: { cx: 0, cy: 0, width: 10, height: 10, rotation: 0 },
-        share_opt_in: false,
-      },
-    });
-    expect(cartRes.status(), await cartRes.text()).toBe(200);
-    expect((await cartRes.json()).success).toBe(true);
+    for (const templateKey of [
+      "tshirt", "hoodie", "sweatshirt", "mug", "phone_case", "tote_bag", "poster", "mouse_pad",
+    ]) {
+      const cartRes = await request.post("/api/custom-print/cart", {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        data: {
+          design_id: designId,
+          template_key: templateKey,
+          view_key: "front",
+          color_key: "white",
+          size_key: "s",
+          quantity: 1,
+          transform: { cx: 0, cy: 0, width: 10, height: 10, rotation: 0 },
+          share_opt_in: false,
+        },
+      });
+      expect(cartRes.status(), `${templateKey}: ${await cartRes.text()}`).toBe(200);
+      expect((await cartRes.json()).success).toBe(true);
+    }
   });
 
   test("admin review workflow", async ({ page }) => {

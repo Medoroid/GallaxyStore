@@ -21,7 +21,7 @@
 - First deploy: Ready but 404 — Vercel project had Framework Preset "Other". Fixed via `vercel project update --framework nextjs` + auto-detect. Second deploy: **Ready**, homepage/products/apis return 200.
 
 ## 4. Browser test results (against the live URL)
-`npx playwright test --config playwright.staging.config.ts` → **12 passed / 12**:
+`npx playwright test --config playwright.staging.config.ts` → **13 passed / 13**:
 - Registration form contract (live signup blocked by Supabase free-tier SMTP rate limit — documented).
 - Login, `?next=` preservation, logout.
 - Unauthorized admin access denied.
@@ -42,6 +42,8 @@ Tester reported `403 Forbidden` when creating a design. Investigation of the dep
 Both migrations applied to Staging and Local; regression test added to `e2e-staging/workflows.spec.ts`; deployed suite re-run → **12/12 pass**. Commit `634a2bb` pushed to `origin/staging`.
 
 A follow-up tester report showed `500` on the same endpoint: `23505 duplicate key "idx_files_checksum"` — the checksum column had a GLOBAL unique index, so uploading identical artwork into a second design always failed. Fixed by migration `20261122130000_design_files_checksum_not_unique.sql` (index kept for lookups, uniqueness removed). Regression test now uploads the same SVG twice; deployed suite re-run → **12/12 pass**. Commit `4aa5a03` pushed to `origin/staging`.
+
+A further tester report showed `400` on `POST /api/custom-print/cart` with `design_id: null`. Root cause: a frontend contract mismatch — `CustomPrintStudio` read `saved.design_id` while `/api/designs` returns `{ design: { id } }`, so the id was always null. Fixed both call sites, seeded Staging `mockup_templates` mappings to real synthetic variants, added a full regression test (create design → add custom print to cart), redeployed. Deployed suite → **13/13 pass**. Commit `3e58535` pushed to `origin/staging`.
 - Production request leak check: **0** requests to production host.
 
 ## 5. Tested on deployed URL
