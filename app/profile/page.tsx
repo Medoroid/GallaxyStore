@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   User,
   Lock,
@@ -12,13 +13,20 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  LogOut,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function ProfilePage() {
-  const { user, updatePassword } = useAuth();
+  const { user, updatePassword, signOut, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/");
+  };
 
   if (!user) {
     return (
@@ -40,13 +48,35 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 pt-28 pb-20">
-      <div className="mb-10">
-        <p className="text-xs uppercase tracking-[0.3em] text-secondary font-semibold mb-3">
-          My Account
-        </p>
-        <h1 className="text-3xl md:text-5xl font-extrabold">
-          <span className="text-gradient-neon">My</span> Profile
-        </h1>
+      <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-secondary font-semibold mb-3">
+            My Account
+          </p>
+          <h1 className="text-3xl md:text-5xl font-extrabold">
+            <span className="text-gradient-neon">My</span> Profile
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-pink-500/40 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20 text-sm font-bold transition-all shadow-md hover:scale-105"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Admin Dashboard
+            </Link>
+          )}
+
+          <button
+            onClick={handleSignOut}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 text-sm font-bold transition-all shadow-md hover:scale-105"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -83,13 +113,14 @@ export default function ProfilePage() {
 
       {/* Quick Links Tab */}
       {activeTab === "quick" && (
-        <QuickLinks />
+        <QuickLinks onSignOut={handleSignOut} isAdmin={isAdmin} />
       )}
     </div>
   );
 }
 
 function ProfileInfo({ user }: { user: { id?: string; email?: string; user_metadata?: Record<string, string> } }) {
+  const { getToken } = useAuth();
   const [name, setName] = useState(user.user_metadata?.full_name || "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -100,25 +131,27 @@ function ProfileInfo({ user }: { user: { id?: string; email?: string; user_metad
     setMessage(null);
 
     try {
-      // Update auth metadata
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: name },
-      });
-
-      if (authError) {
-        setMessage({ type: "error", text: authError.message || "Failed to update profile" });
+      const token = await getToken();
+      if (!token) {
+        setMessage({ type: "error", text: "Your session has expired. Please sign in again." });
         return;
       }
 
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ full_name: name })
-        .eq("id", user.id);
-
-      if (profileError) {
-        console.error("Profile table update failed:", profileError);
-        // Still show success since auth metadata was updated
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ full_name: name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setMessage({
+          type: "error",
+          text: data?.message || "Could not update your profile. Please try again.",
+        });
+        return;
       }
 
       setMessage({ type: "success", text: "Profile updated successfully!" });
@@ -168,6 +201,23 @@ function ProfileInfo({ user }: { user: { id?: string; email?: string; user_metad
           <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
         </div>
       </div>
+
+      {(user.user_metadata?.userName || user.user_metadata?.age) && (
+        <div className="grid md:grid-cols-2 gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Username</p>
+            <p className="text-sm text-white">{user.user_metadata?.userName || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Date of birth</p>
+            <p className="text-sm text-white">{user.user_metadata?.age || "—"}</p>
+          </div>
+          <p className="md:col-span-2 text-[11px] text-muted-foreground">
+            Captured at sign-up and kept in your account metadata. The profiles table has no
+            username/date-of-birth columns, so these are read-only here.
+          </p>
+        </div>
+      )}
 
       {message && (
         <div
@@ -311,36 +361,79 @@ function SecuritySettings({ updatePassword }: { updatePassword?: (newPassword: s
   );
 }
 
-function QuickLinks() {
+function QuickLinks({ onSignOut, isAdmin }: { onSignOut?: () => void; isAdmin?: boolean }) {
   const links = [
+    ...(isAdmin
+      ? [
+          {
+            href: "/admin",
+            label: "Admin Dashboard",
+            desc: "Manage products, orders, settings, and store analytics",
+            icon: LayoutDashboard,
+            highlight: true,
+          },
+        ]
+      : []),
     { href: "/orders", label: "My Orders", desc: "View order history and track deliveries", icon: ShoppingBag },
     { href: "/wishlist", label: "My Wishlist", desc: "Your saved products and favorites", icon: Heart },
     { href: "/cart", label: "Shopping Cart", desc: "Review items in your cart", icon: Settings },
   ];
 
   return (
-    <div className="glass-strong rounded-3xl p-6">
-      <h2 className="text-xl font-extrabold flex items-center gap-2 mb-6">
-        <Settings className="h-5 w-5 text-accent" />
-        Quick Links
-      </h2>
+    <div className="glass-strong rounded-3xl p-6 space-y-6">
+      <div>
+        <h2 className="text-xl font-extrabold flex items-center gap-2 mb-6">
+          <Settings className="h-5 w-5 text-accent" />
+          Quick Links
+        </h2>
 
-      <div className="space-y-3">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="flex items-center gap-4 p-4 glass rounded-xl hover:pink-glow transition-all group"
-          >
-            <div className="h-12 w-12 rounded-xl bg-gradient-neon grid place-items-center shrink-0 group-hover:scale-110 transition-transform">
-              <link.icon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <p className="font-bold">{link.label}</p>
-              <p className="text-sm text-muted-foreground">{link.desc}</p>
-            </div>
-          </Link>
-        ))}
+        <div className="space-y-3">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex items-center gap-4 p-4 rounded-xl transition-all group ${
+                link.highlight
+                  ? "bg-gradient-to-r from-purple-900/40 to-pink-900/40 border border-pink-500/40 pink-glow"
+                  : "glass hover:pink-glow"
+              }`}
+            >
+              <div className="h-12 w-12 rounded-xl bg-gradient-neon grid place-items-center shrink-0 group-hover:scale-110 transition-transform">
+                <link.icon className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="font-bold flex items-center gap-2">
+                  {link.label}
+                  {link.highlight && (
+                    <span className="text-[10px] bg-pink-500 text-white px-2 py-0.5 rounded-full font-bold">
+                      Admin
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-muted-foreground">{link.desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Account Actions / Sign Out */}
+      <div className="pt-4 border-t border-white/10">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+          Account Actions
+        </h3>
+        <button
+          onClick={onSignOut}
+          className="w-full flex items-center gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/40 transition-all text-left group"
+        >
+          <div className="h-12 w-12 rounded-xl bg-red-500/20 text-red-400 grid place-items-center shrink-0 group-hover:scale-110 transition-transform">
+            <LogOut className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="font-bold text-red-400">Sign Out</p>
+            <p className="text-sm text-muted-foreground">Sign out of your Galaxy account on this device</p>
+          </div>
+        </button>
       </div>
     </div>
   );

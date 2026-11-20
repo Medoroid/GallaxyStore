@@ -123,9 +123,10 @@ function normalizeOptionLabel(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (/^#(?:[0-9a-f]{3}){1,2}$/i.test(trimmed)) return null;
+  // Hex colour labels are legitimate (the UI shows swatches); compare them
+  // lowercased instead of silently discarding the selection.
   const base = trimmed.split("/")[0].trim();
-  return base || null;
+  return base ? base.toLowerCase() : null;
 }
 
 async function defaultVariantId(client, productId) {
@@ -152,6 +153,20 @@ async function defaultVariantId(client, productId) {
  *     -> product_attribute_values (id, value, attribute_id)
  *       -> product_attributes (id, name)
  */
+/** Server-side ownership/validity check for an explicit variant_id. */
+async function validateVariantForProduct(client, variantId, productId) {
+  const { data, error } = await client
+    .from("product_variants")
+    .select("id, product_id, is_active, deleted_at")
+    .eq("id", variantId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return false;
+  return !productId || data.product_id === productId;
+}
+
 async function resolveVariantId(client, productId, color, size) {
   if (!productId) throw new Error("Product ID is required");
 
@@ -191,6 +206,7 @@ async function resolveVariantId(client, productId, color, size) {
     .select("id, is_default, product_variant_options(attribute_value_id)")
     .eq("product_id", id)
     .eq("is_active", true)
+    .is("deleted_at", null)
     .order("is_default", { ascending: false });
 
   if (variantsError) {
@@ -300,7 +316,12 @@ export async function POST(request) {
           { status: 400 }
         );
       }
-      return Response.json({ success: true, discount_amount: data });
+      // apply_coupon returns the whole carts row; clients need the numeric
+      // amount, otherwise formatCurrency(object) renders NaN (Phase 1 fix).
+      return Response.json({
+        success: true,
+        discount_amount: Number(data?.discount_amount ?? 0),
+      });
     }
 
     // Handle remove_coupon action
@@ -352,6 +373,13 @@ export async function POST(request) {
 
         if (!variantId) {
           failedItems.push({ item, reason: "No variant_id or product_id provided" });
+          continue;
+        }
+
+        // Never trust a client-supplied variant id: it must be active, not
+        // deleted and belong to the product this item claims to be.
+        if (!(await validateVariantForProduct(client, variantId, item.product_id))) {
+          failedItems.push({ item, reason: "Invalid variant for this product" });
           continue;
         }
 

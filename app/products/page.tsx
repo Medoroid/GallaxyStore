@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { ProductCard } from "@/app/components/ProductCard";
+import { CustomSelect } from "@/app/components/CustomSelect";
 import Spinner from "../components/spinner";
 import { toProductCardProduct, type SupabaseProduct } from "@/lib/products";
 
@@ -331,20 +332,15 @@ function ProductsInner() {
               {/* Sort By is always visible in the top bar; hidden here to avoid duplication */}
               <div className="hidden md:block">
                 <p className="text-sm font-semibold mb-2">Sort By</p>
-                <select
+                <CustomSelect
                   value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value);
+                  onChange={(val) => {
+                    setSort(val);
                     setPage(1);
                   }}
-                  className="w-full h-9 px-3 rounded-lg glass text-sm bg-transparent outline-none"
-                >
-                  {SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-black text-white">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  options={SORT_OPTIONS}
+                  placeholder="Sort by"
+                />
               </div>
             </div>
 
@@ -359,7 +355,7 @@ function ProductsInner() {
       </header>
 
       {/* Categories */}
-      <div className="mt-6 flex gap-2 overflow-x-auto pb-2 mask-fade">
+      <div className="mt-6 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
         <CategoryChip
           active={!activeCategory}
           onClick={() => {
@@ -382,7 +378,7 @@ function ProductsInner() {
       </div>
 
       {brands.length > 0 && (
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-2 mask-fade">
+        <div className="mt-2 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
           <CategoryChip
             active={!activeBrand}
             onClick={() => {
@@ -417,22 +413,18 @@ function ProductsInner() {
             </>
           )}
         </p>
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <select
+        <div className="flex items-center gap-2 min-w-[150px] sm:min-w-[170px]">
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
+          <CustomSelect
             value={sort}
-            onChange={(e) => {
-              setSort(e.target.value);
+            onChange={(val) => {
+              setSort(val);
               setPage(1);
             }}
-            className="h-8 px-2 rounded-lg glass text-xs bg-transparent outline-none"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} className="bg-black text-white">
-                {option.label}
-              </option>
-            ))}
-          </select>
+            options={SORT_OPTIONS}
+            placeholder="Sort by"
+            className="text-xs"
+          />
         </div>
       </div>
 

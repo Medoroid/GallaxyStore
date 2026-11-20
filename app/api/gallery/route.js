@@ -1,4 +1,5 @@
 import { verifyAdmin } from "../admin/_lib/verifyAdmin";
+import { validateUploadedImageBytes } from "@/lib/image-upload-validation";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
@@ -88,23 +89,19 @@ export async function POST(request) {
 
       const file = form.get("file");
       if (file && typeof file === "object" && "arrayBuffer" in file) {
-        const type = String(file.type || "").toLowerCase();
-        const extension = MIME_EXTENSIONS[type];
-        if (!extension) {
-          return Response.json(
-            { success: false, message: "Unsupported image type. Use JPG, PNG, WebP, GIF or AVIF." },
-            { status: 400 }
-          );
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const check = validateUploadedImageBytes(bytes, {
+          allowed: MIME_EXTENSIONS,
+          maxBytes: MAX_FILE_BYTES,
+        });
+        if (!check.ok) {
+          return Response.json({ success: false, message: check.message }, { status: 400 });
         }
-        if (file.size > MAX_FILE_BYTES) {
-          return Response.json(
-            { success: false, message: "Image must be 8MB or smaller" },
-            { status: 400 }
-          );
-        }
+        const type = check.mime;
+        const extension = check.extension;
 
         const path = `gallery/${crypto.randomUUID()}.${extension}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const buffer = Buffer.from(bytes);
         const { error: uploadError } = await db.storage
           .from(BUCKET)
           .upload(path, buffer, { contentType: type, upsert: false });

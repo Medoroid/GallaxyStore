@@ -230,7 +230,7 @@ export default function AdminGallery() {
 
       <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <ImagePlus className="w-5 h-5 text-[#FF4FD8]" /> Add new image
+          <ImagePlus className="w-5 h-5 text-[var(--brand)]" /> Add new image
         </h2>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -271,9 +271,9 @@ export default function AdminGallery() {
           />
         </div>
 
-        <label className="block glass rounded-xl border border-dashed border-white/20 p-6 text-center cursor-pointer hover:border-[#FF4FD8]/50 transition-colors">
+        <label className="block glass rounded-xl border border-dashed border-white/20 p-6 text-center cursor-pointer hover:border-[var(--brand)]/50 transition-colors">
           <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-          <Upload className="h-6 w-6 mx-auto mb-2 text-[#FF4FD8]" />
+          <Upload className="h-6 w-6 mx-auto mb-2 text-[var(--brand)]" />
           <p className="text-sm text-gray-300">{file ? file.name : "Click to choose an image"}</p>
           <p className="text-xs text-gray-500 mt-1">JPG, PNG, WebP, GIF or AVIF up to 8MB</p>
         </label>
@@ -286,7 +286,7 @@ export default function AdminGallery() {
         <button
           type="submit"
           disabled={uploading}
-          className="w-full h-12 rounded-xl bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white font-bold flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50"
+          className="w-full h-12 rounded-xl bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white font-bold flex items-center justify-center gap-2 hover:shadow-cta-sm transition-all disabled:opacity-50"
         >
           {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
           Add to Gallery
@@ -316,7 +316,7 @@ export default function AdminGallery() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={image.image_url} alt={image.title} className="w-full h-full object-cover" />
                   {image.is_featured && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#FF4FD8] text-[10px] font-bold text-white">
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[var(--brand)] text-[10px] font-bold text-white">
                       Featured
                     </span>
                   )}
@@ -350,7 +350,7 @@ export default function AdminGallery() {
                     onClick={() => patchImage(image.id, { is_featured: !image.is_featured })}
                     className={`px-3 rounded-xl text-xs font-medium ${
                       image.is_featured
-                        ? "bg-[#FF4FD8]/15 text-[#FF4FD8]"
+                        ? "bg-[var(--brand)]/15 text-[var(--brand)]"
                         : "bg-white/[0.05] text-gray-400"
                     }`}
                     title="Toggle featured"
@@ -413,4 +413,4 @@ export default function AdminGallery() {
 }
 
 const INPUT_CLASS =
-  "w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors text-sm";
+  "w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors text-sm";

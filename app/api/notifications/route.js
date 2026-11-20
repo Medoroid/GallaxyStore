@@ -65,7 +65,17 @@ export async function POST(request) {
       );
     }
 
-    const { action, notification_id, category, preferences } = await request.json();
+    // `request.json()` can only be consumed once; push registration used to
+    // call it a second time and always failed with a body-already-used error.
+    const {
+      action,
+      notification_id,
+      category,
+      preferences,
+      platform,
+      push_token,
+      device_name,
+    } = await request.json().catch(() => ({}));
 
     if (action === "mark_read") {
       const { error } = await SupabaseClient.rpc("mark_notification_read", {
@@ -94,7 +104,6 @@ export async function POST(request) {
     }
 
     if (action === "register_push") {
-      const { platform, push_token, device_name } = await request.json();
       const { error } = await SupabaseClient.rpc("register_push_device", {
         p_platform: platform,
         p_push_token: push_token,
@@ -105,7 +114,6 @@ export async function POST(request) {
     }
 
     if (action === "unregister_push") {
-      const { push_token } = await request.json();
       const { error } = await SupabaseClient.rpc("unregister_push_device", {
         p_push_token: push_token,
       });

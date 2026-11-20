@@ -76,7 +76,7 @@ export default function AdminAuditPage() {
               setLoading(true);
               setEntityType(event.target.value);
             }}
-            className="rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF4FD8]"
+            className="rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand)]"
           >
             {ENTITY_TYPES.map((option) => (
               <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
@@ -135,7 +135,7 @@ export default function AdminAuditPage() {
                     {entry.actor_email || entry.actor_id?.slice(0, 8) || "system"}
                   </td>
                   <td className="py-4">
-                    <code className="text-xs rounded-lg bg-white/[0.05] px-2 py-1 text-[#FF4FD8]">
+                    <code className="text-xs rounded-lg bg-white/[0.05] px-2 py-1 text-[var(--brand)]">
                       {entry.action}
                     </code>
                   </td>

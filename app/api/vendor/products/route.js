@@ -30,6 +30,11 @@ const PRODUCT_COLUMNS = `
   product_variants(id, price, stock_quantity, is_default, is_active, deleted_at)
 `;
 
+// `available_sizes` only exists once migration 20261115120000 is applied; the
+// reads below retry once with this reduced select instead of failing the whole
+// vendor dashboard until then.
+const PRODUCT_COLUMNS_NO_SIZES = PRODUCT_COLUMNS.replace(/\s*available_sizes,/, "");
+
 /**
  * Authenticate and resolve the single store owned by the caller. The store id
  * is never read from the request body, so a vendor cannot target another
@@ -95,13 +100,28 @@ export async function GET(request) {
     }
 
     const db = getServiceRoleClient();
-    const [productsResult, categories, brands] = await Promise.all([
+
+    const buildProductsQuery = (selectCols) =>
       db
         .from("products")
-        .select(PRODUCT_COLUMNS)
+        .select(selectCols)
         .eq("store_id", auth.store.id)
         .is("deleted_at", null)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false });
+
+    // First attempt selects the full column list (sizes round-trip the moment
+    // migration 20261115120000 lands); until then PostgREST answers 42703 and
+    // the list retries once without that column.
+    const loadProducts = async () => {
+      let result = await buildProductsQuery(PRODUCT_COLUMNS);
+      if (isMissingSizesColumn(result.error)) {
+        result = await buildProductsQuery(PRODUCT_COLUMNS_NO_SIZES);
+      }
+      return result;
+    };
+
+    const [productsResult, categories, brands] = await Promise.all([
+      loadProducts(),
       db
         .from("categories")
         .select("id, name, slug")
@@ -212,17 +232,27 @@ export async function POST(request) {
         return Response.json({ success: false, message: "Invalid product id" }, { status: 400 });
       }
 
-      const { data: existing, error: existingError } = await db
-        .from("products")
-        .select(
-          `id, store_id, brand_id, category_id, name, slug, short_description, description,
+      const EXISTING_PRODUCT_COLUMNS = `id, store_id, brand_id, category_id, name, slug, short_description, description,
            status, visibility, is_featured, base_price, compare_at_price, currency,
-           color, available_colors, available_sizes, published_at`
-        )
-        .eq("id", productId)
-        .eq("store_id", auth.store.id)
-        .is("deleted_at", null)
-        .maybeSingle();
+           color, available_colors, available_sizes, published_at`;
+      const buildExistingQuery = (selectCols) =>
+        db
+          .from("products")
+          .select(selectCols)
+          .eq("id", productId)
+          .eq("store_id", auth.store.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+      // Read-side fallback for migration 20261115120000 (same contract as the
+      // GET above): without the column this merge would 500 instead of saving.
+      let existingResult = await buildExistingQuery(EXISTING_PRODUCT_COLUMNS);
+      if (isMissingSizesColumn(existingResult.error)) {
+        existingResult = await buildExistingQuery(
+          EXISTING_PRODUCT_COLUMNS.replace(/\s*available_sizes,/, "")
+        );
+      }
+      const { data: existing, error: existingError } = existingResult;
       if (existingError) throw existingError;
       if (!existing) {
         return Response.json({ success: false, message: "Product not found" }, { status: 404 });

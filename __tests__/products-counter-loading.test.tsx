@@ -32,6 +32,9 @@ jest.mock("lucide-react", () => ({
   ChevronLeft: (props: Record<string, unknown>) => <svg data-testid="chevron-left" {...props} />,
   ChevronRight: (props: Record<string, unknown>) => <svg data-testid="chevron-right" {...props} />,
   ArrowUpDown: (props: Record<string, unknown>) => <svg data-testid="sort" {...props} />,
+  // Used by app/components/CustomSelect (sort dropdown on this page).
+  ChevronDown: (props: Record<string, unknown>) => <svg data-testid="chevron-down" {...props} />,
+  Check: (props: Record<string, unknown>) => <svg data-testid="check" {...props} />,
 }));
 
 jest.mock("@/app/components/ProductCard", () => ({
@@ -119,9 +122,11 @@ test("keeps the previous real count while a refresh is in flight", async () => {
   // Changing the sort order triggers a refetch while `result` still holds
   // the previous response — the counter must keep the REAL old count, not
   // reset to "0" or "Loading".
-  const sortSelect = container.querySelector("select");
-  expect(sortSelect).not.toBeNull();
-  fireEvent.change(sortSelect as Element, { target: { value: "price-asc" } });
+  // The sort control is a CustomSelect (button + listbox), not a native <select>.
+  const sortTrigger = container.querySelector('button[aria-haspopup="listbox"]');
+  expect(sortTrigger).not.toBeNull();
+  fireEvent.click(sortTrigger as Element);
+  fireEvent.click(screen.getByRole("option", { name: /price: low/i }));
 
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(screen.getByText(/7 products/)).toBeInTheDocument();

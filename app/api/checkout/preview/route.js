@@ -15,6 +15,7 @@ import {
   isShippingWeightEnabled,
   fetchWeightGramsForItems,
 } from "@/lib/shippingWeight";
+import { componentStockIssues } from "@/lib/gift-box";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,86 @@ function getSupabaseForUser(token) {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+}
+
+/**
+ * Gift box component availability (advisory preview only — `checkout()` is the
+ * atomic authority). Returns extra `stock_issues` entries shaped like the
+ * existing line-level issues, e.g. "Box Name → Component Name".
+ * Throws on unexpected errors; callers swallow 42P01 (migration pending).
+ */
+async function collectGiftBoxComponentIssues(db, items) {
+  const variantIds = [...new Set(items.map((item) => item.variant_id).filter(Boolean))];
+  if (variantIds.length === 0) return [];
+
+  const { data: variantRows, error: variantError } = await db
+    .from("product_variants")
+    .select("id, product_id")
+    .in("id", variantIds);
+  if (variantError) throw variantError;
+
+  const productByVariant = new Map((variantRows ?? []).map((row) => [row.id, row.product_id]));
+  const productIds = [...new Set([...productByVariant.values()].filter(Boolean))];
+  if (productIds.length === 0) return [];
+
+  const { data: boxRows, error: boxError } = await db
+    .from("gift_boxes")
+    .select("product_id")
+    .in("product_id", productIds);
+  if (boxError) throw boxError;
+  const boxIds = (boxRows ?? []).map((row) => row.product_id);
+  if (boxIds.length === 0) return [];
+
+  const { data: componentRows, error: componentError } = await db
+    .from("gift_box_items")
+    .select(`gift_box_product_id, product_id, variant_id, quantity, is_active,
+             products(name, currency),
+             product_variants(stock_quantity, reserved_quantity, is_active, deleted_at)`)
+    .in("gift_box_product_id", boxIds)
+    .eq("is_active", true);
+  if (componentError) throw componentError;
+
+  const componentsByBoxProduct = new Map();
+  const available = new Map();
+  const names = new Map();
+
+  for (const row of componentRows ?? []) {
+    const list = componentsByBoxProduct.get(row.gift_box_product_id) ?? [];
+    list.push({
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      product_name: row.products?.name ?? "Item",
+      quantity: row.quantity,
+      unit_price: 0,
+      is_active: row.is_active,
+    });
+    componentsByBoxProduct.set(row.gift_box_product_id, list);
+
+    if (row.variant_id) {
+      names.set(row.variant_id, row.products?.name ?? "Item");
+      const variant = row.product_variants ?? null;
+      const usable = variant && variant.is_active && !variant.deleted_at;
+      available.set(
+        row.variant_id,
+        usable
+          ? Math.max(
+              Number(variant.stock_quantity ?? 0) - Number(variant.reserved_quantity ?? 0),
+              0
+            )
+          : 0
+      );
+    }
+  }
+
+  return componentStockIssues(
+    items.map((item) => ({
+      cart_item_id: item.id,
+      variant_id: item.variant_id,
+      product_name: item.product_name,
+      quantity: Number(item.quantity || 0),
+    })),
+    { available, names, componentsByBoxProduct, productByVariant }
   );
 }
 
@@ -156,6 +237,20 @@ export async function POST(request) {
     }
 
     const db = getServiceRoleClient();
+
+    // Append gift box component stock issues (schema-pending → skipped).
+    try {
+      const componentIssues = await collectGiftBoxComponentIssues(db, items);
+      for (const issue of componentIssues) stockIssues.push(issue);
+    } catch (componentError) {
+      if (componentError?.code !== "42P01" && componentError?.code !== "PGRST202") {
+        logger.warn(
+          "[Checkout Preview] gift box component check failed",
+          componentError.message
+        );
+      }
+    }
+
     let coupon = null;
     let couponError = null;
     let discount = 0;

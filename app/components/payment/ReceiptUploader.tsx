@@ -155,6 +155,18 @@ export function ReceiptUploader({
         return;
       }
 
+      // The server validates ownership when the receipt is submitted, but the
+      // Storage write happens first. Confirm the order belongs to this user
+      // BEFORE creating any object, so a stale/tampered order id cannot leave
+      // a file in another order's private prefix.
+      const ownershipRes = await fetch(`/api/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!ownershipRes.ok) {
+        setError("We could not verify this order. Please reload and try again.");
+        return;
+      }
+
       const safeName = selected.name.replace(/[^\w.-]+/g, "_") || "receipt.jpg";
       const path = `${user.id}/${orderId}/${Date.now()}-${safeName}`;
 

@@ -228,28 +228,28 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Link
             href="/admin/orders"
-            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[#FF4FD8]/30 transition-all"
+            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[var(--brand)]/30 transition-all"
           >
-            <ShoppingBag className="w-5 h-5 text-[#FF4FD8]" />
+            <ShoppingBag className="w-5 h-5 text-[var(--brand)]" />
             <span className="text-sm font-medium text-white">View Orders</span>
           </Link>
           <Link
             href="/admin/products"
-            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[#FF4FD8]/30 transition-all"
+            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[var(--brand)]/30 transition-all"
           >
-            <Package className="w-5 h-5 text-[#A855F7]" />
+            <Package className="w-5 h-5 text-[var(--brand-2)]" />
             <span className="text-sm font-medium text-white">Products</span>
           </Link>
           <Link
             href="/admin/reviews"
-            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[#FF4FD8]/30 transition-all"
+            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[var(--brand)]/30 transition-all"
           >
             <ImageIcon className="w-5 h-5 text-cyan-400" />
             <span className="text-sm font-medium text-white">Reviews</span>
           </Link>
           <Link
             href="/admin/vendors"
-            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[#FF4FD8]/30 transition-all"
+            className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.05] hover:border-[var(--brand)]/30 transition-all"
           >
             <Users className="w-5 h-5 text-green-400" />
             <span className="text-sm font-medium text-white">Vendors</span>
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
           <h2 className="text-lg font-semibold text-white">Recent Orders</h2>
           <Link
             href="/admin/orders"
-            className="flex items-center gap-1 text-sm text-[#FF4FD8] hover:text-[#FF6FE0] transition-colors"
+            className="flex items-center gap-1 text-sm text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors"
           >
             View All <ArrowUpRight className="w-4 h-4" />
           </Link>

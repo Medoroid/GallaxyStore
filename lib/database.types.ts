@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -7,37 +7,8 @@
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
-      _seed_report: {
-        Row: {
-          created_at: string
-          detail: string | null
-          id: number
-          section: string
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          detail?: string | null
-          id?: number
-          section: string
-          status: string
-        }
-        Update: {
-          created_at?: string
-          detail?: string | null
-          id?: number
-          section?: string
-          status?: string
-        }
-        Relationships: []
-      }
       addresses: {
         Row: {
           city: string
@@ -95,22 +66,8 @@ export type Database = {
             foreignKeyName: "addresses_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "addresses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "addresses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "addresses_user_id_fkey"
@@ -120,6 +77,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          details: Json
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      admin_users: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       brands: {
         Row: {
@@ -325,29 +339,8 @@ export type Database = {
             foreignKeyName: "carts_coupon_id_fkey"
             columns: ["coupon_id"]
             isOneToOne: false
-            referencedRelation: "admin_coupon_performance"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "admin_mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
             referencedRelation: "coupons"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
           },
           {
             foreignKeyName: "carts_merged_into_cart_id_fkey"
@@ -367,22 +360,8 @@ export type Database = {
             foreignKeyName: "carts_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "carts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "carts_owner_id_fkey"
@@ -570,6 +549,547 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_design_products: {
+        Row: {
+          created_at: string
+          creator_profile_id: string
+          deleted_at: string | null
+          design_id: string
+          fulfillment_mode: string
+          id: string
+          mockups: Json
+          product_id: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          selected_colors: string[]
+          selected_sizes: string[]
+          status: Database["public"]["Enums"]["design_status"]
+          stock_buffer: number
+          submitted_at: string | null
+          template_id: string
+          updated_at: string
+          view_states: Json
+        }
+        Insert: {
+          created_at?: string
+          creator_profile_id: string
+          deleted_at?: string | null
+          design_id: string
+          fulfillment_mode?: string
+          id?: string
+          mockups?: Json
+          product_id?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selected_colors?: string[]
+          selected_sizes?: string[]
+          status?: Database["public"]["Enums"]["design_status"]
+          stock_buffer?: number
+          submitted_at?: string | null
+          template_id: string
+          updated_at?: string
+          view_states?: Json
+        }
+        Update: {
+          created_at?: string
+          creator_profile_id?: string
+          deleted_at?: string | null
+          design_id?: string
+          fulfillment_mode?: string
+          id?: string
+          mockups?: Json
+          product_id?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selected_colors?: string[]
+          selected_sizes?: string[]
+          status?: Database["public"]["Enums"]["design_status"]
+          stock_buffer?: number
+          submitted_at?: string | null
+          template_id?: string
+          updated_at?: string
+          view_states?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_design_products_creator_profile_id_fkey"
+            columns: ["creator_profile_id"]
+            isOneToOne: false
+            referencedRelation: "creator_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "user_designs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["design_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_product_performance"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "cart_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversion_metrics"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_customers_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_design_products_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "creator_product_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creator_gallery_items: {
+        Row: {
+          created_at: string
+          creator_profile_id: string | null
+          deleted_at: string | null
+          description: string | null
+          design_id: string
+          id: string
+          owner_id: string
+          preview_path: string | null
+          product_id: string | null
+          published_at: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["design_status"]
+          submitted_at: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          creator_profile_id?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          design_id: string
+          id?: string
+          owner_id: string
+          preview_path?: string | null
+          product_id?: string | null
+          published_at?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["design_status"]
+          submitted_at?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          creator_profile_id?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          design_id?: string
+          id?: string
+          owner_id?: string
+          preview_path?: string | null
+          product_id?: string | null
+          published_at?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["design_status"]
+          submitted_at?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_gallery_items_creator_profile_id_fkey"
+            columns: ["creator_profile_id"]
+            isOneToOne: false
+            referencedRelation: "creator_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "user_designs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["design_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_customers_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_product_performance"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "cart_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversion_metrics"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_customers_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_gallery_items_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creator_product_templates: {
+        Row: {
+          category: string
+          colors: Json
+          created_at: string
+          dimensions_mm: Json
+          id: string
+          is_active: boolean
+          mockup_format: string
+          name: string
+          name_ar: string | null
+          sizes: Json
+          sort_order: number
+          template_key: string
+          updated_at: string
+          views: Json
+        }
+        Insert: {
+          category?: string
+          colors: Json
+          created_at?: string
+          dimensions_mm: Json
+          id?: string
+          is_active?: boolean
+          mockup_format?: string
+          name: string
+          name_ar?: string | null
+          sizes: Json
+          sort_order?: number
+          template_key: string
+          updated_at?: string
+          views: Json
+        }
+        Update: {
+          category?: string
+          colors?: Json
+          created_at?: string
+          dimensions_mm?: Json
+          id?: string
+          is_active?: boolean
+          mockup_format?: string
+          name?: string
+          name_ar?: string | null
+          sizes?: Json
+          sort_order?: number
+          template_key?: string
+          updated_at?: string
+          views?: Json
+        }
+        Relationships: []
+      }
+      creator_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          can_publish: boolean
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          social_links: Json
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          can_publish?: boolean
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          social_links?: Json
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          can_publish?: boolean
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          social_links?: Json
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      custom_print_requests: {
+        Row: {
+          admin_notes: string | null
+          color: string | null
+          created_at: string
+          currency: string
+          custom_text: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          design_mime: string | null
+          design_path: string
+          id: string
+          notes: string | null
+          product_type: string
+          quoted_amount: number | null
+          request_number: string
+          size: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          color?: string | null
+          created_at?: string
+          currency?: string
+          custom_text?: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone?: string | null
+          design_mime?: string | null
+          design_path: string
+          id?: string
+          notes?: string | null
+          product_type: string
+          quoted_amount?: number | null
+          request_number?: string
+          size?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          color?: string | null
+          created_at?: string
+          currency?: string
+          custom_text?: string | null
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string | null
+          design_mime?: string | null
+          design_path?: string
+          id?: string
+          notes?: string | null
+          product_type?: string
+          quoted_amount?: number | null
+          request_number?: string
+          size?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       design_categories: {
         Row: {
           created_at: string
@@ -666,13 +1186,6 @@ export type Database = {
             foreignKeyName: "design_files_version_id_fkey"
             columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "admin_design_moderation_queue"
-            referencedColumns: ["version_id"]
-          },
-          {
-            foreignKeyName: "design_files_version_id_fkey"
-            columns: ["version_id"]
-            isOneToOne: false
             referencedRelation: "design_versions"
             referencedColumns: ["id"]
           },
@@ -714,22 +1227,8 @@ export type Database = {
             foreignKeyName: "design_status_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "design_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "design_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "design_status_history_changed_by_fkey"
@@ -756,13 +1255,6 @@ export type Database = {
             foreignKeyName: "design_status_history_version_id_fkey"
             columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "admin_design_moderation_queue"
-            referencedColumns: ["version_id"]
-          },
-          {
-            foreignKeyName: "design_status_history_version_id_fkey"
-            columns: ["version_id"]
-            isOneToOne: false
             referencedRelation: "design_versions"
             referencedColumns: ["id"]
           },
@@ -772,6 +1264,7 @@ export type Database = {
         Row: {
           created_at: string
           design_id: string
+          editor_state: Json
           id: string
           is_current: boolean
           rejection_reason: string | null
@@ -785,6 +1278,7 @@ export type Database = {
         Insert: {
           created_at?: string
           design_id: string
+          editor_state?: Json
           id?: string
           is_current?: boolean
           rejection_reason?: string | null
@@ -798,6 +1292,7 @@ export type Database = {
         Update: {
           created_at?: string
           design_id?: string
+          editor_state?: Json
           id?: string
           is_current?: boolean
           rejection_reason?: string | null
@@ -827,22 +1322,8 @@ export type Database = {
             foreignKeyName: "design_versions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "design_versions_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "design_versions_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "design_versions_reviewed_by_fkey"
@@ -888,6 +1369,488 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      gallery_images: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string
+          is_featured: boolean | null
+          sort_order: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url: string
+          is_featured?: boolean | null
+          sort_order?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string
+          is_featured?: boolean | null
+          sort_order?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      gift_box_items: {
+        Row: {
+          created_at: string
+          display_order: number
+          gift_box_product_id: string
+          id: string
+          is_active: boolean
+          note: string | null
+          product_id: string
+          quantity: number
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          gift_box_product_id: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          product_id: string
+          quantity?: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          gift_box_product_id?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_box_items_gift_box_product_id_fkey"
+            columns: ["gift_box_product_id"]
+            isOneToOne: false
+            referencedRelation: "gift_boxes"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_product_performance"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "cart_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversion_metrics"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_box_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+        ]
+      }
+      gift_boxes: {
+        Row: {
+          created_at: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "admin_product_performance"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "cart_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "vendor_conversion_metrics"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "gift_boxes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "wishlist_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      mockup_templates: {
+        Row: {
+          body_svg: string
+          category: string
+          colors: Json
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          dimensions_mm: Json
+          id: string
+          is_active: boolean
+          name: string
+          name_ar: string | null
+          overlay_svg: string | null
+          photo_assets: Json
+          provenance: Json
+          sizes: Json
+          sort_order: number
+          store_product_id: string | null
+          store_variant_id: string | null
+          template_key: string
+          texture_id: string | null
+          texture_patterns: Json
+          updated_at: string
+          views: Json
+        }
+        Insert: {
+          body_svg?: string
+          category?: string
+          colors?: Json
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          dimensions_mm?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          name_ar?: string | null
+          overlay_svg?: string | null
+          photo_assets?: Json
+          provenance?: Json
+          sizes?: Json
+          sort_order?: number
+          store_product_id?: string | null
+          store_variant_id?: string | null
+          template_key: string
+          texture_id?: string | null
+          texture_patterns?: Json
+          updated_at?: string
+          views?: Json
+        }
+        Update: {
+          body_svg?: string
+          category?: string
+          colors?: Json
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          dimensions_mm?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          name_ar?: string | null
+          overlay_svg?: string | null
+          photo_assets?: Json
+          provenance?: Json
+          sizes?: Json
+          sort_order?: number
+          store_product_id?: string | null
+          store_variant_id?: string | null
+          template_key?: string
+          texture_id?: string | null
+          texture_patterns?: Json
+          updated_at?: string
+          views?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "admin_product_performance"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "cart_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversion_metrics"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_product_id_fkey"
+            columns: ["store_product_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items_detailed"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_variant_id_fkey"
+            columns: ["store_variant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_variant_id_fkey"
+            columns: ["store_variant_id"]
+            isOneToOne: false
+            referencedRelation: "low_stock_variants"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_variant_id_fkey"
+            columns: ["store_variant_id"]
+            isOneToOne: false
+            referencedRelation: "mv_vendor_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_variant_id_fkey"
+            columns: ["store_variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mockup_templates_store_variant_id_fkey"
+            columns: ["store_variant_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_mv_inventory_status"
+            referencedColumns: ["variant_id"]
+          },
+        ]
       }
       notification_deliveries: {
         Row: {
@@ -975,22 +1938,8 @@ export type Database = {
             foreignKeyName: "notification_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "notification_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notification_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "notification_preferences_user_id_fkey"
@@ -1076,13 +2025,6 @@ export type Database = {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -1090,15 +2032,76 @@ export type Database = {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_item_gift_box_contents: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          order_item_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          unit_price: number
+          variant_id: string | null
+          variant_options: Json
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          order_item_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          unit_price?: number
+          variant_id?: string | null
+          variant_options?: Json
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          order_item_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          unit_price?: number
+          variant_id?: string | null
+          variant_options?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_item_gift_box_contents_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_item_print_files"
+            referencedColumns: ["order_item_id"]
+          },
+          {
+            foreignKeyName: "order_item_gift_box_contents_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_item_gift_box_contents_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items_detailed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_item_gift_box_contents_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_order_items"
+            referencedColumns: ["order_item_id"]
           },
         ]
       }
@@ -1135,13 +2138,6 @@ export type Database = {
             foreignKeyName: "order_item_status_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "order_item_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -1149,22 +2145,8 @@ export type Database = {
             foreignKeyName: "order_item_status_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "order_item_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_item_status_history_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
           },
           {
             foreignKeyName: "order_item_status_history_order_item_id_fkey"
@@ -1350,22 +2332,8 @@ export type Database = {
             foreignKeyName: "order_status_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "order_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "order_status_history_changed_by_fkey"
@@ -1414,9 +2382,11 @@ export type Database = {
           id: string
           internal_note: string | null
           order_number: string
+          payment_method: string | null
           placed_at: string
           shipping_address_snapshot: Json
           shipping_fee: number
+          shipping_method_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax: number
@@ -1440,9 +2410,11 @@ export type Database = {
           id?: string
           internal_note?: string | null
           order_number: string
+          payment_method?: string | null
           placed_at?: string
           shipping_address_snapshot: Json
           shipping_fee?: number
+          shipping_method_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax?: number
@@ -1466,9 +2438,11 @@ export type Database = {
           id?: string
           internal_note?: string | null
           order_number?: string
+          payment_method?: string | null
           placed_at?: string
           shipping_address_snapshot?: Json
           shipping_fee?: number
+          shipping_method_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax?: number
@@ -1495,36 +2469,15 @@ export type Database = {
             foreignKeyName: "orders_coupon_id_fkey"
             columns: ["coupon_id"]
             isOneToOne: false
-            referencedRelation: "admin_coupon_performance"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "admin_mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
-          },
-          {
-            foreignKeyName: "orders_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
             referencedRelation: "coupons"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "orders_coupon_id_fkey"
-            columns: ["coupon_id"]
+            foreignKeyName: "orders_shipping_method_id_fkey"
+            columns: ["shipping_method_id"]
             isOneToOne: false
-            referencedRelation: "mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
+            referencedRelation: "shipping_methods"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -1532,13 +2485,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -1635,22 +2581,8 @@ export type Database = {
             foreignKeyName: "payment_logs_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "payment_logs_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_logs_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "payment_logs_created_by_fkey"
@@ -1661,6 +2593,62 @@ export type Database = {
           },
           {
             foreignKeyName: "payment_logs_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_receipts: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          payer_phone: string
+          payment_id: string
+          provider: string
+          receipt_url: string
+          status: string
+          transfer_reference: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          payer_phone: string
+          payment_id: string
+          provider?: string
+          receipt_url: string
+          status?: string
+          transfer_reference: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          payer_phone?: string
+          payment_id?: string
+          provider?: string
+          receipt_url?: string
+          status?: string
+          transfer_reference?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_receipts_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
             referencedRelation: "payments"
@@ -1944,13 +2932,6 @@ export type Database = {
             foreignKeyName: "print_jobs_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "print_jobs_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -1958,22 +2939,8 @@ export type Database = {
             foreignKeyName: "print_jobs_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "print_jobs_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "print_jobs_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: true
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
           },
           {
             foreignKeyName: "print_jobs_order_item_id_fkey"
@@ -2201,20 +3168,6 @@ export type Database = {
             foreignKeyName: "product_collection_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_collection_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_collection_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -2368,20 +3321,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "low_stock_variants"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_customization_areas_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_customization_areas_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
             referencedColumns: ["product_id"]
           },
           {
@@ -2643,13 +3582,6 @@ export type Database = {
             foreignKeyName: "fk_customization_order_item"
             columns: ["order_item_id"]
             isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
-          },
-          {
-            foreignKeyName: "fk_customization_order_item"
-            columns: ["order_item_id"]
-            isOneToOne: false
             referencedRelation: "order_item_print_files"
             referencedColumns: ["order_item_id"]
           },
@@ -2678,22 +3610,8 @@ export type Database = {
             foreignKeyName: "product_customizations_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "product_customizations_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_customizations_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "product_customizations_owner_id_fkey"
@@ -2728,20 +3646,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "low_stock_variants"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_customizations_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_customizations_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
             referencedColumns: ["product_id"]
           },
           {
@@ -2894,20 +3798,6 @@ export type Database = {
             foreignKeyName: "product_images_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_images_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_images_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -3030,20 +3920,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "low_stock_variants"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_tags_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_tags_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
             referencedColumns: ["product_id"]
           },
           {
@@ -3259,20 +4135,6 @@ export type Database = {
             foreignKeyName: "product_variants_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_variants_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "product_variants_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -3323,6 +4185,7 @@ export type Database = {
       products: {
         Row: {
           available_colors: string[]
+          available_sizes: string[]
           avg_rating: number
           base_price: number
           brand_id: string | null
@@ -3358,6 +4221,7 @@ export type Database = {
         }
         Insert: {
           available_colors?: string[]
+          available_sizes?: string[]
           avg_rating?: number
           base_price: number
           brand_id?: string | null
@@ -3393,6 +4257,7 @@ export type Database = {
         }
         Update: {
           available_colors?: string[]
+          available_sizes?: string[]
           avg_rating?: number
           base_price?: number
           brand_id?: string | null
@@ -3544,22 +4409,8 @@ export type Database = {
             foreignKeyName: "push_devices_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "push_devices_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "push_devices_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "push_devices_user_id_fkey"
@@ -3631,20 +4482,6 @@ export type Database = {
             foreignKeyName: "recently_viewed_products_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "recently_viewed_products_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "recently_viewed_products_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -3694,22 +4531,8 @@ export type Database = {
             foreignKeyName: "recently_viewed_products_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "recently_viewed_products_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recently_viewed_products_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "recently_viewed_products_user_id_fkey"
@@ -3793,22 +4616,8 @@ export type Database = {
             foreignKeyName: "refunds_processed_by_fkey"
             columns: ["processed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "refunds_processed_by_fkey"
-            columns: ["processed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "refunds_processed_by_fkey"
-            columns: ["processed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "refunds_processed_by_fkey"
@@ -3855,13 +4664,6 @@ export type Database = {
           return_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "return_items_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
-          },
           {
             foreignKeyName: "return_items_order_item_id_fkey"
             columns: ["order_item_id"]
@@ -3956,22 +4758,8 @@ export type Database = {
             foreignKeyName: "returns_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "returns_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "returns_requested_by_fkey"
@@ -4104,22 +4892,8 @@ export type Database = {
             foreignKeyName: "review_replies_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "review_replies_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "review_replies_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "review_replies_user_id_fkey"
@@ -4169,22 +4943,8 @@ export type Database = {
             foreignKeyName: "review_reports_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "review_reports_reported_by_fkey"
-            columns: ["reported_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "review_reports_reported_by_fkey"
-            columns: ["reported_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "review_reports_reported_by_fkey"
@@ -4218,22 +4978,8 @@ export type Database = {
             foreignKeyName: "review_reports_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "review_reports_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "review_reports_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "review_reports_reviewed_by_fkey"
@@ -4292,22 +5038,8 @@ export type Database = {
             foreignKeyName: "review_votes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "review_votes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "review_votes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "review_votes_user_id_fkey"
@@ -4384,13 +5116,6 @@ export type Database = {
             foreignKeyName: "reviews_moderated_by_fkey"
             columns: ["moderated_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_moderated_by_fkey"
-            columns: ["moderated_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -4398,22 +5123,8 @@ export type Database = {
             foreignKeyName: "reviews_moderated_by_fkey"
             columns: ["moderated_by"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_moderated_by_fkey"
-            columns: ["moderated_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
           },
           {
             foreignKeyName: "reviews_order_item_id_fkey"
@@ -4475,20 +5186,6 @@ export type Database = {
             foreignKeyName: "reviews_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -4538,22 +5235,8 @@ export type Database = {
             foreignKeyName: "reviews_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "reviews_user_id_fkey"
@@ -4628,20 +5311,6 @@ export type Database = {
             foreignKeyName: "search_logs_clicked_product_id_fkey"
             columns: ["clicked_product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "search_logs_clicked_product_id_fkey"
-            columns: ["clicked_product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "search_logs_clicked_product_id_fkey"
-            columns: ["clicked_product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -4691,13 +5360,6 @@ export type Database = {
             foreignKeyName: "search_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "search_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -4705,12 +5367,108 @@ export type Database = {
             foreignKeyName: "search_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_designs: {
+        Row: {
+          author_display_name: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          design_id: string
+          id: string
+          owner_id: string
+          preview_path: string | null
+          published_at: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["design_status"]
+          submitted_at: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_display_name: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          design_id: string
+          id?: string
+          owner_id: string
+          preview_path?: string | null
+          published_at?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["design_status"]
+          submitted_at?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_display_name?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          design_id?: string
+          id?: string
+          owner_id?: string
+          preview_path?: string | null
+          published_at?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["design_status"]
+          submitted_at?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_designs_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "user_designs"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "search_logs_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "shared_designs_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_pending_designs"
+            referencedColumns: ["design_id"]
+          },
+          {
+            foreignKeyName: "shared_designs_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_customers_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_designs_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_designs_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_customers_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_designs_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4737,13 +5495,6 @@ export type Database = {
           shipment_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "shipment_items_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
-          },
           {
             foreignKeyName: "shipment_items_order_item_id_fkey"
             columns: ["order_item_id"]
@@ -4828,22 +5579,8 @@ export type Database = {
             foreignKeyName: "shipment_status_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "shipment_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shipment_status_history_changed_by_fkey"
-            columns: ["changed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "shipment_status_history_changed_by_fkey"
@@ -5115,6 +5852,123 @@ export type Database = {
         }
         Relationships: []
       }
+      site_banners: {
+        Row: {
+          button_label: string | null
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          link_url: string | null
+          page: string
+          placement: string
+          sort_order: number
+          starts_at: string | null
+          subtitle: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          page?: string
+          placement?: string
+          sort_order?: number
+          starts_at?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          page?: string
+          placement?: string
+          sort_order?: number
+          starts_at?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_sections: {
+        Row: {
+          body: string | null
+          button_label: string | null
+          config: Json
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          eyebrow: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          link_url: string | null
+          page: string
+          placement: string
+          section_type: string
+          sort_order: number
+          starts_at: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          button_label?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          eyebrow?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          page?: string
+          placement?: string
+          section_type?: string
+          sort_order?: number
+          starts_at?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          button_label?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          eyebrow?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          page?: string
+          placement?: string
+          section_type?: string
+          sort_order?: number
+          starts_at?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sms_numbers: {
         Row: {
           created_at: string
@@ -5154,22 +6008,8 @@ export type Database = {
             foreignKeyName: "sms_numbers_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "sms_numbers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sms_numbers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "sms_numbers_user_id_fkey"
@@ -5179,6 +6019,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      store_settings: {
+        Row: {
+          is_public: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          is_public?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          is_public?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      store_themes: {
+        Row: {
+          activation_mode: string
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_at: string | null
+          id: string
+          is_recurring: boolean
+          name: string
+          preview_image: string | null
+          priority: number
+          slug: string
+          starts_at: string | null
+          status: string
+          theme_config: Json
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          activation_mode?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_recurring?: boolean
+          name: string
+          preview_image?: string | null
+          priority?: number
+          slug: string
+          starts_at?: string | null
+          status?: string
+          theme_config?: Json
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          activation_mode?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_recurring?: boolean
+          name?: string
+          preview_image?: string | null
+          priority?: number
+          slug?: string
+          starts_at?: string | null
+          status?: string
+          theme_config?: Json
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       stores: {
         Row: {
@@ -5222,22 +6146,8 @@ export type Database = {
             foreignKeyName: "stores_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "stores_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stores_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "stores_owner_id_fkey"
@@ -5271,6 +6181,160 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      theme_assets: {
+        Row: {
+          asset_type: string
+          asset_url: string
+          created_at: string
+          id: string
+          metadata: Json
+          mobile_asset_url: string | null
+          theme_id: string
+        }
+        Insert: {
+          asset_type: string
+          asset_url: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          mobile_asset_url?: string | null
+          theme_id: string
+        }
+        Update: {
+          asset_type?: string
+          asset_url?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          mobile_asset_url?: string | null
+          theme_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_assets_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theme_schedule_history: {
+        Row: {
+          action: string
+          id: string
+          performed_at: string
+          performed_by: string | null
+          previous_theme_id: string | null
+          theme_id: string | null
+        }
+        Insert: {
+          action: string
+          id?: string
+          performed_at?: string
+          performed_by?: string | null
+          previous_theme_id?: string | null
+          theme_id?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          performed_at?: string
+          performed_by?: string | null
+          previous_theme_id?: string | null
+          theme_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_schedule_history_previous_theme_id_fkey"
+            columns: ["previous_theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "theme_schedule_history_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theme_settings: {
+        Row: {
+          default_theme_id: string | null
+          id: string
+          manual_override_theme_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          default_theme_id?: string | null
+          id?: string
+          manual_override_theme_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          default_theme_id?: string | null
+          id?: string
+          manual_override_theme_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_settings_default_theme_id_fkey"
+            columns: ["default_theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "theme_settings_manual_override_theme_id_fkey"
+            columns: ["manual_override_theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theme_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          snapshot: Json
+          theme_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          snapshot: Json
+          theme_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          snapshot?: Json
+          theme_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_versions_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "store_themes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_designs: {
         Row: {
@@ -5336,22 +6400,8 @@ export type Database = {
             foreignKeyName: "user_designs_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "user_designs_owner_id_fkey"
@@ -5364,22 +6414,8 @@ export type Database = {
             foreignKeyName: "user_designs_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "user_designs_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_designs_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "user_designs_reviewed_by_fkey"
@@ -5507,13 +6543,6 @@ export type Database = {
             foreignKeyName: "vendor_earnings_order_item_id_fkey"
             columns: ["order_item_id"]
             isOneToOne: true
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
-          },
-          {
-            foreignKeyName: "vendor_earnings_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: true
             referencedRelation: "order_item_print_files"
             referencedColumns: ["order_item_id"]
           },
@@ -5559,6 +6588,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          payout_method: string | null
           rejection_reason: string | null
           requested_amount: number
           requested_by: string | null
@@ -5572,6 +6602,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payout_method?: string | null
           rejection_reason?: string | null
           requested_amount: number
           requested_by?: string | null
@@ -5585,6 +6616,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payout_method?: string | null
           rejection_reason?: string | null
           requested_amount?: number
           requested_by?: string | null
@@ -5599,22 +6631,8 @@ export type Database = {
             foreignKeyName: "vendor_payout_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "vendor_payout_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_payout_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "vendor_payout_requests_requested_by_fkey"
@@ -5627,22 +6645,8 @@ export type Database = {
             foreignKeyName: "vendor_payout_requests_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "vendor_payout_requests_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_payout_requests_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "vendor_payout_requests_reviewed_by_fkey"
@@ -5725,22 +6729,8 @@ export type Database = {
             foreignKeyName: "vendor_payouts_processed_by_fkey"
             columns: ["processed_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "vendor_payouts_processed_by_fkey"
-            columns: ["processed_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_payouts_processed_by_fkey"
-            columns: ["processed_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "vendor_payouts_processed_by_fkey"
@@ -5807,22 +6797,8 @@ export type Database = {
             foreignKeyName: "wallet_transactions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "wallet_transactions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_transactions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "wallet_transactions_created_by_fkey"
@@ -5898,22 +6874,8 @@ export type Database = {
             foreignKeyName: "wallets_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "wallets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "wallets_user_id_fkey"
@@ -6049,22 +7011,8 @@ export type Database = {
             foreignKeyName: "wishlists_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "wishlists_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wishlists_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "wishlists_owner_id_fkey"
@@ -6077,156 +7025,55 @@ export type Database = {
       }
     }
     Views: {
-      admin_coupon_performance: {
-        Row: {
-          code: string | null
-          expires_at: string | null
-          id: string | null
-          is_active: boolean | null
-          max_uses: number | null
-          orders_count: number | null
-          total_discount_given: number | null
-          total_revenue_from_orders: number | null
-          type: string | null
-          used_count: number | null
-          value: number | null
-        }
-        Relationships: []
-      }
-      admin_customer_ltv: {
-        Row: {
-          avg_order_value: number | null
-          first_order_at: string | null
-          full_name: string | null
-          last_order_at: string | null
-          lifetime_value: number | null
-          order_count: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
       admin_customers_overview: {
         Row: {
           full_name: string | null
           id: string | null
           joined_at: string | null
           last_order_at: string | null
-          lifetime_value: number | null
           order_count: number | null
           role: Database["public"]["Enums"]["app_role"] | null
+          total_spent: number | null
         }
         Relationships: []
       }
       admin_daily_sales: {
         Row: {
+          currency: string | null
           gross_revenue: number | null
-          net_revenue: number | null
           order_count: number | null
-          refunded_amount: number | null
           sale_date: string | null
-          units_sold: number | null
         }
         Relationships: []
       }
-      admin_design_moderation_queue: {
-        Row: {
-          all_files_clean: boolean | null
-          design_id: string | null
-          file_count: number | null
-          owner_id: string | null
-          owner_name: string | null
-          status: Database["public"]["Enums"]["design_status"] | null
-          submitted_at: string | null
-          title: string | null
-          version_id: string | null
-          version_number: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "design_versions_design_id_fkey"
-            columns: ["design_id"]
-            isOneToOne: false
-            referencedRelation: "user_designs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "design_versions_design_id_fkey"
-            columns: ["design_id"]
-            isOneToOne: false
-            referencedRelation: "vendor_pending_designs"
-            referencedColumns: ["design_id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "admin_customers_overview"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       admin_inventory_status: {
         Row: {
-          available_stock: number | null
           is_low_stock: boolean | null
           low_stock_threshold: number | null
           product_id: string | null
           product_name: string | null
-          product_status: Database["public"]["Enums"]["product_status"] | null
           reserved_quantity: number | null
           sku: string | null
           stock_quantity: number | null
           variant_id: string | null
-        }
-        Relationships: []
-      }
-      admin_mv_coupon_performance: {
-        Row: {
-          code: string | null
-          coupon_id: string | null
-          is_active: boolean | null
-          max_uses: number | null
-          orders_count: number | null
-          revenue_influenced: number | null
-          total_discount_given: number | null
-          type: string | null
-          used_count: number | null
-          value: number | null
+          variant_sku: string | null
         }
         Relationships: []
       }
       admin_orders_overview: {
         Row: {
-          amount_paid: number | null
-          amount_refunded: number | null
           currency: string | null
           customer_name: string | null
+          discount_amount: number | null
           id: string | null
-          item_count: number | null
+          items_count: number | null
           order_number: string | null
+          payment_provider: string | null
+          payment_status: string | null
           placed_at: string | null
+          shipping_fee: number | null
           status: Database["public"]["Enums"]["order_status"] | null
+          subtotal: number | null
           total: number | null
           user_id: string | null
         }
@@ -6235,22 +7082,8 @@ export type Database = {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -6261,73 +7094,29 @@ export type Database = {
           },
         ]
       }
-      admin_printing_queue: {
-        Row: {
-          customization_id: string | null
-          customization_preview_url: string | null
-          item_status: Database["public"]["Enums"]["order_item_status"] | null
-          order_id: string | null
-          order_item_id: string | null
-          order_number: string | null
-          placed_at: string | null
-          printing_instructions: string | null
-          product_name_snapshot: string | null
-          quantity: number | null
-          sku_snapshot: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "order_items_customization_id_fkey"
-            columns: ["customization_id"]
-            isOneToOne: false
-            referencedRelation: "product_customizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "admin_orders_overview"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_summary"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       admin_product_performance: {
         Row: {
-          avg_rating: number | null
-          current_stock: number | null
+          currency: string | null
           name: string | null
+          order_count: number | null
           product_id: string | null
-          rating_count: number | null
           revenue: number | null
-          slug: string | null
-          status: Database["public"]["Enums"]["product_status"] | null
+          sku: string | null
           units_sold: number | null
         }
         Relationships: []
       }
       admin_reviews_moderation_queue: {
         Row: {
+          author_name: string | null
+          body: string | null
           created_at: string | null
           id: string | null
+          is_verified_purchase: boolean | null
+          moderation_note: string | null
           product_id: string | null
           product_name: string | null
           rating: number | null
-          report_count: number | null
           reviewer_name: string | null
           status: Database["public"]["Enums"]["review_status"] | null
           title: string | null
@@ -6360,20 +7149,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "low_stock_variants"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
             referencedColumns: ["product_id"]
           },
           {
@@ -6429,22 +7204,8 @@ export type Database = {
             foreignKeyName: "reviews_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "reviews_user_id_fkey"
@@ -6561,36 +7322,8 @@ export type Database = {
             foreignKeyName: "carts_coupon_id_fkey"
             columns: ["coupon_id"]
             isOneToOne: false
-            referencedRelation: "admin_coupon_performance"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "admin_mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
             referencedRelation: "coupons"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "mv_coupon_performance"
-            referencedColumns: ["coupon_id"]
-          },
-          {
-            foreignKeyName: "carts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "carts_owner_id_fkey"
@@ -6598,13 +7331,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "carts_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "carts_owner_id_fkey"
@@ -6642,69 +7368,6 @@ export type Database = {
             referencedColumns: ["store_id"]
           },
         ]
-      }
-      mv_coupon_performance: {
-        Row: {
-          code: string | null
-          coupon_id: string | null
-          is_active: boolean | null
-          max_uses: number | null
-          orders_count: number | null
-          revenue_influenced: number | null
-          total_discount_given: number | null
-          type: string | null
-          used_count: number | null
-          value: number | null
-        }
-        Relationships: []
-      }
-      mv_customer_ltv: {
-        Row: {
-          avg_order_value: number | null
-          first_order_at: string | null
-          full_name: string | null
-          last_order_at: string | null
-          lifetime_value: number | null
-          order_count: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
-      mv_daily_sales: {
-        Row: {
-          gross_revenue: number | null
-          net_revenue: number | null
-          order_count: number | null
-          refunded_amount: number | null
-          sale_date: string | null
-          units_sold: number | null
-        }
-        Relationships: []
-      }
-      mv_product_performance: {
-        Row: {
-          avg_rating: number | null
-          current_stock: number | null
-          name: string | null
-          product_id: string | null
-          rating_count: number | null
-          revenue: number | null
-          slug: string | null
-          status: Database["public"]["Enums"]["product_status"] | null
-          units_sold: number | null
-        }
-        Relationships: []
-      }
-      mv_trending_products: {
-        Row: {
-          name: string | null
-          product_id: string | null
-          recent_purchases: number | null
-          recent_views: number | null
-          slug: string | null
-          trending_score: number | null
-        }
-        Relationships: []
       }
       mv_vendor_daily_sales: {
         Row: {
@@ -6809,22 +7472,8 @@ export type Database = {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "notifications_user_id_fkey"
@@ -6981,22 +7630,8 @@ export type Database = {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["order_owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["order_owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["order_owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -7026,22 +7661,8 @@ export type Database = {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -7082,13 +7703,6 @@ export type Database = {
             foreignKeyName: "reviews_moderated_by_fkey"
             columns: ["moderated_by"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_moderated_by_fkey"
-            columns: ["moderated_by"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -7096,22 +7710,8 @@ export type Database = {
             foreignKeyName: "reviews_moderated_by_fkey"
             columns: ["moderated_by"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_moderated_by_fkey"
-            columns: ["moderated_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: false
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
           },
           {
             foreignKeyName: "reviews_order_item_id_fkey"
@@ -7173,20 +7773,6 @@ export type Database = {
             foreignKeyName: "reviews_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "mv_product_performance"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "mv_trending_products"
-            referencedColumns: ["product_id"]
-          },
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
             referencedRelation: "mv_vendor_inventory_status"
             referencedColumns: ["product_id"]
           },
@@ -7236,22 +7822,8 @@ export type Database = {
             foreignKeyName: "reviews_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "reviews_user_id_fkey"
@@ -7351,22 +7923,8 @@ export type Database = {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -7617,22 +8175,8 @@ export type Database = {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "orders_user_id_fkey"
@@ -7673,22 +8217,8 @@ export type Database = {
             foreignKeyName: "user_designs_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_designs_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "user_designs_owner_id_fkey"
@@ -7760,13 +8290,6 @@ export type Database = {
             foreignKeyName: "print_jobs_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "admin_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "print_jobs_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
             referencedRelation: "admin_customers_overview"
             referencedColumns: ["id"]
           },
@@ -7774,22 +8297,8 @@ export type Database = {
             foreignKeyName: "print_jobs_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "mv_customer_ltv"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "print_jobs_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "print_jobs_order_item_id_fkey"
-            columns: ["order_item_id"]
-            isOneToOne: true
-            referencedRelation: "admin_printing_queue"
-            referencedColumns: ["order_item_id"]
           },
           {
             foreignKeyName: "print_jobs_order_item_id_fkey"
@@ -7976,6 +8485,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_review_creator_submission: {
+        Args: {
+          p_actor_email?: string
+          p_actor_id?: string
+          p_decision: string
+          p_id: string
+          p_reason: string
+          p_target: string
+        }
+        Returns: Json
+      }
       apply_coupon: {
         Args: { p_cart_id: string; p_code: string; p_session_token?: string }
         Returns: {
@@ -8024,161 +8544,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      archive_product: {
-        Args: { p_product_id: string }
-        Returns: {
-          available_colors: string[]
-          avg_rating: number
-          base_price: number
-          brand_id: string | null
-          category_id: string | null
-          color: string | null
-          compare_at_price: number | null
-          created_at: string
-          currency: string
-          deleted_at: string | null
-          description: string | null
-          height_cm: number | null
-          id: string
-          is_featured: boolean
-          length_cm: number | null
-          low_stock_threshold: number
-          name: string
-          published_at: string | null
-          rating_count: number
-          search_vector: unknown
-          seo_description: string | null
-          seo_keywords: string[] | null
-          seo_title: string | null
-          short_description: string | null
-          slug: string
-          specifications: Json
-          status: Database["public"]["Enums"]["product_status"]
-          store_id: string | null
-          updated_at: string
-          view_count: number
-          visibility: Database["public"]["Enums"]["product_visibility"]
-          weight_grams: number | null
-          width_cm: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      assign_print_job: {
-        Args: { p_print_job_id: string }
-        Returns: {
-          assigned_to: string | null
-          attempt_number: number
-          completed_at: string | null
-          created_at: string
-          id: string
-          last_error: string | null
-          max_attempts: number
-          next_retry_at: string | null
-          notes: string | null
-          order_item_id: string
-          printer_id: string | null
-          reprint_count: number
-          started_at: string | null
-          status: string
-          store_id: string | null
-          timeout_at: string | null
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "print_jobs"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      bulk_update_inventory: {
-        Args: { p_updates: Json }
-        Returns: {
-          barcode: string | null
-          compare_at_price: number | null
-          created_at: string
-          deleted_at: string | null
-          height_cm: number | null
-          id: string
-          image_url: string | null
-          is_active: boolean
-          is_default: boolean
-          length_cm: number | null
-          low_stock_threshold: number | null
-          price: number
-          product_id: string
-          reserved_quantity: number
-          sku: string
-          stock_quantity: number
-          updated_at: string
-          weight_grams: number | null
-          width_cm: number | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "product_variants"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      bulk_update_products: {
-        Args: {
-          p_is_featured?: boolean
-          p_product_ids: string[]
-          p_status?: Database["public"]["Enums"]["product_status"]
-          p_visibility?: Database["public"]["Enums"]["product_visibility"]
-        }
-        Returns: {
-          available_colors: string[]
-          avg_rating: number
-          base_price: number
-          brand_id: string | null
-          category_id: string | null
-          color: string | null
-          compare_at_price: number | null
-          created_at: string
-          currency: string
-          deleted_at: string | null
-          description: string | null
-          height_cm: number | null
-          id: string
-          is_featured: boolean
-          length_cm: number | null
-          low_stock_threshold: number
-          name: string
-          published_at: string | null
-          rating_count: number
-          search_vector: unknown
-          seo_description: string | null
-          seo_keywords: string[] | null
-          seo_title: string | null
-          short_description: string | null
-          slug: string
-          specifications: Json
-          status: Database["public"]["Enums"]["product_status"]
-          store_id: string | null
-          updated_at: string
-          view_count: number
-          visibility: Database["public"]["Enums"]["product_visibility"]
-          weight_grams: number | null
-          width_cm: number | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      calculate_print_backoff_seconds: {
-        Args: { p_attempt_number: number }
-        Returns: number
-      }
       calculate_tax: {
         Args: { p_shipping_address: Json; p_subtotal: number }
         Returns: number
@@ -8205,9 +8570,11 @@ export type Database = {
           id: string
           internal_note: string | null
           order_number: string
+          payment_method: string | null
           placed_at: string
           shipping_address_snapshot: Json
           shipping_fee: number
+          shipping_method_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax: number
@@ -8222,8 +8589,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      cart_reservation_window: { Args: never; Returns: string }
-      cart_ttl: { Args: { p_is_guest: boolean }; Returns: string }
       checkout: {
         Args: {
           p_billing_address?: Json
@@ -8251,9 +8616,11 @@ export type Database = {
           id: string
           internal_note: string | null
           order_number: string
+          payment_method: string | null
           placed_at: string
           shipping_address_snapshot: Json
           shipping_fee: number
+          shipping_method_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax: number
@@ -8268,41 +8635,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      claim_notification_deliveries: {
-        Args: { p_channel: string; p_limit?: number }
-        Returns: {
-          channel: string
-          claimed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          notification_id: string
-          provider: string | null
-          provider_message_id: string | null
-          sent_at: string | null
-          status: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "notification_deliveries"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      cleanup_orphaned_uploads: {
-        Args: never
-        Returns: {
-          storage_path: string
-        }[]
-      }
-      confirm_order_payment: {
-        Args: {
-          p_amount: number
-          p_order_id: string
-          p_provider: string
-          p_provider_payment_id: string
-          p_raw_response?: Json
-        }
+      complete_zero_total_order: {
+        Args: { p_order_id: string }
         Returns: {
           billing_address_snapshot: Json | null
           cart_id: string | null
@@ -8319,9 +8653,11 @@ export type Database = {
           id: string
           internal_note: string | null
           order_number: string
+          payment_method: string | null
           placed_at: string
           shipping_address_snapshot: Json
           shipping_fee: number
+          shipping_method_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax: number
@@ -8336,17 +8672,94 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      create_notification: {
-        Args: {
-          p_body: string
-          p_category: string
-          p_data?: Json
-          p_event_type: string
-          p_title: string
-          p_user_id: string
-        }
-        Returns: string
-      }
+      confirm_order_payment:
+        | {
+            Args: {
+              p_amount: number
+              p_order_id: string
+              p_provider: string
+              p_provider_payment_id: string
+              p_raw_response?: Json
+            }
+            Returns: {
+              billing_address_snapshot: Json | null
+              cart_id: string | null
+              coupon_code: string | null
+              coupon_id: string | null
+              created_at: string
+              currency: string
+              customer_note: string | null
+              deleted_at: string | null
+              discount_amount: number
+              gift_note: string | null
+              gift_wrap: boolean
+              gift_wrap_fee: number
+              id: string
+              internal_note: string | null
+              order_number: string
+              payment_method: string | null
+              placed_at: string
+              shipping_address_snapshot: Json
+              shipping_fee: number
+              shipping_method_id: string | null
+              status: Database["public"]["Enums"]["order_status"]
+              subtotal: number
+              tax: number
+              total: number
+              updated_at: string
+              user_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "orders"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_currency?: string
+              p_order_id: string
+              p_provider: string
+              p_provider_payment_id: string
+              p_raw_response?: Json
+            }
+            Returns: {
+              billing_address_snapshot: Json | null
+              cart_id: string | null
+              coupon_code: string | null
+              coupon_id: string | null
+              created_at: string
+              currency: string
+              customer_note: string | null
+              deleted_at: string | null
+              discount_amount: number
+              gift_note: string | null
+              gift_wrap: boolean
+              gift_wrap_fee: number
+              id: string
+              internal_note: string | null
+              order_number: string
+              payment_method: string | null
+              placed_at: string
+              shipping_address_snapshot: Json
+              shipping_fee: number
+              shipping_method_id: string | null
+              status: Database["public"]["Enums"]["order_status"]
+              subtotal: number
+              tax: number
+              total: number
+              updated_at: string
+              user_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "orders"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_return_request: {
         Args: { p_items: Json; p_order_id: string; p_reason: string }
         Returns: {
@@ -8366,100 +8779,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      create_shipment: {
-        Args: {
-          p_carrier?: string
-          p_order_id: string
-          p_order_item_ids: string[]
-          p_pickup_location_id?: string
-          p_shipping_fee_charged?: number
-          p_shipping_method_id: string
-          p_weight_grams?: number
-        }
-        Returns: {
-          actual_delivery_date: string | null
-          carrier: string | null
-          created_at: string
-          delivered_at: string | null
-          estimated_delivery_date_max: string | null
-          estimated_delivery_date_min: string | null
-          id: string
-          notes: string | null
-          order_id: string
-          pickup_location_id: string | null
-          recipient_signature: string | null
-          shipped_at: string | null
-          shipping_fee_charged: number
-          shipping_method_id: string
-          status: Database["public"]["Enums"]["shipment_status"]
-          tracking_number: string | null
-          tracking_url: string | null
-          updated_at: string
-          weight_grams: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "shipments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      creator_publish_product: {
+        Args: { p_design_product_id: string; p_payload: Json }
+        Returns: string
       }
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
-      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
-      deactivate_expired_coupons: { Args: never; Returns: number }
-      duplicate_product: {
-        Args: { p_product_id: string }
-        Returns: {
-          available_colors: string[]
-          avg_rating: number
-          base_price: number
-          brand_id: string | null
-          category_id: string | null
-          color: string | null
-          compare_at_price: number | null
-          created_at: string
-          currency: string
-          deleted_at: string | null
-          description: string | null
-          height_cm: number | null
-          id: string
-          is_featured: boolean
-          length_cm: number | null
-          low_stock_threshold: number
-          name: string
-          published_at: string | null
-          rating_count: number
-          search_vector: unknown
-          seo_description: string | null
-          seo_keywords: string[] | null
-          seo_title: string | null
-          short_description: string | null
-          slug: string
-          specifications: Json
-          status: Database["public"]["Enums"]["product_status"]
-          store_id: string | null
-          updated_at: string
-          view_count: number
-          visibility: Database["public"]["Enums"]["product_visibility"]
-          weight_grams: number | null
-          width_cm: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      expire_stale_carts: { Args: never; Returns: number }
       get_or_create_cart: {
         Args: { p_session_token?: string }
         Returns: string
       }
-      get_order_internal_note: { Args: { p_order_id: string }; Returns: string }
       get_popular_searches: {
         Args: { p_days?: number; p_limit?: number }
         Returns: {
@@ -8502,7 +8833,6 @@ export type Database = {
           type: string
         }[]
       }
-      get_shared_wishlist: { Args: { p_share_token: string }; Returns: Json }
       get_shipping_options: {
         Args: {
           p_country: string
@@ -8520,10 +8850,42 @@ export type Database = {
           min_delivery_days: number
         }[]
       }
+      gift_box_assert_components_available: {
+        Args: { p_box_quantity: number; p_box_variant_id: string }
+        Returns: undefined
+      }
       gift_wrap_fee: { Args: never; Returns: number }
-      handle_print_job_timeouts: { Args: never; Returns: number }
+      initiate_external_wallet_payment: {
+        Args: { p_order_id: string }
+        Returns: {
+          amount: number
+          attempt_number: number
+          authorized_at: string | null
+          captured_at: string | null
+          client_secret: string | null
+          created_at: string
+          currency: string
+          failed_at: string | null
+          failure_code: string | null
+          failure_message: string | null
+          id: string
+          idempotency_key: string | null
+          order_id: string
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_customer_id: string | null
+          provider_payment_id: string | null
+          raw_response: Json | null
+          status: Database["public"]["Enums"]["payment_transaction_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_admin: { Args: never; Returns: boolean }
-      is_printer_online: { Args: { p_printer_id: string }; Returns: boolean }
       is_vendor: { Args: never; Returns: boolean }
       issue_refund: {
         Args: {
@@ -8562,7 +8924,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      mark_all_notifications_read: { Args: never; Returns: number }
       mark_cod_collected: {
         Args: { p_payment_id: string }
         Returns: {
@@ -8589,27 +8950,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "payments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      mark_notification_read: {
-        Args: { p_notification_id: string }
-        Returns: {
-          body: string | null
-          category: string
-          created_at: string
-          data: Json
-          event_type: string
-          id: string
-          is_read: boolean
-          read_at: string | null
-          title: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "notifications"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -8658,36 +8998,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      mark_stale_printers_offline: { Args: never; Returns: number }
-      mark_vendor_payout_paid: {
-        Args: {
-          p_notes?: string
-          p_payout_id: string
-          p_provider_reference?: string
-        }
-        Returns: {
-          amount: number
-          created_at: string
-          currency: string
-          id: string
-          notes: string | null
-          payout_method: string | null
-          payout_request_id: string | null
-          processed_at: string | null
-          processed_by: string | null
-          provider_reference: string | null
-          status: string
-          store_id: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "vendor_payouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      merge_guest_cart: { Args: { p_session_token: string }; Returns: string }
+      merge_guest_cart: { Args: { p_session_token?: string }; Returns: string }
       moderate_review: {
         Args: {
           p_new_status: Database["public"]["Enums"]["review_status"]
@@ -8717,60 +9028,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "reviews"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      move_to_cart: {
-        Args: { p_cart_item_id: string; p_session_token?: string }
-        Returns: {
-          added_at: string
-          cart_id: string
-          color: string | null
-          customization_id: string | null
-          gift_note: string | null
-          id: string
-          is_gift_wrapped: boolean
-          is_saved_for_later: boolean
-          quantity: number
-          reserved_until: string | null
-          size: string | null
-          unit_price_snapshot: number
-          updated_at: string
-          variant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "cart_items"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      move_wishlist_item_to_cart: {
-        Args: {
-          p_quantity?: number
-          p_session_token?: string
-          p_wishlist_item_id: string
-        }
-        Returns: {
-          added_at: string
-          cart_id: string
-          color: string | null
-          customization_id: string | null
-          gift_note: string | null
-          id: string
-          is_gift_wrapped: boolean
-          is_saved_for_later: boolean
-          quantity: number
-          reserved_until: string | null
-          size: string | null
-          unit_price_snapshot: number
-          updated_at: string
-          variant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "cart_items"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -8816,112 +9073,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      pay_with_wallet: {
-        Args: { p_amount?: number; p_order_id: string }
-        Returns: {
-          amount: number
-          attempt_number: number
-          authorized_at: string | null
-          captured_at: string | null
-          client_secret: string | null
-          created_at: string
-          currency: string
-          failed_at: string | null
-          failure_code: string | null
-          failure_message: string | null
-          id: string
-          idempotency_key: string | null
-          order_id: string
-          provider: Database["public"]["Enums"]["payment_provider"]
-          provider_customer_id: string | null
-          provider_payment_id: string | null
-          raw_response: Json | null
-          status: Database["public"]["Enums"]["payment_transaction_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "payments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      printer_heartbeat: { Args: { p_printer_id: string }; Returns: undefined }
-      process_payment_failure: {
-        Args: {
-          p_failure_code?: string
-          p_failure_message?: string
-          p_provider: Database["public"]["Enums"]["payment_provider"]
-          p_provider_payment_id: string
-          p_raw_response?: Json
-        }
-        Returns: {
-          amount: number
-          attempt_number: number
-          authorized_at: string | null
-          captured_at: string | null
-          client_secret: string | null
-          created_at: string
-          currency: string
-          failed_at: string | null
-          failure_code: string | null
-          failure_message: string | null
-          id: string
-          idempotency_key: string | null
-          order_id: string
-          provider: Database["public"]["Enums"]["payment_provider"]
-          provider_customer_id: string | null
-          provider_payment_id: string | null
-          raw_response: Json | null
-          status: Database["public"]["Enums"]["payment_transaction_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "payments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      process_payment_success: {
-        Args: {
-          p_provider: Database["public"]["Enums"]["payment_provider"]
-          p_provider_payment_id: string
-          p_raw_response?: Json
-        }
-        Returns: {
-          amount: number
-          attempt_number: number
-          authorized_at: string | null
-          captured_at: string | null
-          client_secret: string | null
-          created_at: string
-          currency: string
-          failed_at: string | null
-          failure_code: string | null
-          failure_message: string | null
-          id: string
-          idempotency_key: string | null
-          order_id: string
-          provider: Database["public"]["Enums"]["payment_provider"]
-          provider_customer_id: string | null
-          provider_payment_id: string | null
-          raw_response: Json | null
-          status: Database["public"]["Enums"]["payment_transaction_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "payments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      process_print_job_retries: { Args: never; Returns: number }
-      promote_exhausted_print_jobs_to_dead_letter: {
-        Args: never
-        Returns: number
-      }
       reconcile_payments: {
         Args: never
         Returns: {
@@ -8931,80 +9082,15 @@ export type Database = {
           order_id: string
         }[]
       }
-      record_payment_event: {
-        Args: {
-          p_event_type: string
-          p_payload: Json
-          p_payment_id?: string
-          p_provider: Database["public"]["Enums"]["payment_provider"]
-          p_provider_event_id: string
-          p_signature_verified: boolean
-        }
-        Returns: {
-          event_id: string
-          is_new: boolean
-        }[]
-      }
       refresh_admin_dashboard_views: { Args: never; Returns: undefined }
-      refresh_trending_products: { Args: never; Returns: undefined }
       refresh_vendor_dashboard_views: { Args: never; Returns: undefined }
-      regenerate_share_token: {
-        Args: { p_wishlist_id: string }
-        Returns: string
-      }
-      register_push_device: {
-        Args: {
-          p_device_name?: string
-          p_platform: string
-          p_push_token: string
-        }
-        Returns: {
-          created_at: string
-          device_name: string | null
-          id: string
-          is_active: boolean
-          last_used_at: string
-          platform: string
-          push_token: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "push_devices"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      reject_vendor_payout: {
-        Args: { p_payout_id: string; p_reason: string }
-        Returns: {
-          amount: number
-          created_at: string
-          currency: string
-          id: string
-          notes: string | null
-          payout_method: string | null
-          payout_request_id: string | null
-          processed_at: string | null
-          processed_by: string | null
-          provider_reference: string | null
-          status: string
-          store_id: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "vendor_payouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       reject_vendor_payout_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: {
           created_at: string
           id: string
           notes: string | null
+          payout_method: string | null
           rejection_reason: string | null
           requested_amount: number
           requested_by: string | null
@@ -9021,7 +9107,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      release_expired_reservations: { Args: never; Returns: number }
       remove_cart_item: {
         Args: { p_cart_item_id: string; p_session_token?: string }
         Returns: boolean
@@ -9095,43 +9180,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      request_payment_refund: {
-        Args: {
-          p_amount: number
-          p_payment_id: string
-          p_reason?: string
-          p_return_id?: string
-        }
-        Returns: {
-          amount: number
-          created_at: string
-          id: string
-          order_id: string
-          payment_id: string | null
-          processed_by: string | null
-          provider_refund_id: string | null
-          reason: string
-          return_id: string | null
-          status: Database["public"]["Enums"]["refund_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "refunds"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      request_sms_verification: {
-        Args: { p_phone_number: string }
-        Returns: string
-      }
       request_vendor_payout: {
-        Args: { p_amount: number; p_store_id: string }
+        Args: { p_amount: number; p_method?: string; p_store_id: string }
         Returns: {
           created_at: string
           id: string
           notes: string | null
+          payout_method: string | null
           rejection_reason: string | null
           requested_amount: number
           requested_by: string | null
@@ -9148,41 +9203,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      resolve_vendor_commission_rate: {
-        Args: { p_store_id: string }
-        Returns: number
-      }
-      retry_failed_payment: {
-        Args: { p_payment_id: string }
-        Returns: {
-          amount: number
-          attempt_number: number
-          authorized_at: string | null
-          captured_at: string | null
-          client_secret: string | null
-          created_at: string
-          currency: string
-          failed_at: string | null
-          failure_code: string | null
-          failure_message: string | null
-          id: string
-          idempotency_key: string | null
-          order_id: string
-          provider: Database["public"]["Enums"]["payment_provider"]
-          provider_customer_id: string | null
-          provider_payment_id: string | null
-          raw_response: Json | null
-          status: Database["public"]["Enums"]["payment_transaction_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "payments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      run_print_queue_maintenance: { Args: never; Returns: Json }
       save_for_later: {
         Args: { p_cart_item_id: string; p_session_token?: string }
         Returns: {
@@ -9239,7 +9259,69 @@ export type Database = {
           total_count: number
         }[]
       }
+      set_order_shipping_method: {
+        Args: { p_order_id: string; p_shipping_method_id: string }
+        Returns: undefined
+      }
       slugify: { Args: { input: string }; Returns: string }
+      submit_external_wallet_receipt: {
+        Args: {
+          p_order_id: string
+          p_payer_phone: string
+          p_receipt_path: string
+          p_transfer_reference: string
+        }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          payer_phone: string
+          payment_id: string
+          provider: string
+          receipt_url: string
+          status: string
+          transfer_reference: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payment_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      submit_vodafone_cash_receipt: {
+        Args: {
+          p_order_id: string
+          p_payer_phone: string
+          p_receipt_path: string
+          p_transfer_reference: string
+        }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          payer_phone: string
+          payment_id: string
+          provider: string
+          receipt_url: string
+          status: string
+          transfer_reference: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payment_receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sync_product_available_colors: {
         Args: { p_product_id: string }
         Returns: undefined
@@ -9247,10 +9329,6 @@ export type Database = {
       track_product_view: {
         Args: { p_product_id: string; p_session_token?: string }
         Returns: undefined
-      }
-      unregister_push_device: {
-        Args: { p_push_token: string }
-        Returns: boolean
       }
       update_cart_item_quantity: {
         Args: {
@@ -9281,71 +9359,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      update_notification_preferences: {
-        Args: {
-          p_category: string
-          p_email_enabled?: boolean
-          p_in_app_enabled?: boolean
-          p_push_enabled?: boolean
-          p_sms_enabled?: boolean
-        }
-        Returns: {
-          category: string
-          created_at: string
-          email_enabled: boolean
-          id: string
-          in_app_enabled: boolean
-          push_enabled: boolean
-          sms_enabled: boolean
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "notification_preferences"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      update_order_status: {
-        Args: {
-          p_new_status: Database["public"]["Enums"]["order_status"]
-          p_note?: string
-          p_order_id: string
-        }
-        Returns: {
-          billing_address_snapshot: Json | null
-          cart_id: string | null
-          coupon_code: string | null
-          coupon_id: string | null
-          created_at: string
-          currency: string
-          customer_note: string | null
-          deleted_at: string | null
-          discount_amount: number
-          gift_note: string | null
-          gift_wrap: boolean
-          gift_wrap_fee: number
-          id: string
-          internal_note: string | null
-          order_number: string
-          placed_at: string
-          shipping_address_snapshot: Json
-          shipping_fee: number
-          status: Database["public"]["Enums"]["order_status"]
-          subtotal: number
-          tax: number
-          total: number
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       update_return_status: {
         Args: {
           p_new_status: Database["public"]["Enums"]["return_status"]
@@ -9369,59 +9382,50 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      update_shipment_status: {
-        Args: {
-          p_new_status: Database["public"]["Enums"]["shipment_status"]
-          p_note?: string
-          p_shipment_id: string
-          p_tracking_number?: string
-          p_tracking_url?: string
-        }
+      verify_external_wallet_payment: {
+        Args: { p_approve: boolean; p_note?: string; p_order_id: string }
         Returns: {
-          actual_delivery_date: string | null
-          carrier: string | null
+          admin_notes: string | null
           created_at: string
-          delivered_at: string | null
-          estimated_delivery_date_max: string | null
-          estimated_delivery_date_min: string | null
           id: string
-          notes: string | null
-          order_id: string
-          pickup_location_id: string | null
-          recipient_signature: string | null
-          shipped_at: string | null
-          shipping_fee_charged: number
-          shipping_method_id: string
-          status: Database["public"]["Enums"]["shipment_status"]
-          tracking_number: string | null
-          tracking_url: string | null
+          payer_phone: string
+          payment_id: string
+          provider: string
+          receipt_url: string
+          status: string
+          transfer_reference: string
           updated_at: string
-          weight_grams: number | null
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
         }
         SetofOptions: {
           from: "*"
-          to: "shipments"
+          to: "payment_receipts"
           isOneToOne: true
           isSetofReturn: false
         }
       }
-      verify_sms_code: { Args: { p_code: string }; Returns: boolean }
-      verify_sms_number: {
-        Args: { p_code: string }
+      verify_vodafone_cash_payment: {
+        Args: { p_approve: boolean; p_note?: string; p_order_id: string }
         Returns: {
+          admin_notes: string | null
           created_at: string
           id: string
-          is_verified: boolean
-          phone_number: string
+          payer_phone: string
+          payment_id: string
+          provider: string
+          receipt_url: string
+          status: string
+          transfer_reference: string
           updated_at: string
           user_id: string
-          verification_code: string | null
-          verification_expires_at: string | null
           verified_at: string | null
+          verified_by: string | null
         }
         SetofOptions: {
           from: "*"
-          to: "sms_numbers"
+          to: "payment_receipts"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -9445,7 +9449,7 @@ export type Database = {
     }
     Enums: {
       app_role: "customer" | "vendor" | "admin"
-      design_file_format: "png" | "svg" | "pdf" | "ai" | "psd"
+      design_file_format: "png" | "svg" | "pdf" | "ai" | "psd" | "jpg" | "webp"
       design_status:
         | "draft"
         | "pending_review"
@@ -9471,7 +9475,13 @@ export type Database = {
         | "cancelled"
         | "refunded"
         | "partially_refunded"
-      payment_provider: "stripe" | "paymob" | "cod" | "wallet"
+      payment_provider:
+        | "stripe"
+        | "paymob"
+        | "cod"
+        | "wallet"
+        | "vodafone_cash"
+        | "external_wallet"
       payment_transaction_status:
         | "pending"
         | "processing"
@@ -9626,7 +9636,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["customer", "vendor", "admin"],
-      design_file_format: ["png", "svg", "pdf", "ai", "psd"],
+      design_file_format: ["png", "svg", "pdf", "ai", "psd", "jpg", "webp"],
       design_status: [
         "draft",
         "pending_review",
@@ -9655,7 +9665,14 @@ export const Constants = {
         "refunded",
         "partially_refunded",
       ],
-      payment_provider: ["stripe", "paymob", "cod", "wallet"],
+      payment_provider: [
+        "stripe",
+        "paymob",
+        "cod",
+        "wallet",
+        "vodafone_cash",
+        "external_wallet",
+      ],
       payment_transaction_status: [
         "pending",
         "processing",
@@ -9688,4 +9705,3 @@ export const Constants = {
     },
   },
 } as const
-

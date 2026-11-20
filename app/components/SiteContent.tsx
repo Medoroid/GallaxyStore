@@ -82,7 +82,7 @@ export function ContentZone({ page, zone, className = "" }: ContentZoneProps) {
   );
 }
 
-function TopStripBanner({ banner }: { banner: SiteBanner }) {
+export function TopStripBanner({ banner }: { banner: SiteBanner }) {
   const content = (
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
       {banner.title && (
@@ -116,7 +116,7 @@ function TopStripBanner({ banner }: { banner: SiteBanner }) {
   );
 }
 
-function BannerCard({ banner }: { banner: SiteBanner }) {
+export function BannerCard({ banner }: { banner: SiteBanner }) {
   return (
     <div className="relative overflow-hidden glass-strong rounded-3xl">
       {banner.image_url && (
@@ -130,7 +130,7 @@ function BannerCard({ banner }: { banner: SiteBanner }) {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(to right, rgba(18,0,24,.92) 0%, rgba(18,0,24,.60) 55%, rgba(18,0,24,.25) 100%)",
+                "linear-gradient(to right, color-mix(in srgb, var(--background) 92%, transparent) 0%, color-mix(in srgb, var(--background) 60%, transparent) 55%, color-mix(in srgb, var(--background) 25%, transparent) 100%)",
             }}
           />
         </div>
@@ -150,7 +150,7 @@ function BannerCard({ banner }: { banner: SiteBanner }) {
   );
 }
 
-function ContentSection({ section }: { section: SiteSection }) {
+export function ContentSection({ section }: { section: SiteSection }) {
   switch (section.section_type) {
     case "image_text":
       return <ImageTextSection section={section} />;

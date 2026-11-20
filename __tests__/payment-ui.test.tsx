@@ -539,6 +539,16 @@ describe("ReceiptViewer", () => {
 describe("ReceiptUploader", () => {
   const fileInput = () => screen.getByLabelText("Receipt image");
 
+  // The uploader now confirms order ownership on the server before writing to
+  // Storage. Mock that read-only GET separately from the submission endpoint.
+  const withOwnershipCheck = (fetchMock: jest.Mock, submissionResponse: unknown) => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/orders/")
+        ? { ok: true, status: 200, json: async () => ({ success: true }) }
+        : submissionResponse
+    );
+  };
+
   const fillForm = (file?: File) => {
     fireEvent.change(screen.getByLabelText("Phone number you transferred from"), {
       target: { value: "01012345678" },
@@ -574,7 +584,8 @@ describe("ReceiptUploader", () => {
   });
 
   test("uploads the receipt and posts it to the external-wallet endpoint", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = jest.fn();
+    withOwnershipCheck(fetchMock, {
       ok: true,
       status: 201,
       json: async () => ({ success: true, receipt: { id: "pmt-1", status: "pending" } }),
@@ -592,9 +603,13 @@ describe("ReceiptUploader", () => {
     expect(fromMock).toHaveBeenCalledWith("payment-receipts");
     expect(uploadMock).toHaveBeenCalledTimes(1);
     expect(uploadMock.mock.calls[0][0]).toMatch(/^user-1\/order-1\//);
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/payments/external-wallet");
+    const submissionCall = fetchMock.mock.calls.find(
+      ([url]) => url === "/api/payments/external-wallet"
+    );
+    expect(submissionCall).toBeDefined();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/orders/order-1");
 
-    const [, init] = fetchMock.mock.calls[0];
+    const [, init] = submissionCall!;
     const body = JSON.parse(init.body);
     expect(body).toEqual({
       order_id: "order-1",
@@ -606,7 +621,8 @@ describe("ReceiptUploader", () => {
   });
 
   test("keeps the legacy Vodafone endpoint available for historical orders", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = jest.fn();
+    withOwnershipCheck(fetchMock, {
       ok: true,
       status: 201,
       json: async () => ({ success: true, receipt: { id: "legacy-1", status: "pending" } }),
@@ -623,12 +639,14 @@ describe("ReceiptUploader", () => {
     fillForm(new File(["receipt-bytes"], "receipt.png", { type: "image/png" }));
     fireEvent.click(screen.getByRole("button", { name: /Submit receipt/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/payments/vodafone-cash");
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === "/api/payments/vodafone-cash")).toBe(true)
+    );
   });
 
   test("shows a safe message and offers a retry when the backend rejects", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = jest.fn();
+    withOwnershipCheck(fetchMock, {
       ok: false,
       status: 400,
       json: async () => ({ message: "Transfer reference is too short" }),
@@ -648,6 +666,7 @@ describe("ReceiptUploader", () => {
 
   test("reports storage failures without leaking internals", async () => {
     const fetchMock = jest.fn();
+    withOwnershipCheck(fetchMock, { ok: true, status: 201, json: async () => ({}) });
     global.fetch = fetchMock as unknown as typeof fetch;
     uploadMock.mockResolvedValue({ error: { message: "Bucket not found" } });
 
@@ -657,6 +676,6 @@ describe("ReceiptUploader", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/Receipt upload is not available yet/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api/orders/order-1"]);
   });
 });

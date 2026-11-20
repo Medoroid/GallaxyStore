@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/redirect";
 
 function safeRedirect(next: string, origin: string): string {
   if (
@@ -8,7 +9,8 @@ function safeRedirect(next: string, origin: string): string {
     next.includes("://") ||
     next.includes("\\")
   ) {
-    return "/";
+    // Next 16 requires an absolute URL in NextResponse.redirect.
+    return new URL("/", origin).toString();
   }
   return new URL(next, origin).toString();
 }
@@ -22,8 +24,9 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const errorMessage = errorDescription || error;
+    const nextParam = safeNext(next) !== "/" ? `&next=${encodeURIComponent(safeNext(next))}` : "";
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(errorMessage)}`, origin)
+      new URL(`/login?error=${encodeURIComponent(errorMessage)}${nextParam}`, origin)
     );
   }
 
@@ -59,9 +62,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const nextParam = safeNext(next) !== "/" ? `&next=${encodeURIComponent(safeNext(next))}` : "";
   return NextResponse.redirect(
     new URL(
-      `/login?error=${encodeURIComponent("Authentication failed. Please try again.")}`,
+      `/login?error=${encodeURIComponent("Authentication failed. Please try again.")}${nextParam}`,
       origin
     )
   );

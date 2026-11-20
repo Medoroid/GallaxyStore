@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { loginUrl } from "@/lib/redirect";
 
 function getAdminEmails(): string[] {
   const emails = process.env.ADMIN_EMAILS
@@ -43,7 +44,7 @@ export async function proxy(request: NextRequest) {
   // Protect admin routes
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(new URL(loginUrl(request.nextUrl.pathname + request.nextUrl.search), request.url));
     }
 
     const isAdminByEmail = getAdminEmails().includes(
@@ -90,7 +91,7 @@ export async function proxy(request: NextRequest) {
   // the page shell itself is never served to guests or customers.
   if (request.nextUrl.pathname.startsWith("/vendor")) {
     if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(new URL(loginUrl(request.nextUrl.pathname + request.nextUrl.search), request.url));
     }
 
     let isVendor = false;
@@ -112,6 +113,8 @@ export async function proxy(request: NextRequest) {
     // Owner of a store counts as vendor (mirrors /api/vendor/stats logic)
     if (!isVendor) {
       try {
+        // Page-shell gate only: API routes resolve the concrete store per
+        // request with the multi-store-safe helper.
         const { data } = await supabase
           .from("stores")
           .select("id")
@@ -140,7 +143,21 @@ export async function proxy(request: NextRequest) {
   );
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL(loginUrl(request.nextUrl.pathname + request.nextUrl.search), request.url));
+  }
+
+  // Auth-only areas (no role requirement): the Design Studio and the creator
+  // dashboard. Segment-exact on purpose — "/creator" must never swallow the
+  // public "/creators/[username]" profile pages.
+  const authOnlyPaths = ["/studio", "/creator"];
+  const isAuthOnly = authOnlyPaths.some(
+    (path) =>
+      request.nextUrl.pathname === path ||
+      request.nextUrl.pathname.startsWith(`${path}/`)
+  );
+
+  if (isAuthOnly && !user) {
+    return NextResponse.redirect(new URL(loginUrl(request.nextUrl.pathname + request.nextUrl.search), request.url));
   }
 
   return response;
@@ -155,5 +172,7 @@ export const config = {
     "/wishlist/:path*",
     "/profile/:path*",
     "/returns",
+    "/studio/:path*",
+    "/creator/:path*",
   ],
 };

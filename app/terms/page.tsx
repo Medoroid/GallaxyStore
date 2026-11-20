@@ -5,7 +5,7 @@ export default function TermsPage() {
     <div className="min-h-screen py-20 px-6">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">
-          <span className="bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent">
             Terms & Conditions
           </span>
         </h1>
@@ -101,7 +101,7 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-white mb-3">11. Contact</h2>
             <p className="leading-relaxed">
               For questions about these Terms, please contact us at{" "}
-              <a href="/contact" className="text-[#FF4FD8] hover:text-[#FF6FE0] transition-colors">
+              <a href="/contact" className="text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors">
                 our contact page
               </a>.
             </p>

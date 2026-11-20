@@ -1396,6 +1396,31 @@ $function$;
 -- END 20261115120000_product_available_sizes_and_color_sync_guard.sql
 
 -- ============================================================================
+-- 8. P0 SECURITY - revoke PUBLIC/anon EXECUTE on SECURITY DEFINER functions
+--    From supabase/migrations/20261117130000_revoke_public_security_definer_execute.sql
+--    confirm_order_payment() has no caller check and can mark any pending order
+--    paid when called anonymously through PostgREST. The colour-sync functions
+--    let an anonymous caller rewrite any product's colours.
+-- ============================================================================
+
+revoke execute on function public.confirm_order_payment(uuid, text, text, numeric, jsonb, text)
+  from public, anon, authenticated;
+grant execute on function public.confirm_order_payment(uuid, text, text, numeric, jsonb, text)
+  to service_role;
+
+revoke execute on function public.sync_product_available_colors(uuid)
+  from public, anon, authenticated;
+grant execute on function public.sync_product_available_colors(uuid)
+  to service_role;
+
+revoke execute on function public.trg_sync_colors_from_variant()
+  from public, anon, authenticated;
+revoke execute on function public.trg_sync_colors_from_variant_options()
+  from public, anon, authenticated;
+
+-- END 20261117130000_revoke_public_security_definer_execute.sql
+
+-- ============================================================================
 -- VERIFICATION - run these after the bundle; every check must pass
 -- ============================================================================
 -- 1) All new tables/columns exist (each value must be a name, never null):
@@ -1427,3 +1452,21 @@ select exists (
 select currency, revenue, units_sold
 from public.admin_product_performance
 where product_id = 'f9a11e67-af79-449a-9b63-43bdb6ff177e';
+
+-- 4) Security revokes applied: no function may show "=X/" (PUBLIC),
+--    "anon=X" or "authenticated=X" in proacl (4 rows expected):
+select p.proname,
+       p.proacl,
+       not (p.proacl::text like '%=X/%'
+            or p.proacl::text like '%anon=X%'
+            or p.proacl::text like '%authenticated=X%') as locked_down
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'confirm_order_payment',
+    'sync_product_available_colors',
+    'trg_sync_colors_from_variant',
+    'trg_sync_colors_from_variant_options'
+  )
+order by p.proname;

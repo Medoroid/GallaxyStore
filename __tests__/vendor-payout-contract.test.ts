@@ -85,7 +85,30 @@ describe("POST /api/vendor/payout", () => {
     expect(mockRpc).toHaveBeenCalledWith("request_vendor_payout", {
       p_store_id: "owned-store",
       p_amount: 25,
+      p_method: "bank_transfer",
     });
+  });
+
+  test("forwards a valid payout method to the RPC", async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "stores") return query({ data: { id: "owned-store" }, error: null });
+      return query({ data: null, error: null });
+    });
+    mockRpc.mockResolvedValue({ data: { id: "payout-2" }, error: null });
+
+    const res = await POST(postRequest({ amount: 10, method: "paypal" }));
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith("request_vendor_payout", {
+      p_store_id: "owned-store",
+      p_amount: 10,
+      p_method: "paypal",
+    });
+  });
+
+  test("rejects an unknown payout method without calling the RPC", async () => {
+    const res = await POST(postRequest({ amount: 10, method: "cash_carrier_pigeon" }));
+    expect(res.status).toBe(400);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   test("rejects a non-positive amount before calling the RPC", async () => {

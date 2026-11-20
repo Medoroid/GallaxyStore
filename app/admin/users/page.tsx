@@ -17,7 +17,7 @@ type AppUser = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-[#FF4FD8]/10 text-[#FF4FD8]",
+  admin: "bg-[var(--brand)]/10 text-[var(--brand)]",
   vendor: "bg-cyan-500/10 text-cyan-400",
   customer: "bg-white/[0.05] text-gray-300",
 };
@@ -118,7 +118,7 @@ export default function AdminUsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search users by name or email..."
-            className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+            className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
           />
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function AdminUsersPage() {
               <div key={user.id} className="glass rounded-2xl p-4 hover:border-white/[0.12] transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] flex items-center justify-center text-white font-bold shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] flex items-center justify-center text-white font-bold shrink-0">
                       {(user.full_name || "?").charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">

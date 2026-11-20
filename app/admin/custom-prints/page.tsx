@@ -176,7 +176,7 @@ export default function AdminCustomPrintsPage() {
               onClick={() => setFilter(status)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all ${
                 filter === status
-                  ? "bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white"
+                  ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white"
                   : "bg-white/[0.05] text-gray-400 hover:text-white"
               }`}
             >
@@ -190,7 +190,7 @@ export default function AdminCustomPrintsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search request, name or email"
-            className="w-full pl-9 pr-4 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50"
+            className="w-full pl-9 pr-4 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50"
           />
         </div>
       </div>
@@ -238,14 +238,14 @@ export default function AdminCustomPrintsPage() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-1">
                       <a
                         href={`mailto:${request.customer_email}`}
-                        className="inline-flex items-center gap-1 hover:text-[#FF4FD8]"
+                        className="inline-flex items-center gap-1 hover:text-[var(--brand)]"
                       >
                         <Mail className="w-3 h-3" /> {request.customer_email}
                       </a>
                       {request.customer_phone && (
                         <a
                           href={`tel:${request.customer_phone}`}
-                          className="inline-flex items-center gap-1 hover:text-[#FF4FD8]"
+                          className="inline-flex items-center gap-1 hover:text-[var(--brand)]"
                         >
                           <Phone className="w-3 h-3" /> {request.customer_phone}
                         </a>
@@ -360,7 +360,7 @@ export default function AdminCustomPrintsPage() {
                     <button
                       onClick={() => save(request)}
                       disabled={busy}
-                      className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="h-10 px-4 rounded-xl bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Save

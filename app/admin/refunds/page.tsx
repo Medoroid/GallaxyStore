@@ -235,7 +235,7 @@ export default function AdminRefundsPage() {
 
       <form onSubmit={handleIssueRefund} className="glass rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <RotateCcw className="w-5 h-5 text-[#FF4FD8]" />
+          <RotateCcw className="w-5 h-5 text-[var(--brand)]" />
           <h2 className="text-lg font-semibold text-white">Issue a refund</h2>
         </div>
 
@@ -248,7 +248,7 @@ export default function AdminRefundsPage() {
               id="refund-order"
               value={orderId}
               onChange={(event) => selectOrder(event.target.value)}
-              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF4FD8]"
+              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[var(--brand)]"
             >
               <option value="">Select an order…</option>
               {refundableOrders.map((order) => (
@@ -277,7 +277,7 @@ export default function AdminRefundsPage() {
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0.00"
-              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF4FD8]"
+              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[var(--brand)]"
             />
             {selectedOrder && (
               <p className="text-xs text-gray-500 mt-1">
@@ -302,7 +302,7 @@ export default function AdminRefundsPage() {
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Damaged item, customer request…"
-              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF4FD8]"
+              className="w-full rounded-xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-white focus:outline-none focus:border-[var(--brand)]"
             />
           </div>
         </div>
@@ -311,7 +311,7 @@ export default function AdminRefundsPage() {
           <button
             type="submit"
             disabled={submitting || refundableOrders.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             Create refund request
@@ -352,7 +352,7 @@ export default function AdminRefundsPage() {
             onClick={() => setFilter(value)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               filter === value
-                ? "bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white"
+                ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white"
                 : "bg-white/[0.05] text-gray-400 hover:text-white"
             }`}
           >

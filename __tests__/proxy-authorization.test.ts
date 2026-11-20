@@ -24,7 +24,7 @@ jest.mock("@supabase/ssr", () => ({
 
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest } from "next/server";
-import { proxy } from "@/proxy";
+import { proxy, config } from "@/proxy";
 
 // ---------------------------------------------------------------------------
 // controllable fake DB (profiles / stores / admin_users lookups)
@@ -85,6 +85,10 @@ describe("proxy: guest protection", () => {
     "/wishlist",
     "/profile",
     "/returns",
+    "/studio",
+    "/studio/design-1",
+    "/creator",
+    "/creator?tab=products",
   ];
 
   test.each(protectedPaths)("%s redirects guest to /login", async (path) => {
@@ -94,10 +98,31 @@ describe("proxy: guest protection", () => {
   });
 
   test("public routes pass through for guests", async () => {
-    for (const path of ["/", "/products", "/cart", "/gift-boxes", "/contact"]) {
+    for (const path of [
+      "/",
+      "/products",
+      "/cart",
+      "/gift-boxes",
+      "/contact",
+      "/creators",
+      "/creators/star_artist",
+    ]) {
       const res = await proxy(req(path));
       expect(res.status).toBe(200);
     }
+  });
+
+  test("public creator profiles are NOT swallowed by the /creator guard", async () => {
+    // Regression: a startsWith("/creator") check would redirect these to /login.
+    const { status, location } = await locationOf("/creators/star_artist");
+    expect(status).toBe(200);
+    expect(location).toBeNull();
+  });
+
+  test("matcher covers the studio and dashboard but not public creator pages", () => {
+    expect(config.matcher).toContain("/studio/:path*");
+    expect(config.matcher).toContain("/creator/:path*");
+    expect(config.matcher).not.toContain("/creators/:path*");
   });
 });
 
@@ -121,6 +146,13 @@ describe("proxy: customer vs admin/vendor", () => {
 
   test("customer still reaches their protected pages", async () => {
     for (const path of ["/orders", "/profile", "/wishlist", "/returns"]) {
+      const res = await proxy(req(path));
+      expect(res.status).toBe(200);
+    }
+  });
+
+  test("any authenticated user reaches the studio and creator dashboard", async () => {
+    for (const path of ["/studio", "/studio/design-1", "/creator", "/creator?tab=gallery"]) {
       const res = await proxy(req(path));
       expect(res.status).toBe(200);
     }

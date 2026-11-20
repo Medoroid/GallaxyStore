@@ -6,6 +6,7 @@ import type { Config } from "jest";
 // dedicated test project.
 const config: Config = {
   testEnvironment: "jsdom",
+  setupFiles: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
@@ -15,6 +16,8 @@ const config: Config = {
     "\\.integration\\.test\\.[jt]sx?$",
     // Playwright E2E suite — run with `npm run test:e2e`, never under Jest.
     "<rootDir>/e2e/",
+    // Phase 1 Local E2E suite — run with playwright.local.config.ts, never Jest.
+    "<rootDir>/e2e-local/",
     "<rootDir>/playwright.config\\.ts$",
   ],
   transform: {

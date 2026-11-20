@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Unit tests — lib/site-content.ts (shared banner/section rules):
  *   - banner/section payload validation mirrors the DB CHECK constraints,
  *   - schedule window rules (create + partial update merge),
@@ -10,6 +12,8 @@ import {
   BANNER_PLACEMENTS,
   SECTION_PLACEMENTS,
   SECTION_TYPES,
+  contentMigrationRequiredResponse,
+  isMissingContentInfra,
   isWithinActiveWindow,
   normalizeCardsConfig,
   selectForZone,
@@ -365,5 +369,49 @@ describe("storagePathFromPublicUrl", () => {
     const url =
       "https://proj.supabase.co/storage/v1/object/public/site-banners/site/my%20file.jpg";
     expect(storagePathFromPublicUrl(url)).toBe("site/my file.jpg");
+  });
+});
+
+describe("isMissingContentInfra", () => {
+  test("accepts 42P01 (missing relation)", () => {
+    expect(
+      isMissingContentInfra({ code: "42P01", message: 'relation "public.site_banners" does not exist' })
+    ).toBe(true);
+  });
+
+  test("accepts PGRST205 (relation not in the schema cache)", () => {
+    expect(
+      isMissingContentInfra({
+        code: "PGRST205",
+        message: "Could not find the table 'public.site_sections' in the schema cache",
+      })
+    ).toBe(true);
+  });
+
+  test("accepts a missing bucket (same migration)", () => {
+    expect(isMissingContentInfra({ message: "Bucket not found" })).toBe(true);
+  });
+
+  test("rejects unrelated database errors", () => {
+    expect(isMissingContentInfra({ code: "23505", message: "duplicate key value" })).toBe(false);
+    expect(isMissingContentInfra({ code: "XX000", message: "boom" })).toBe(false);
+  });
+
+  test("rejects null, primitives and empty messages", () => {
+    expect(isMissingContentInfra(null)).toBe(false);
+    expect(isMissingContentInfra("does not exist")).toBe(false);
+    expect(isMissingContentInfra({ code: "42P01" })).toBe(true); // code alone is enough
+    expect(isMissingContentInfra({})).toBe(false);
+  });
+});
+
+describe("contentMigrationRequiredResponse", () => {
+  test("answers 503 with the code and the exact migration file", async () => {
+    const res = contentMigrationRequiredResponse();
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.code).toBe("CONTENT_MIGRATION_REQUIRED");
+    expect(json.message).toContain("supabase/migrations/20261108130000_site_content_banners_sections.sql");
   });
 });

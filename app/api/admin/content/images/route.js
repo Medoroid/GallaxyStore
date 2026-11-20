@@ -1,7 +1,15 @@
 import { verifyAdmin } from "../../_lib/verifyAdmin";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { validateProductImageFile } from "@/lib/product-image-upload";
-import { SITE_BANNER_BUCKET } from "@/lib/site-content";
+import { validateUploadedImageBytes } from "@/lib/image-upload-validation";
+import {
+  PRODUCT_IMAGE_MIME_EXTENSIONS,
+  MAX_PRODUCT_IMAGE_BYTES,
+} from "@/lib/product-image-upload";
+import {
+  SITE_BANNER_BUCKET,
+  isMissingContentInfra,
+  contentMigrationRequiredResponse,
+} from "@/lib/site-content";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
@@ -35,17 +43,21 @@ export async function POST(request) {
       return Response.json({ success: false, message: "No image file provided" }, { status: 400 });
     }
 
-    const check = validateProductImageFile(file);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const check = validateUploadedImageBytes(bytes, {
+      allowed: PRODUCT_IMAGE_MIME_EXTENSIONS,
+      maxBytes: MAX_PRODUCT_IMAGE_BYTES,
+    });
     if (!check.ok) {
       return Response.json({ success: false, message: check.message }, { status: 400 });
     }
 
     const db = getServiceRoleClient();
     const storagePath = `site/${crypto.randomUUID()}.${check.extension}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(bytes);
     const { error: uploadError } = await db.storage
       .from(SITE_BANNER_BUCKET)
-      .upload(storagePath, buffer, { contentType: check.contentType, upsert: false });
+      .upload(storagePath, buffer, { contentType: check.mime, upsert: false });
     if (uploadError) throw uploadError;
 
     const { data } = db.storage.from(SITE_BANNER_BUCKET).getPublicUrl(storagePath);
@@ -56,6 +68,8 @@ export async function POST(request) {
 
     return Response.json({ success: true, url: data.publicUrl, path: storagePath }, { status: 201 });
   } catch (error) {
+    // Bucket missing (same migration) → honest 503, not a generic 500.
+    if (isMissingContentInfra(error)) return contentMigrationRequiredResponse();
     return handleApiError(error, "Admin Content Images POST", "Failed to upload image");
   }
 }

@@ -3,6 +3,7 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
+import { validateUploadedImageBytes } from "@/lib/image-upload-validation";
 
 export const runtime = "nodejs";
 
@@ -118,24 +119,21 @@ export async function POST(request) {
       );
     }
 
-    const mime = String(design.type || "").toLowerCase();
-    const extension = MIME_EXTENSIONS[mime];
-    if (!extension) {
-      return Response.json(
-        { success: false, message: "Design must be JPG, PNG, WebP, GIF, AVIF or PDF" },
-        { status: 400 }
-      );
+    const bytes = new Uint8Array(await design.arrayBuffer());
+    const check = validateUploadedImageBytes(bytes, {
+      allowed: MIME_EXTENSIONS,
+      maxBytes: MAX_FILE_BYTES,
+    });
+    if (!check.ok) {
+      return Response.json({ success: false, message: check.message }, { status: 400 });
     }
-    if (design.size > MAX_FILE_BYTES) {
-      return Response.json(
-        { success: false, message: "Design file must be 10MB or smaller" },
-        { status: 400 }
-      );
-    }
+    // Store the MIME inferred from the bytes, never the declared one.
+    const mime = check.mime;
+    const extension = check.extension;
 
     const db = getServiceRoleClient();
     const designPath = `${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${extension}`;
-    const buffer = Buffer.from(await design.arrayBuffer());
+    const buffer = Buffer.from(bytes);
 
     const { error: uploadError } = await db.storage
       .from(BUCKET)

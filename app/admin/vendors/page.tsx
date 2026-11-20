@@ -15,6 +15,17 @@ type Vendor = {
   owner?: { full_name: string | null; email: string | null } | null;
 };
 
+type PayoutRequest = {
+  id: string;
+  store_id: string;
+  requested_amount: number | string;
+  status: string;
+  payout_method?: string | null;
+  created_at: string;
+  notes?: string | null;
+  rejection_reason?: string | null;
+};
+
 const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-500/10 text-green-400",
   pending: "bg-yellow-500/10 text-yellow-400",
@@ -25,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AdminVendorsPage() {
   const { getToken } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actingId, setActingId] = useState<string | null>(null);
@@ -43,6 +55,7 @@ export default function AdminVendorsPage() {
         return;
       }
       setVendors(data.vendors || []);
+      setPayoutRequests(data.payoutRequests || []);
     } catch {
       setError("Network error while loading vendors.");
     } finally {
@@ -93,6 +106,48 @@ export default function AdminVendorsPage() {
     }
   };
 
+  const handlePayoutAction = async (requestId: string, action: "approve_payout" | "reject_payout") => {
+    const input = window.prompt(
+      action === "approve_payout"
+        ? "NOTE: approval does not transfer money. Disbursement is performed outside the system and recorded after proof. Optional note for the vendor:"
+        : "Reason for rejecting this payout (saved to the audit log)",
+      ""
+    );
+    if (input === null) return;
+    const detail = input.trim();
+    if (action === "reject_payout" && !detail) {
+      setError("A rejection reason is required.");
+      return;
+    }
+    setActingId(requestId);
+    setError("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/vendors", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          payout_request_id: requestId,
+          ...(action === "approve_payout" ? { notes: detail } : { reason: detail }),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Could not update this payout request.");
+        return;
+      }
+      await fetchVendors();
+    } catch {
+      setError("Network error while updating the payout request.");
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const filtered = vendors.filter((v) => (filter === "all" ? true : v.status === filter));
 
   return (
@@ -116,7 +171,7 @@ export default function AdminVendorsPage() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               filter === f
-                ? "bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white"
+                ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white"
                 : "bg-white/[0.05] text-gray-400 hover:text-white"
             }`}
           >
@@ -243,6 +298,77 @@ export default function AdminVendorsPage() {
           </table>
         </div>
       )}
+
+      {/* Payout requests — approve/reject decisions are recorded in the audit log. */}
+      <div className="glass rounded-2xl border border-white/[0.06] overflow-hidden">
+        <div className="p-4 border-b border-white/[0.06]">
+          <h2 className="text-lg font-semibold text-white">Payout requests</h2>
+          <p className="text-sm text-gray-400">
+            Approving creates a ledger entry only — no money moves until an external payout is made.
+          </p>
+        </div>
+        {payoutRequests.length === 0 ? (
+          <p className="p-5 text-sm text-gray-400">No payout requests yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-white/[0.03] text-gray-400 text-xs uppercase">
+                <tr>
+                  <th className="p-3">Store</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Method</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Decision</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {payoutRequests.map((payout) => (
+                  <tr key={payout.id}>
+                    <td className="p-3 text-sm text-white">
+                      {vendors.find((v) => v.id === payout.store_id)?.name || payout.store_id}
+                    </td>
+                    <td className="p-3 text-sm text-white">{Number(payout.requested_amount).toFixed(2)}</td>
+                    <td className="p-3 text-sm text-gray-300">
+                      {payout.payout_method || "not recorded"}
+                    </td>
+                    <td className="p-3">
+                      <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-white/[0.06] text-gray-300">
+                        {payout.status}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {payout.status === "pending" ? (
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            disabled={actingId === payout.id}
+                            onClick={() => handlePayoutAction(payout.id, "approve_payout")}
+                            className="p-2 rounded-xl bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-50"
+                            title="Approve payout request"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            disabled={actingId === payout.id}
+                            onClick={() => handlePayoutAction(payout.id, "reject_payout")}
+                            className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                            title="Reject payout request"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500">
+                          {payout.rejection_reason || "decided"}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

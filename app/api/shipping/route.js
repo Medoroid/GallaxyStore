@@ -18,11 +18,18 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const country = searchParams.get("country");
-    const subtotal = parseFloat(searchParams.get("subtotal") || "0");
+    const subtotalParam = searchParams.get("subtotal");
+    const subtotal = subtotalParam === null ? 0 : Number(subtotalParam);
 
     if (!country) {
       return Response.json(
         { success: false, message: "Country is required" },
+        { status: 400 }
+      );
+    }
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      return Response.json(
+        { success: false, message: "Invalid subtotal" },
         { status: 400 }
       );
     }

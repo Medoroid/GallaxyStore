@@ -52,17 +52,23 @@ export default function VendorDashboardPage() {
   const { getToken } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
+    setError(null);
     try {
       const token = await getToken();
       const res = await fetch("/api/vendor/stats", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
-      if (result.success) setData(result);
+      if (!res.ok || !result?.success) {
+        setError(result?.message || "Unable to load your dashboard.");
+        return;
+      }
+      setData(result);
     } catch {
-      // ignore
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -82,6 +88,23 @@ export default function VendorDashboardPage() {
               <div className="h-8 bg-white/[0.05] rounded w-1/2" />
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div role="alert" className="glass rounded-2xl p-6 border border-red-500/30">
+          <p className="text-sm text-red-300">{error}</p>
+          <button
+            type="button"
+            onClick={fetchDashboard}
+            className="mt-4 px-4 h-10 rounded-xl glass text-sm hover:text-white"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

@@ -85,7 +85,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       >
         <span className="font-medium text-white pr-4">{question}</span>
         {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-[#FF4FD8] shrink-0" />
+          <ChevronUp className="w-5 h-5 text-[var(--brand)] shrink-0" />
         ) : (
           <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
         )}
@@ -106,7 +106,7 @@ export default function FaqPage() {
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-fade-in">
-            <span className="bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent">
               Frequently Asked Questions
             </span>
           </h1>
@@ -143,7 +143,7 @@ export default function FaqPage() {
           <p className="text-gray-400 mb-6">Our support team is here to help.</p>
           <a
             href="/contact"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-semibold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-semibold hover:shadow-cta transition-all"
           >
             Contact Us
           </a>

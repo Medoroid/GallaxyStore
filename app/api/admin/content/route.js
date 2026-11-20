@@ -7,6 +7,8 @@ import {
   validateBannerInput,
   validateSectionInput,
   storagePathFromPublicUrl,
+  isMissingContentInfra,
+  contentMigrationRequiredResponse,
   SITE_BANNER_BUCKET,
 } from "@/lib/site-content";
 
@@ -16,8 +18,17 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const TABLES = { banner: "site_banners", section: "site_sections" };
 const ENTITY_TYPES = { banner: "site_banner", section: "site_section" };
-const SELECT_COLUMNS =
-  "id, page, placement, title, subtitle, body, eyebrow, section_type, image_url, link_url, button_label, config, sort_order, is_active, starts_at, ends_at, created_at, updated_at";
+// The two tables do NOT share a shape: only sections have section_type,
+// eyebrow, body and config. Selecting section-only columns from site_banners
+// makes PostgREST reject the whole query (42703), so each table gets its own
+// explicit column list instead of one shared SELECT list.
+const SELECT_COLUMNS = {
+  banner:
+    "id, page, placement, title, subtitle, image_url, link_url, button_label, sort_order, is_active, starts_at, ends_at, created_at, updated_at",
+  section:
+    "id, page, placement, section_type, eyebrow, title, body, image_url, link_url, button_label, config, sort_order, is_active, starts_at, ends_at, created_at, updated_at",
+};
+const columnsFor = (type) => SELECT_COLUMNS[type];
 
 function resolveType(value) {
   const type = String(value || "").trim();
@@ -48,13 +59,13 @@ export async function GET(request) {
     const [bannersResult, sectionsResult] = await Promise.all([
       db
         .from("site_banners")
-        .select(SELECT_COLUMNS)
+        .select(SELECT_COLUMNS.banner)
         .order("placement", { ascending: true })
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
       db
         .from("site_sections")
-        .select(SELECT_COLUMNS)
+        .select(SELECT_COLUMNS.section)
         .order("placement", { ascending: true })
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
@@ -69,6 +80,9 @@ export async function GET(request) {
       sections: sectionsResult.data ?? [],
     });
   } catch (error) {
+    // Migration not applied → name the exact file instead of a generic 500
+    // (same contract as the Theme Studio's THEME_MIGRATION_REQUIRED).
+    if (isMissingContentInfra(error)) return contentMigrationRequiredResponse();
     return handleApiError(error, "Admin Content GET", "Failed to load site content");
   }
 }
@@ -110,7 +124,7 @@ export async function POST(request) {
     const { data, error } = await db
       .from(table)
       .insert({ ...payload, sort_order: sortOrder, created_by: auth.user.id })
-      .select(SELECT_COLUMNS)
+      .select(columnsFor(type))
       .single();
     if (error) throw error;
 
@@ -130,6 +144,7 @@ export async function POST(request) {
     });
     return Response.json({ success: true, type, item: data }, { status: 201 });
   } catch (error) {
+    if (isMissingContentInfra(error)) return contentMigrationRequiredResponse();
     return handleApiError(error, "Admin Content POST", "Failed to create content");
   }
 }
@@ -191,7 +206,7 @@ export async function PATCH(request) {
     const table = TABLES[type];
     const { data: existing, error: readError } = await db
       .from(table)
-      .select(SELECT_COLUMNS)
+      .select(columnsFor(type))
       .eq("id", id)
       .maybeSingle();
     if (readError) throw readError;
@@ -219,7 +234,7 @@ export async function PATCH(request) {
       .from(table)
       .update(payload)
       .eq("id", id)
-      .select(SELECT_COLUMNS)
+      .select(columnsFor(type))
       .maybeSingle();
     if (error) throw error;
     if (!data) {
@@ -237,6 +252,7 @@ export async function PATCH(request) {
 
     return Response.json({ success: true, type, item: data });
   } catch (error) {
+    if (isMissingContentInfra(error)) return contentMigrationRequiredResponse();
     return handleApiError(error, "Admin Content PATCH", "Failed to update content");
   }
 }
@@ -294,6 +310,7 @@ export async function DELETE(request) {
 
     return Response.json({ success: true, message: "Content deleted" });
   } catch (error) {
+    if (isMissingContentInfra(error)) return contentMigrationRequiredResponse();
     return handleApiError(error, "Admin Content DELETE", "Failed to delete content");
   }
 }

@@ -1,16 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { safeNext } from "@/lib/redirect";
 import { Mail, ArrowLeft, Send, CheckCircle } from "lucide-react";
+// One shared client (PKCE + cookies) for the whole app. Creating a second
+// `createClient` here silently switched this page to a different auth flow and
+// a different storage, which is what broke the reset-link hand-off.
+import { supabase } from "@/lib/supabaseClient";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+function friendlyError(message: string) {
+  const m = String(message || "");
+  if (/email address .* is invalid|invalid email/i.test(m)) {
+    return "That email address doesn't look valid. Check it and try again.";
+  }
+  if (/rate limit|too many requests|security purposes/i.test(m)) {
+    return "Too many attempts. Wait a moment, then try again.";
+  }
+  if (/failed to fetch|network/i.test(m)) {
+    return "Network error — check your connection and try again.";
+  }
+  return m;
+}
 
 export default function ForgotPasswordPage() {
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -18,21 +34,37 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const target = email.trim();
+    if (!target) {
+      setError("Enter your email address.");
+      return;
+    }
     setLoading(true);
     setError("");
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        target,
+        {
+          // Must be one of the Redirect URLs configured in Supabase
+          // (Authentication → URL Configuration), or GoTrue silently falls
+          // back to the Site URL and the link lands on the wrong page.
+          redirectTo: `${window.location.origin}/reset-password?next=${encodeURIComponent(nextPath)}`,
+        }
+      );
 
-    if (resetError) {
-      setError(resetError.message);
+      if (resetError) {
+        setError(friendlyError(resetError.message));
+        return;
+      }
+
+      setEmail(target);
+      setSent(true);
+    } catch {
+      setError("Could not send the reset link. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSent(true);
-    setLoading(false);
   };
 
   if (sent) {
@@ -46,14 +78,14 @@ export default function ForgotPasswordPage() {
             <h1 className="text-2xl font-bold text-white mb-4">Check Your Email</h1>
             <p className="text-gray-400 mb-6">
               We&apos;ve sent a password reset link to<br />
-              <span className="text-[#FF4FD8] font-medium">{email}</span>
+              <span className="text-[var(--brand)] font-medium">{email}</span>
             </p>
             <p className="text-gray-500 text-sm mb-8">
               Didn&apos;t receive the email? Check your spam folder or try again.
             </p>
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 text-[#FF4FD8] hover:text-[#FF6FE0] transition-colors"
+              className="inline-flex items-center gap-2 text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Login
@@ -69,7 +101,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md animate-fade-in">
         <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-3xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent mb-3">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent mb-3">
               Forgot Password?
             </h1>
             <p className="text-gray-400">
@@ -94,7 +126,7 @@ export default function ForgotPasswordPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+                  className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
                 />
               </div>
             </div>
@@ -102,7 +134,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

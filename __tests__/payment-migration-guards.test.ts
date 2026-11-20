@@ -17,7 +17,7 @@ function migration(name: string) {
 }
 
 describe("confirm_order_payment partial-index migration", () => {
-  const sql = migration("20261030_confirm_order_payment_partial_index.sql");
+  const sql = migration("20261030000002_confirm_order_payment_partial_index.sql");
   const flat = sql.replace(/\s+/g, " ").toLowerCase();
 
   test("keeps the matching partial-index predicate in ON CONFLICT", () => {
@@ -39,7 +39,7 @@ describe("confirm_order_payment partial-index migration", () => {
 });
 
 describe("order status COD transition migration", () => {
-  const sql = migration("20261030_order_status_cod_transitions.sql");
+  const sql = migration("20261030000003_order_status_cod_transitions.sql");
   const flat = sql.replace(/\s+/g, " ").toLowerCase();
 
   test("allows the COD fulfilment transitions", () => {
@@ -63,7 +63,7 @@ describe("order status COD transition migration", () => {
 });
 
 describe("product images bucket migration", () => {
-  const sql = migration("20261030_product_images_bucket.sql");
+  const sql = migration("20261030000004_product_images_bucket.sql");
   const flat = sql.replace(/\s+/g, " ").toLowerCase();
 
   test("fails early when the owns_product baseline is missing", () => {

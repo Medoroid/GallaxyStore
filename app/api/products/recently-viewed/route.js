@@ -25,7 +25,8 @@ export async function GET(request) {
       session_token = searchParams.get("session_token") || null;
     }
 
-    const limit = parseInt(searchParams.get("limit") || "12", 10);
+    const limitParam = parseInt(searchParams.get("limit") || "12", 10);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 24) : 12;
 
     const { data, error } = await SupabaseClient.rpc("get_recently_viewed", {
       p_session_token: session_token,

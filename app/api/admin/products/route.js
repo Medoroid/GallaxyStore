@@ -11,6 +11,14 @@ import {
   uuidOrNull,
 } from "@/lib/product-admin";
 
+const PRODUCT_LIST_SELECT = `id, store_id, brand_id, category_id, name, slug, short_description, description,
+         status, visibility, is_featured, base_price, compare_at_price, currency,
+         avg_rating, rating_count, view_count, published_at, created_at, updated_at,
+         deleted_at, color, available_colors, available_sizes,
+         categories(id, name, slug), brands(id, name, slug), stores(id, name),
+         product_images(id, storage_path, alt_text, is_primary, sort_order),
+         product_variants(id, sku, price, stock_quantity, is_default, is_active, deleted_at)`;
+
 export async function GET(request) {
   try {
     const auth = await verifyAdmin(request);
@@ -19,26 +27,62 @@ export async function GET(request) {
     }
 
     const db = getServiceRoleClient();
-    const includeArchived =
-      new URL(request.url).searchParams.get("include_archived") === "1";
-    let productsQuery = db
-      .from("products")
-      .select(
-        `id, store_id, brand_id, category_id, name, slug, short_description, description,
-         status, visibility, is_featured, base_price, compare_at_price, currency,
-         avg_rating, rating_count, view_count, published_at, created_at, updated_at,
-         deleted_at, color, available_colors, available_sizes,
-         categories(id, name, slug), brands(id, name, slug), stores(id, name),
-         product_images(id, storage_path, alt_text, is_primary, sort_order),
-         product_variants(id, price, stock_quantity, is_default, is_active, deleted_at)`
-      )
-      .order("created_at", { ascending: false });
-    if (!includeArchived) {
-      productsQuery = productsQuery.is("deleted_at", null);
-    }
+    const searchParams = new URL(request.url).searchParams;
+    const includeArchived = searchParams.get("include_archived") === "1";
+
+    // Gift box product-picker filters — all optional and backward compatible:
+    // with no params the response is identical to the original behaviour.
+    //   q              → name/slug contains search
+    //   category_id    → exact category match
+    //   status         → draft | published | archived
+    //   availability   → in_stock | out_of_stock (default variant stock)
+    //   exclude_boxes  → 1 = hide products registered as gift boxes
+    //                    (nesting is not allowed, so boxes are not selectable)
+    //   limit          → positive integer cap applied after ordering
+    const searchQuery = (searchParams.get("q") || "").trim().slice(0, 100);
+    const normalisedSearch = searchQuery.replace(/[,()'\\%]/g, " ").trim();
+    const categoryId = (searchParams.get("category_id") || "").trim();
+    const statusFilter = (searchParams.get("status") || "").trim();
+    const availability = (searchParams.get("availability") || "").trim();
+    const excludeBoxes = searchParams.get("exclude_boxes") === "1";
+    const limitRaw = Number.parseInt(searchParams.get("limit"), 10);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : null;
+    const allowedStatuses = new Set(["draft", "published", "archived"]);
+    const statusParam =
+      statusFilter && allowedStatuses.has(statusFilter) ? statusFilter : null;
+
+    const buildProductsQuery = (selectCols) => {
+      let query = db
+        .from("products")
+        .select(selectCols)
+        .order("created_at", { ascending: false });
+      if (!includeArchived) query = query.is("deleted_at", null);
+      if (categoryId) query = query.eq("category_id", categoryId);
+      if (statusParam) query = query.eq("status", statusParam);
+      if (normalisedSearch) {
+        query = query.or(
+          `name.ilike.%${normalisedSearch}%,slug.ilike.%${normalisedSearch}%`
+        );
+      }
+      return query;
+    };
+
+    // The first attempt always selects `available_sizes` so the editor can
+    // round-trip sizes the moment migration 20261115120000 lands. Until that
+    // SQL is applied the read fails with 42703, so retry once without the
+    // column — the read-side twin of the write fallback below.
+    const loadProducts = async () => {
+      let result = await buildProductsQuery(PRODUCT_LIST_SELECT);
+      if (isMissingSizesColumn(result.error)) {
+        result = await buildProductsQuery(
+          PRODUCT_LIST_SELECT.replace(/\s*available_sizes,/, "")
+        );
+      }
+      return result;
+    };
 
     const [productsResult, categories, brands, stores] = await Promise.all([
-      productsQuery,
+      loadProducts(),
       db.from("categories").select("id, name, slug").is("deleted_at", null).order("sort_order"),
       db.from("brands").select("id, name, slug").is("deleted_at", null).order("name"),
       db.from("stores").select("id, name").is("deleted_at", null).order("name"),
@@ -46,17 +90,60 @@ export async function GET(request) {
 
     if (productsResult.error) throw productsResult.error;
 
-    const products = (productsResult.data ?? []).map((product) => {
+    // Gift box picker post-filters (kept out of SQL so the base listing and
+    // its available_sizes fallback stay untouched).
+    let boxProductIds = null;
+    if (excludeBoxes) {
+      const { data: boxRows, error: boxError } = await db
+        .from("gift_boxes")
+        .select("product_id");
+      if (!boxError) {
+        boxProductIds = new Set((boxRows ?? []).map((row) => row.product_id));
+      } else if (boxError.code !== "42P01" && boxError.code !== "PGRST202") {
+        // 42P01 = gift box tables not created yet (migration pending) →
+        // there are simply no boxes to exclude.
+        throw boxError;
+      } else {
+        boxProductIds = new Set();
+      }
+    }
+
+    let products = (productsResult.data ?? []).map((product) => {
       const variants = product.product_variants ?? [];
       const defaultVariant =
         variants.find((variant) => variant.is_default && variant.is_active && !variant.deleted_at) ??
         variants.find((variant) => variant.is_active && !variant.deleted_at) ??
         null;
 
+      // Full active variant list for the gift box product picker
+      // (additive field — default_variant keeps its original shape).
+      const activeVariants = variants
+        .filter((variant) => variant.is_active && !variant.deleted_at)
+        .map((variant) => ({
+          id: variant.id,
+          sku: variant.sku ?? null,
+          price: Number(variant.price),
+          stock_quantity: Number(variant.stock_quantity ?? 0),
+          is_default: Boolean(variant.is_default),
+        }));
+
       const rest = { ...product };
       delete rest.product_variants;
-      return { ...rest, default_variant: defaultVariant };
+      return { ...rest, default_variant: defaultVariant, variants: activeVariants };
     });
+
+    if (excludeBoxes && boxProductIds?.size >= 0) {
+      products = products.filter((product) => !boxProductIds.has(product.id));
+    }
+
+    if (availability === "in_stock" || availability === "out_of_stock") {
+      products = products.filter((product) => {
+        const stock = Number(product.default_variant?.stock_quantity ?? 0);
+        return availability === "in_stock" ? stock > 0 : stock <= 0;
+      });
+    }
+
+    if (limit) products = products.slice(0, limit);
 
     return Response.json({
       success: true,

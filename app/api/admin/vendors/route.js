@@ -11,6 +11,13 @@ const STORE_ACTIONS = {
   reinstate_store: "approved",
 };
 
+function isAlreadyDecided(error) {
+  if (!error) return false;
+  return /not found or not pending|already (approved|rejected|reviewed)/i.test(
+    String(error.message || "")
+  );
+}
+
 export async function GET(request) {
   try {
     const auth = await verifyAdmin(request);
@@ -49,7 +56,19 @@ export async function GET(request) {
       owner: owners.get(store.owner_id) ?? null,
     }));
 
-    return Response.json({ success: true, vendors });
+    // Payout decisions are made here, not only through the (dead) API branches.
+    // `select("*")` intentionally tolerates the payout_method column that is
+    // added by migration 20261117160000.
+    const { data: payoutRequests, error: payoutError } = await db
+      .from("vendor_payout_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (payoutError && !["42P01", "PGRST205"].includes(String(payoutError.code))) {
+      throw payoutError;
+    }
+
+    return Response.json({ success: true, vendors, payoutRequests: payoutRequests ?? [] });
   } catch (error) {
     return handleApiError(error, "Admin Vendors GET", "Failed to fetch vendors");
   }
@@ -66,7 +85,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const { action, store_id, payout_request_id, reason, notes } = body || {};
 
-    if (action in STORE_ACTIONS) {
+    if (Object.hasOwn(STORE_ACTIONS, action)) {
       if (!store_id) {
         return Response.json({ success: false, message: "store_id is required" }, { status: 400 });
       }
@@ -124,7 +143,15 @@ export async function POST(request) {
         p_request_id: payout_request_id,
         p_notes: notes || null,
       });
-      if (error) throw error;
+      if (error) {
+        if (isAlreadyDecided(error)) {
+          return Response.json(
+            { success: false, message: "This payout request was already decided", unchanged: true },
+            { status: 409 }
+          );
+        }
+        throw error;
+      }
 
       await recordAdminAudit(db, {
         actorId: auth.user.id,
@@ -132,7 +159,12 @@ export async function POST(request) {
         action: "payout.approved",
         entityType: "payout_request",
         entityId: payout_request_id,
-        details: { notes: notes || null },
+        details: {
+          notes: notes || null,
+          payout_id: data?.id ?? null,
+          amount: data?.amount ?? null,
+          store_id: data?.store_id ?? null,
+        },
       });
 
       return Response.json({ success: true, result: data });
@@ -149,7 +181,15 @@ export async function POST(request) {
         p_request_id: payout_request_id,
         p_reason: reason || "Rejected by admin",
       });
-      if (error) throw error;
+      if (error) {
+        if (isAlreadyDecided(error)) {
+          return Response.json(
+            { success: false, message: "This payout request was already decided", unchanged: true },
+            { status: 409 }
+          );
+        }
+        throw error;
+      }
 
       await recordAdminAudit(db, {
         actorId: auth.user.id,

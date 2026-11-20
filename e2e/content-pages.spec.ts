@@ -19,8 +19,10 @@ test("custom print page shows the guest sign-in banner (C4)", async ({ page }) =
 
   await page.goto("/custom-print");
 
-  // C4: amber banner warns guests before they start a request that would 401.
-  await expect(page.getByText(/Guest sign-in required/i).first()).toBeVisible();
+  // C4: clear banner warns guests before a request that would 401.
+  await expect(
+    page.getByText(/Sign in to save designs and place custom print orders/i).first()
+  ).toBeVisible();
 
   expect(counters.blockedRestWrites).toBe(0);
   expect(counters.blockedCartMutations).toBe(0);

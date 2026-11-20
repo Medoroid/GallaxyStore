@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Lock, Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+// One shared client (PKCE + cookie storage) for the whole app. A second
+// `createClient` here ran on a different flow/storage, so the session it built
+// from the reset link never reached the rest of the app — that mismatch is
+// what made password recovery feel broken.
+import { supabase } from "@/lib/supabaseClient";
 
 // A recovery link always leaves a marker in the URL: PKCE flow sends
 // ?code=..., the implicit flow sends #access_token=... and a failed/expired
@@ -22,6 +21,51 @@ function urlHasResetToken(): boolean {
     /access_token=/.test(hash) ||
     /error=/.test(hash)
   );
+}
+
+/** Surface the reason GoTrue attached to a failed/expired link, if any. */
+function urlResetErrorMessage(): string {
+  const { search, hash } = window.location;
+  const params = new URLSearchParams(`${search}${hash.replace(/^#/, "&")}`);
+  const raw =
+    params.get("error_description") ||
+    params.get("error_code") ||
+    params.get("error") ||
+    "";
+  const decoded = decodeURIComponent(raw).replace(/\+/g, " ").toLowerCase();
+  if (!decoded) return "";
+  // Keep the "Invalid or expired reset link" wording the panels/tests rely on,
+  // only adding the reason Supabase reported.
+  if (/otp_expired|expired/.test(decoded)) {
+    return "Invalid or expired reset link — this link has expired. Please request a new one.";
+  }
+  return "";
+}
+
+/**
+ * This client runs the PKCE flow, so supabase-js *refuses* an implicit link
+ * (`#access_token=...`) with "Not a valid PKCE flow url" — which used to leave
+ * the visitor staring at "Invalid or expired reset link".
+ *
+ * Implicit links still arrive in two cases: emails sent before the app moved
+ * to PKCE, and links produced by an admin/non-PKCE client. Hand those tokens
+ * to the client directly so they work too.
+ */
+async function consumeImplicitRecoveryLink() {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  if (params.get("type") !== "recovery") return null;
+  const access_token = params.get("access_token");
+  const refresh_token = params.get("refresh_token");
+  if (!access_token || !refresh_token) return null;
+
+  const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+  if (error || !data.session) return null;
+
+  // Drop the tokens from the address bar (they are now in the session).
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  return data.session;
 }
 
 export default function ResetPasswordPage() {
@@ -42,17 +86,23 @@ export default function ResetPasswordPage() {
   const [linkState, setLinkState] = useState<"checking" | "ready" | "missing" | "invalid">(
     "checking"
   );
+  const [invalidReason, setInvalidReason] = useState("");
 
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // getSession() also consumes a ?code= marker in the URL (PKCE
+        // exchange), so a fresh recovery link lands in `ready`.
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        const session = existing ?? (await consumeImplicitRecoveryLink());
         if (session) {
           setLinkState("ready");
         } else {
+          setInvalidReason(urlResetErrorMessage());
           setLinkState(urlHasResetToken() ? "invalid" : "missing");
         }
       } catch {
+        setInvalidReason(urlResetErrorMessage());
         setLinkState(urlHasResetToken() ? "invalid" : "missing");
       }
     };
@@ -75,22 +125,35 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
-    });
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
+      });
 
-    if (updateError) {
-      setError(updateError.message);
+      if (updateError) {
+        const m = updateError.message || "";
+        setError(
+          /same as the old|different from/i.test(m)
+            ? "Choose a password different from your current one."
+            : /weak|strength/i.test(m)
+              ? "That password is too weak. Use at least 6 characters."
+              : /session|not authenticated|JWT/i.test(m)
+                ? "Your reset link is no longer valid. Please request a new one."
+                : m
+        );
+        if (/session|not authenticated|JWT/i.test(m)) setLinkState("invalid");
+        return;
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/login");
+      }, 3000);
+    } catch {
+      setError("Could not update the password. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSuccess(true);
-    setLoading(false);
-
-    setTimeout(() => {
-      router.push("/login");
-    }, 3000);
   };
 
   if (success) {
@@ -119,7 +182,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md animate-fade-in">
         <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-3xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent mb-3">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent mb-3">
               Reset Password
             </h1>
             <p className="text-gray-400">
@@ -139,7 +202,7 @@ export default function ResetPasswordPage() {
 
           {linkState === "checking" && (
             <div className="text-center py-8">
-              <div className="w-12 h-12 border-2 border-[#FF4FD8]/30 border-t-[#FF4FD8] rounded-full animate-spin mx-auto mb-4" />
+              <div className="w-12 h-12 border-2 border-[var(--brand)]/30 border-t-[var(--brand)] rounded-full animate-spin mx-auto mb-4" />
               <p className="text-gray-400">Verifying reset link...</p>
             </div>
           )}
@@ -153,7 +216,7 @@ export default function ResetPasswordPage() {
               </p>
               <Link
                 href="/forgot-password"
-                className="inline-block w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+                className="inline-block w-full py-4 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all"
               >
                 Request a reset link
               </Link>
@@ -164,12 +227,12 @@ export default function ResetPasswordPage() {
             <div className="text-center py-2">
               <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                 <p className="text-red-400 text-sm text-center">
-                  Invalid or expired reset link. Please request a new one.
+                  {invalidReason || "Invalid or expired reset link. Please request a new one."}
                 </p>
               </div>
               <Link
                 href="/forgot-password"
-                className="inline-block w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+                className="inline-block w-full py-4 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all"
               >
                 Request a new link
               </Link>
@@ -188,7 +251,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full pl-12 pr-12 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+                    className="w-full pl-12 pr-12 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
                   />
                   <button
                     type="button"
@@ -210,7 +273,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+                    className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
                   />
                 </div>
               </div>
@@ -218,7 +281,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />

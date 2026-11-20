@@ -55,6 +55,16 @@ export async function POST(request) {
       );
     }
 
+    // RLS normally hides orders from non-owners, but the email side effect is
+    // sensitive enough to require an explicit check as well. Admins may resend.
+    const { data: isAdmin } = await SupabaseClient.rpc("is_admin");
+    if (order.user_id !== user.id && isAdmin !== true) {
+      return Response.json(
+        { success: false, message: "Not authorized to email this order" },
+        { status: 403 }
+      );
+    }
+
     // Fetch order items
     const { data: items } = await SupabaseClient
       .from("order_items")

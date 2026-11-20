@@ -10,6 +10,8 @@
  *   - reorder: only UUID-shaped ids are applied
  *   - delete: storage object removed by parsed path; a storage failure never
  *     fails the delete; audit entry on success
+ *   - missing content tables (migration not applied) → 503
+ *     CONTENT_MIGRATION_REQUIRED on every verb — never a fake success
  */
 
 const mockAuth: { current: { user?: { id: string; email?: string }; error?: string; status?: number } } = {
@@ -246,6 +248,22 @@ describe("GET (list)", () => {
     expect(json.success).toBe(true);
     expect(json.banners).toHaveLength(1);
     expect(json.sections).toHaveLength(1);
+  });
+
+  test("selects only the columns each table actually has", async () => {
+    await GET(makeRequest("GET"));
+    const banner = mockChains.find(
+      (call) => call.table === "site_banners" && call.ops[0] === "select"
+    );
+    const section = mockChains.find(
+      (call) => call.table === "site_sections" && call.ops[0] === "select"
+    );
+    // site_banners has no section_type / eyebrow / body / config — asking
+    // PostgREST for them fails the whole GET with 42703.
+    expect(banner?.selectCols).not.toMatch(/\b(body|eyebrow|section_type|config)\b/);
+    for (const column of ["section_type", "eyebrow", "body", "config"]) {
+      expect(section?.selectCols).toContain(column);
+    }
   });
 
   test("reports a database failure as a failure, never as success", async () => {
@@ -514,5 +532,61 @@ describe("DELETE", () => {
       makeRequest("DELETE", { query: "?id=11111111-2222-3333-4444-555555555555" })
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe("missing content tables (migration not applied)", () => {
+  const MISSING = {
+    code: "PGRST205",
+    message: "Could not find the table 'public.site_banners' in the schema cache",
+  };
+  const MISSING_RELATION = {
+    code: "42P01",
+    message: 'relation "public.site_banners" does not exist',
+  };
+
+  test("GET → 503 CONTENT_MIGRATION_REQUIRED naming the file", async () => {
+    mockHarness.listError = MISSING;
+    const res = await GET(makeRequest("GET"));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.code).toBe("CONTENT_MIGRATION_REQUIRED");
+    expect(json.message).toContain("20261108130000_site_content_banners_sections.sql");
+  });
+
+  test("POST → 503 before any insert or audit", async () => {
+    mockHarness.maxRow = { data: null, error: MISSING_RELATION };
+    const res = await POST(makeRequest("POST", { body: VALID_BANNER }));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.code).toBe("CONTENT_MIGRATION_REQUIRED");
+    expect(chainsWith("insert")).toHaveLength(0);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  test("PATCH → 503 before any update or audit", async () => {
+    mockHarness.existingRow = { data: null, error: MISSING_RELATION };
+    const res = await PATCH(
+      makeRequest("PATCH", { body: { type: "banner", id: ID, title: "New" } })
+    );
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.code).toBe("CONTENT_MIGRATION_REQUIRED");
+    expect(chainsWith("update")).toHaveLength(0);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  test("DELETE → 503 before any delete, storage removal or audit", async () => {
+    mockHarness.existingRow = { data: null, error: MISSING_RELATION };
+    const res = await DELETE(
+      makeRequest("DELETE", { query: "?type=banner&id=11111111-2222-3333-4444-555555555555" })
+    );
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.code).toBe("CONTENT_MIGRATION_REQUIRED");
+    expect(chainsWith("delete")).toHaveLength(0);
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });

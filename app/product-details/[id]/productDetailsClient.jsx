@@ -21,6 +21,7 @@ import { ProductCard } from "@/app/components/ProductCard";
 import { ReviewStars, ReviewStatsDisplay, ReviewForm, ReviewsList } from "@/app/components/Reviews";
 import { ProductJsonLd, BreadcrumbJsonLd } from "@/app/components/JsonLd";
 import {
+  fetchProductAttribution,
   fetchProductById,
   fetchRelatedProducts,
   productCardImage,
@@ -28,8 +29,11 @@ import {
   toProductCardProduct,
 } from "@/lib/products";
 import { useCartStore } from "../../stores/cartStore";
+import { resolveVariantIdForSelection } from "@/lib/product-variants";
 import { useAuth } from "../../lib/auth-context";
+import { useLanguage } from "@/app/lib/language-context";
 import { formatCurrency } from "@/lib/formatCurrency";
+import GiftBoxContents from "@/app/components/GiftBoxContents";
 
 const COLOR_OPTIONS = [
   { id: "silver", name: "Silver", hex: "#C0C0C0" },
@@ -147,7 +151,8 @@ function ProductDetailsClient({ id }) {
   const [reviewStats, setReviewStats] = useState({ avg_rating: 0, review_count: 0 });
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
-  const { user, getToken } = useAuth();
+  const { user, getToken, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
 
   const {
     data,
@@ -164,6 +169,36 @@ function ProductDetailsClient({ id }) {
     enabled: Boolean(id),
   });
 
+  // "Designed by" attribution for creator products (null for vendor items —
+  // nothing renders then). Public RLS only exposes linked published rows.
+  const { data: attribution } = useQuery({
+    queryKey: ["productAttribution", id],
+    queryFn: () => fetchProductAttribution(String(id)),
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Discovery: the creator's other live products via the public content API
+  // (same source as the profile page). Gated on attribution so ordinary
+  // vendor products never pay for this fetch, and the current product is
+  // filtered out so the row never repeats what is already on screen.
+  const { data: creatorSuggestions = [] } = useQuery({
+    queryKey: ["creatorProductSuggestions", attribution?.username ?? "", String(id)],
+    enabled: Boolean(attribution?.username),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/creators/${encodeURIComponent(attribution.username)}/content?type=products&per_page=6`
+      );
+      const payload = await res.json().catch(() => null);
+      if (!payload?.success) return [];
+      return (payload.items ?? [])
+        .map((item) => item.product)
+        .filter((product) => product && product.id !== String(id))
+        .slice(0, 4);
+    },
+  });
+
   const productData = data?.product ?? null;
   const suggestions = data?.related ?? [];
 
@@ -174,11 +209,19 @@ function ProductDetailsClient({ id }) {
 
   // Track product view on mount
   useEffect(() => {
-    if (!productData?.id) return;
+    // Wait for auth to resolve: tracking as "guest" before the session is
+    // known produces a token-less request that GoTrue/PostgREST rejects.
+    if (!productData?.id || authLoading) return;
     const trackView = async () => {
       try {
         const token = user ? await getToken() : null;
-        const body = token ? {} : { session_token: localStorage.getItem("cart_session_token") || crypto.randomUUID() };
+        // Persist the guest token so "recently viewed" and cart share one session.
+        let sessionToken = localStorage.getItem("cart_session_token");
+        if (!sessionToken) {
+          sessionToken = crypto.randomUUID();
+          localStorage.setItem("cart_session_token", sessionToken);
+        }
+        const body = token ? {} : { session_token: sessionToken };
         await fetch(`/api/products/${productData.id}/track`, {
           method: "POST",
           headers: {
@@ -190,7 +233,7 @@ function ProductDetailsClient({ id }) {
       } catch { /* ignore */ }
     };
     trackView();
-  }, [productData?.id, user, getToken]);
+  }, [productData?.id, user, getToken, authLoading]);
 
   const fetchReviews = async () => {
     if (!productData?.id) return;
@@ -260,6 +303,10 @@ function ProductDetailsClient({ id }) {
     if (!productData) return;
     addItem({
       product_id: String(productData.id),
+      variant_id: resolveVariantIdForSelection(productData, {
+        color: selectedColor?.name,
+        size: currentSize,
+      }),
       name: productData.name,
       price: Number(productData.base_price ?? 0),
       image: thumbs[0] ?? fallbackImage,
@@ -298,8 +345,7 @@ function ProductDetailsClient({ id }) {
         .map((image) => productImageUrl({ ...productData, product_images: [image] }))
     : [fallbackImage];
   const productFacts = [
-    ["Product ID", productData.id],
-    ["Slug", productData.slug],
+
     ["Store", productData.stores?.name ?? "Not specified"],
     ["Category", productData.categories?.name ?? "Uncategorized"],
     ["Brand", productData.brands?.name ?? "None"],
@@ -420,6 +466,17 @@ function ProductDetailsClient({ id }) {
               <span className="text-muted-foreground">- {productData.rating_count ?? 0} reviews</span>
               <span className="text-muted-foreground">- {productData.view_count ?? 0} views</span>
             </div>
+            {attribution ? (
+              <Link
+                href={`/creators/${attribution.username}`}
+                className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors"
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
+                  {t("attribution_designed_by")}
+                </span>
+                <span className="font-semibold text-white">{attribution.display_name}</span>
+              </Link>
+            ) : null}
           </div>
 
           <div className="glass rounded-2xl p-5 flex items-end gap-4 flex-wrap">
@@ -443,6 +500,9 @@ function ProductDetailsClient({ id }) {
           <p className="text-muted-foreground leading-relaxed">
             {productData.description ?? productData.short_description ?? "No description available."}
           </p>
+
+          {/* Gift box contents — renders nothing unless this product is a box. */}
+          {productData.id && <GiftBoxContents productId={productData.id} />}
 
           <div>
             <p className="text-sm font-semibold mb-3">
@@ -507,7 +567,8 @@ function ProductDetailsClient({ id }) {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="glass rounded-2xl flex items-center h-14 px-2 shrink-0">
+            <div className="flex  justify-between items-center gap-3">
+            <div className="glass rounded-2xl !flex items-center h-14 px-2 shrink-0">
               <button
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 className="h-10 w-10 grid place-items-center rounded-xl hover:bg-white/5 transition-colors"
@@ -532,7 +593,8 @@ function ProductDetailsClient({ id }) {
             >
               <ShoppingBag className="h-5 w-5" /> Add to Cart
             </button>
-
+</div>
+<div className="flex  justify-center items-center gap-3">
             <button
               onClick={handleWishlistToggle}
               className={`h-14 w-14 grid place-items-center rounded-2xl glass transition-all ${
@@ -548,7 +610,7 @@ function ProductDetailsClient({ id }) {
               aria-label="Share product"
             >
               <Share2 className="h-5 w-5" />
-            </button>
+            </button></div>
           </div>
 
           <button
@@ -624,16 +686,43 @@ function ProductDetailsClient({ id }) {
           )}
 
           {tab === "images" && (
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              {(productData.product_images ?? []).map((image) => (
-                <div key={image.id} className="glass rounded-2xl p-4 space-y-2">
-                  <p className="font-semibold">{image.alt_text ?? "Product image"}</p>
-                  <p className="text-muted-foreground break-all">{image.storage_path}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {image.is_primary ? "Primary image" : "Gallery image"} · Sort {image.sort_order}
-                  </p>
-                </div>
-              ))}
+            <div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {(productData.product_images?.length ? productData.product_images : [{ id: "main", alt_text: productData.name, is_primary: true }]).map((image, index) => {
+                  const src = productData.product_images?.length
+                    ? productImageUrl({ ...productData, product_images: [image] })
+                    : fallbackImage;
+                  return (
+                    <div
+                      key={image.id || index}
+                      onClick={() => {
+                        setActiveThumb(index);
+                        window.scrollTo({ top: 300, behavior: "smooth" });
+                      }}
+                      className="group relative glass-strong rounded-2xl overflow-hidden aspect-square cursor-pointer hover:pink-glow hover:scale-[1.02] transition-all border border-white/10"
+                    >
+                      <SafeImage
+                        src={src}
+                        alt={image.alt_text || productData.name}
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        unoptimized
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                        <p className="text-xs text-white font-medium truncate">
+                          {image.alt_text || productData.name}
+                        </p>
+                      </div>
+                      {image.is_primary && (
+                        <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gradient-neon text-white shadow-md">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -658,6 +747,37 @@ function ProductDetailsClient({ id }) {
           )}
         </div>
       </div>
+
+      {attribution && creatorSuggestions.length > 0 && (
+        <section className="mt-20">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-secondary font-semibold">
+                {t("attribution_designed_by")} · {attribution.display_name}
+              </p>
+              <h2 className="text-2xl md:text-3xl font-extrabold mt-1">
+                {t("attribution_more_by")}
+              </h2>
+            </div>
+            <Link
+              href={`/creators/${attribution.username}`}
+              className="text-sm font-semibold text-foreground/70 hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              {t("attribution_visit_profile")}{" "}
+              <ArrowLeft className="h-4 w-4 rotate-180" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {creatorSuggestions.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={toProductCardProduct(p)}
+                href={`/product-details/${p.id}`}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-20">
         <div className="flex items-end justify-between mb-8">

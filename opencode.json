@@ -34,7 +34,7 @@
     "servers": {
       "supabase": {
         "type": "remote",
-        "url": "https://mcp.supabase.com/mcp?project_ref=httywgkwfqvrbuwuzutu&read_only=true"
+        "url": "https://mcp.supabase.com/mcp?project_ref=httywgkwfqvrbuwuzutu&features=database"
       },
       "playwright": {
         "type": "local",

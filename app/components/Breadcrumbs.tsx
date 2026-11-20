@@ -13,7 +13,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
     <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-gray-400 mb-6">
       <Link
         href="/"
-        className="hover:text-[#FF4FD8] transition-colors flex items-center gap-1"
+        className="hover:text-[var(--brand)] transition-colors flex items-center gap-1"
       >
         <Home className="w-4 h-4" />
         <span>Home</span>
@@ -22,7 +22,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
         <span key={index} className="flex items-center gap-2">
           <ChevronRight className="w-4 h-4" />
           {item.href ? (
-            <Link href={item.href} className="hover:text-[#FF4FD8] transition-colors">
+            <Link href={item.href} className="hover:text-[var(--brand)] transition-colors">
               {item.label}
             </Link>
           ) : (

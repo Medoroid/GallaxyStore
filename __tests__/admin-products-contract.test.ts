@@ -33,6 +33,7 @@ jest.mock("@/lib/api-errors", () => ({
 }));
 
 const mockParseProductPayload = jest.fn();
+const mockIsMissingSizesColumn = jest.fn((_error: unknown) => false);
 const mockSyncDefaultVariant = jest.fn(async (...args: unknown[]) => {
   void args;
   return undefined;
@@ -46,7 +47,7 @@ jest.mock("@/lib/product-admin", () => ({
   parseProductPayload: (input: unknown) => mockParseProductPayload(input),
   syncDefaultVariant: (...args: unknown[]) => mockSyncDefaultVariant(...args),
   reapplyProductAttributes: (...args: unknown[]) => mockReapplyProductAttributes(...args),
-  isMissingSizesColumn: () => false,
+  isMissingSizesColumn: (error: unknown) => mockIsMissingSizesColumn(error),
   omitAvailableSizes: (payload: unknown) => payload,
   uuidOrNull: (value: unknown) =>
     typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null,
@@ -67,17 +68,23 @@ const mockHarness: {
   productSingle: Result;
   updateResult: Result;
   listError: { code: string; message: string } | null;
+  listErrorQueue: Array<{ code: string; message: string }>;
 } = {
   products: [],
   productSingle: { data: null, error: null },
   updateResult: { data: { id: "p-1" }, error: null },
   listError: null,
+  listErrorQueue: [],
 };
 
 function resolveFor(table: string, ops: string[]): Result {
   if (ops[0] === "update") return mockHarness.updateResult;
   if (ops.includes("maybeSingle") || ops.includes("single")) return mockHarness.productSingle;
   if (table === "products") {
+    // Per-attempt overrides let a test fail the FIRST read and let the retry
+    // (without `available_sizes`) succeed.
+    const queued = mockHarness.listErrorQueue.shift();
+    if (queued) return { data: null, error: queued };
     if (mockHarness.listError) return { data: null, error: mockHarness.listError };
     return { data: mockHarness.products, error: null };
   }
@@ -153,6 +160,9 @@ beforeEach(() => {
   mockHarness.productSingle = { data: null, error: null };
   mockHarness.updateResult = { data: { id: PRODUCT_ID }, error: null };
   mockHarness.listError = null;
+  mockHarness.listErrorQueue = [];
+  mockIsMissingSizesColumn.mockReset();
+  mockIsMissingSizesColumn.mockImplementation(() => false);
   mockParseProductPayload.mockReset();
   mockSyncDefaultVariant.mockClear();
   mockReapplyProductAttributes.mockClear();
@@ -184,6 +194,37 @@ describe("GET /api/admin/products", () => {
   it("selects available_sizes so the editor can round-trip sizes", async () => {
     await GET(getRequest());
     expect(productsChains()[0].selectCols).toContain("available_sizes");
+  });
+
+  it("retries the list once without available_sizes while the column is un-migrated", async () => {
+    mockHarness.products = [{ id: PRODUCT_ID, name: "Galaxy Tee" }];
+    mockHarness.listErrorQueue.push({
+      code: "42703",
+      message: "column products.available_sizes does not exist",
+    });
+    mockIsMissingSizesColumn.mockReturnValueOnce(true);
+
+    const res = await GET(getRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.products).toHaveLength(1);
+
+    const attempts = productsChains();
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0].selectCols).toContain("available_sizes");
+    expect(attempts[1].selectCols).not.toContain("available_sizes");
+  });
+
+  it("never retries a list failure that is not the missing sizes column", async () => {
+    mockHarness.listError = { code: "42501", message: "permission denied for table products" };
+
+    const res = await GET(getRequest());
+
+    expect(res.status).toBe(500);
+    expect(productsChains()).toHaveLength(1);
+    expect(mockIsMissingSizesColumn).toHaveBeenCalledTimes(1);
   });
 });
 

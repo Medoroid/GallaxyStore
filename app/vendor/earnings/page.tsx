@@ -43,6 +43,7 @@ export default function VendorEarningsPage() {
   const [withdrawMethod, setWithdrawMethod] = useState("bank_transfer");
   const [submitting, setSubmitting] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchEarnings = useCallback(async () => {
@@ -85,6 +86,7 @@ export default function VendorEarningsPage() {
     if (!withdrawAmount || Number(withdrawAmount) <= 0) return;
     setSubmitting(true);
     setWithdrawError(null);
+    setWithdrawSuccess(null);
     try {
       const token = await getToken();
       const res = await fetch("/api/vendor/payout", {
@@ -102,6 +104,7 @@ export default function VendorEarningsPage() {
       if (res.ok && result?.success) {
         setShowWithdraw(false);
         setWithdrawAmount("");
+        setWithdrawSuccess("Payout request submitted successfully.");
         fetchEarnings();
       } else {
         setWithdrawError(
@@ -130,7 +133,7 @@ export default function VendorEarningsPage() {
 
   const statCards = [
     {
-      label: "Total Earnings",
+      label: "Gross Sales (incl. unpaid)",
       value: formatCurrency(data?.total_earnings || 0),
       icon: DollarSign,
       color: "text-green-400",
@@ -161,6 +164,11 @@ export default function VendorEarningsPage() {
 
   return (
     <div className="space-y-8">
+      {withdrawSuccess && (
+        <div role="status" className="glass rounded-xl p-4 border border-green-500/30 text-sm text-green-300">
+          {withdrawSuccess}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Earnings</h1>
@@ -239,7 +247,11 @@ export default function VendorEarningsPage() {
       {/* Recent Payouts */}
       {data?.recent_payouts && data.recent_payouts.length > 0 && (
         <div className="glass rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Recent Payouts</h2>
+          <h2 className="text-lg font-semibold text-white mb-1">Recent Payouts</h2>
+          <p className="text-xs text-amber-400/90 mb-3">
+            Approved means the request was accepted — funds are not transferred automatically.
+            Disbursement happens outside the system and is recorded only after proof is provided.
+          </p>
           <div className="space-y-3">
             {data.recent_payouts.map((payout) => {
               const status =
@@ -288,7 +300,11 @@ export default function VendorEarningsPage() {
                   placeholder="0.00"
                   className="w-full glass rounded-xl h-12 px-4 outline-none focus:pink-glow transition-all"
                   min={0}
+                  max={data?.current_balance || undefined}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Available: {formatCurrency(data?.current_balance || 0)}
+                </p>
               </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Method</label>
@@ -300,11 +316,17 @@ export default function VendorEarningsPage() {
                   <option value="bank_transfer" className="bg-black">Bank Transfer</option>
                   <option value="paypal" className="bg-black">PayPal</option>
                   <option value="wallet" className="bg-black">Wallet Credit</option>
+                  <option value="other" className="bg-black">Other</option>
                 </select>
               </div>
               {withdrawError && (
                 <p className="text-sm text-red-400" role="alert">
                   {withdrawError}
+                </p>
+              )}
+              {withdrawSuccess && (
+                <p className="text-sm text-green-400" role="status">
+                  {withdrawSuccess}
                 </p>
               )}
               <div className="flex gap-3 mt-6">

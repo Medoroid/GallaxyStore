@@ -62,18 +62,20 @@ function parseOptionList(value: unknown) {
 
 /**
  * `products.available_sizes` ships in migration 20261115120000. If the app is
- * deployed before that SQL runs, PostgREST rejects the whole row with
- * PGRST204. These helpers let the routes retry the write without the column so
- * saving a product never breaks while waiting for the migration.
+ * deployed before that SQL runs, PostgREST rejects a write with PGRST204
+ * (schema-cache miss) and any read that selects the column fails with 42703
+ * straight from Postgres. These helpers let every path retry once without the
+ * column so saving or listing a product never breaks while waiting for the
+ * migration. Unrelated errors — including 42703 for some *other* column — never
+ * match, so real failures still surface.
  */
 export function isMissingSizesColumn(
   error: { code?: string; message?: string } | null | undefined
 ) {
-  return Boolean(
-    error &&
-      error.code === "PGRST204" &&
-      String(error.message || "").includes("available_sizes")
-  );
+  if (!error) return false;
+  const code = String(error.code || "");
+  if (code !== "PGRST204" && code !== "42703") return false;
+  return String(error.message || "").includes("available_sizes");
 }
 
 export function omitAvailableSizes<T extends Record<string, unknown>>(payload: T) {

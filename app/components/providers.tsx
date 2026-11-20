@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import React, { useState } from 'react';
 import { AuthProvider } from '../lib/auth-context';
 import { LanguageProvider } from '../lib/language-context';
+import { ThemeProvider } from '../lib/theme-context';
 import { Toaster } from 'sonner';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -12,7 +13,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          {children}
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
         </AuthProvider>
       </LanguageProvider>
       <Toaster
@@ -22,7 +25,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         theme="dark"
         toastOptions={{
           style: {
-            background: '#1a0a24',
+            background: 'var(--bg-elevated)',
             border: '1px solid rgba(255,255,255,0.1)',
             color: '#fff',
           },

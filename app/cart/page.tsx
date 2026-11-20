@@ -35,7 +35,7 @@ function CartItemRow({
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="glass-strong rounded-3xl p-4 md:p-5 flex gap-4 items-center group hover:pink-glow transition-all animate-fade-in-up">
+    <div className="glass-strong rounded-3xl p-2 max-w-[95%] flex gap-4 items-center group hover:pink-glow transition-all animate-fade-in-up">
       {/* Product Image */}
       <div className="relative h-24 w-24 md:h-28 md:w-28 rounded-2xl overflow-hidden shrink-0 bg-white/5">
         {!imageError ? (
@@ -122,7 +122,7 @@ function CartItemRow({
 
 function EmptyCart() {
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+    <div className="min-h-[60vh] flex mt-24 md:mt-0 flex-col items-center justify-center text-center px-4">
       <div className="relative mb-6">
         <div className="h-32 w-32 rounded-full glass-strong grid place-items-center animate-pulse-glow">
           <ShoppingBag className="h-14 w-14 text-muted-foreground" />
@@ -181,6 +181,37 @@ export default function CartPage() {
     router.push("/checkout");
   };
 
+  const handleRemovePromo = async () => {
+    setPromoError("");
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const cartRes = await fetch("/api/cart", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const cartData = await cartRes.json();
+      if (!cartData.success || !cartData.cart_id) return;
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: "remove_coupon", cart_id: cartData.cart_id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPromoApplied(false);
+        setDiscount(0);
+        setPromoCode("");
+      } else {
+        setPromoError(data.message || "Failed to remove coupon");
+      }
+    } catch {
+      setPromoError("Failed to remove coupon");
+    }
+  };
+
   const handleApplyPromo = async () => {
     if (!promoCode.trim() || !user) return;
     setPromoError("");
@@ -205,7 +236,7 @@ export default function CartPage() {
       const data = await res.json();
       if (data.success) {
         setPromoApplied(true);
-        setDiscount(data.discount_amount || 0);
+        setDiscount(Number(data.discount_amount) || 0);
       } else {
         setPromoError(data.message || "Invalid coupon code");
       }
@@ -215,7 +246,7 @@ export default function CartPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-28 pb-20">
+    <div className="mx-auto max-w-7xl px-1 pt-28 pb-20">
       {/* Page Header */}
       <div className="mb-10 text-center md:text-right">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-secondary font-semibold mb-3">
@@ -249,7 +280,7 @@ export default function CartPage() {
           ))}
 
           {/* Clear Cart */}
-          <div className="flex justify-between items-center pt-4">
+          <div className="flex justify-between items-center max-w-[95%] pt-4">
             <Link
               href="/products"
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -298,6 +329,16 @@ export default function CartPage() {
                 >
                   {promoApplied ? "Applied" : "Apply"}
                 </button>
+                {promoApplied && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className="px-3 h-11 rounded-xl text-xs text-red-300 border border-red-500/20 hover:bg-red-500/10"
+                    aria-label="Remove coupon"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
               {promoApplied && (
                 <p className="text-xs text-green-400 flex items-center gap-1">

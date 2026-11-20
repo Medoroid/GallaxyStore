@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
+import { resolveVendorStore } from "@/lib/vendor-store";
 
 function getSupabaseForUser(token) {
   return createClient(
@@ -30,19 +31,17 @@ export async function GET(request) {
       );
     }
 
-    // Get vendor's store
-    const { data: store } = await SupabaseClient
-      .from("stores")
-      .select("id")
-      .eq("owner_id", user.id)
-      .single();
-
-    if (!store) {
+    // Multi-store safe: deterministic resolution instead of .single().
+    const requestedStoreId =
+      request.nextUrl?.searchParams?.get("store_id") ?? null;
+    const resolved = await resolveVendorStore(SupabaseClient, user.id, requestedStoreId);
+    if (!resolved.ok) {
       return Response.json(
-        { success: false, message: "No store found" },
-        { status: 404 }
+        { success: false, message: resolved.message },
+        { status: resolved.status }
       );
     }
+    const store = resolved.store;
 
     const [
       dashboardOverview,
@@ -175,6 +174,9 @@ export async function GET(request) {
       refund_rate: refundRate.data || {},
       products: productRows,
       recent_orders: recentOrders,
+      store_id: store.id,
+      stores: resolved.stores,
+      multiple_stores: resolved.multiple,
     });
   } catch (error) {
     logger.error("[Vendor Stats Error]", error);

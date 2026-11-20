@@ -83,7 +83,7 @@ export default function TrackOrderPage() {
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-4xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent">
               Track Your Order
             </span>
           </h1>
@@ -102,7 +102,7 @@ export default function TrackOrderPage() {
                 value={orderRef}
                 onChange={(e) => setOrderRef(e.target.value)}
                 placeholder="e.g., GS-2026-000123"
-                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
                 required
               />
             </div>
@@ -114,14 +114,14 @@ export default function TrackOrderPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
                 required
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -236,7 +236,7 @@ export default function TrackOrderPage() {
         <div className="text-center mt-8">
           <p className="text-gray-500 text-sm">
             Need help?{" "}
-            <a href="/contact" className="text-[#FF4FD8] hover:text-[#FF6FE0] transition-colors">
+            <a href="/contact" className="text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors">
               Contact Support
             </a>
           </p>

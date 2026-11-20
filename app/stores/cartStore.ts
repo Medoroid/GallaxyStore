@@ -33,8 +33,18 @@ type CartStore = {
   pushToServer: (token: string) => Promise<void>;
 };
 
-export function cartItemKey(productId: string, color?: string, size?: string): string {
-  return [productId, color ?? "", size ?? ""].join("::");
+export function cartItemKey(
+  productId: string,
+  color?: string,
+  size?: string,
+  variantId?: string
+): string {
+  // Keep the historical key shape for legacy items without a variant; include
+  // the variant only when one was explicitly selected.
+  const parts = [productId];
+  if (variantId) parts.push(variantId);
+  parts.push(color ?? "", size ?? "");
+  return parts.join("::");
 }
 
 async function getToken(): Promise<string | null> {
@@ -52,7 +62,7 @@ export const useCartStore = create<CartStore>()(
       addItem: (item, quantity = 1) => {
         set((state) => {
           const productId = item.product_id ?? item.id ?? "";
-          const key = cartItemKey(productId, item.color, item.size);
+          const key = cartItemKey(productId, item.color, item.size, item.variant_id);
 
           const existing = state.items.find((i) => i.id === key);
           const newItems = existing
@@ -161,7 +171,7 @@ export const useCartStore = create<CartStore>()(
                 const color = typeof item.color === "string" && item.color ? item.color : undefined;
                 const size = typeof item.size === "string" && item.size ? item.size : undefined;
                 return {
-                  id: cartItemKey(pid, color, size),
+                  id: cartItemKey(pid, color, size, vid),
                   product_id: pid,
                   variant_id: vid,
                   name: String(item.product_name || item.sku || "Item"),
@@ -203,7 +213,6 @@ export const useCartStore = create<CartStore>()(
                 product_id: i.product_id,
                 variant_id: i.variant_id,
                 quantity: i.quantity,
-                price: i.price,
                 color: i.color,
                 size: i.size,
               })),

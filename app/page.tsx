@@ -12,6 +12,8 @@ import {
 } from "@/lib/products";
 import { supabase } from "@/lib/supabaseClient";
 import { ContentZone } from "./components/SiteContent";
+import ThemeBanner from "./components/ThemeBanner";
+import { useTheme } from "./lib/theme-context";
 
 /**
  * B4 — store identity: every claim on this page is backed by real data.
@@ -42,6 +44,7 @@ async function fetchApprovedReviews(): Promise<PublicReview[]> {
 }
 
 export default function Home() {
+  const { config: themeConfig } = useTheme();
   const { data, isLoading, error } = useQuery({
     queryKey: ["homeProducts"],
     queryFn: () => fetchFeaturedProducts(8),
@@ -66,6 +69,10 @@ export default function Home() {
       {/* Admin-managed announcement strip */}
       <ContentZone page="home" zone="top_strip" className="mb-5" />
 
+      {/* Seasonal theme banner — the live theme's, or the studio's draft
+          while previewing (?preview=1). Renders nothing when disabled. */}
+      {themeConfig && <ThemeBanner assets={themeConfig.assets} className="mb-5" />}
+
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl glass-strong min-h-[520px] ">
         {/* Background image */}
@@ -82,7 +89,7 @@ export default function Home() {
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(to right, rgba(18,0,24,.90) 0%, rgba(18,0,24,.60) 50%, rgba(18,0,24,.25) 100%)",
+            background: "linear-gradient(to right, color-mix(in srgb, var(--background) 90%, transparent) 0%, color-mix(in srgb, var(--background) 60%, transparent) 50%, color-mix(in srgb, var(--background) 25%, transparent) 100%)",
             zIndex: 1,
           }}
         />
@@ -184,18 +191,26 @@ export default function Home() {
       <section className="mt-16">
         <SectionHeading eyebrow="Trending" title="Featured Drops" />
         {/* Pause-on-hover works via the CSS rule in globals.css */}
-        <div className="relative overflow-hidden mt-6 mask-fade marquee-track">
-          <div className="flex gap-5 animate-slide-x w-max">
-            {isLoading && <div className="w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-muted-foreground">Loading...</div>}
-            {error && <div className="w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-red-400">Unable to load products.</div>}
+        <div className="relative overflow-hidden mt-6 sm:mask-fade marquee-track px-1 sm:px-0">
+          <div className="flex gap-2.5 sm:gap-4 md:gap-5 animate-slide-x w-max">
+            {isLoading && (
+              <div className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-muted-foreground">
+                Loading...
+              </div>
+            )}
+            {error && (
+              <div className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-red-400">
+                Unable to load products.
+              </div>
+            )}
             {homeProducts.map((p, i) => (
-              <div key={i} className="w-[280px] shrink-0">
+              <div key={i} className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0">
                 <ProductCard product={p} href={`/product-details/${p.id}`} />
               </div>
             ))}
             {/* Duplicate for seamless infinite loop */}
             {homeProducts.map((p, i) => (
-              <div key={`dup-${i}`} className="w-[280px] shrink-0" aria-hidden="true">
+              <div key={`dup-${i}`} className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0" aria-hidden="true">
                 <ProductCard product={p} href={`/product-details/${p.id}`} />
               </div>
             ))}

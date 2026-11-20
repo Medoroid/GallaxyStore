@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { handleApiError } from "@/lib/api-errors";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getSupabaseForUser(token) {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -13,6 +15,9 @@ function getSupabaseForUser(token) {
 export async function POST(request, { params }) {
   try {
     const { id: review_id } = await params;
+    if (!UUID_RE.test(review_id)) {
+      return Response.json({ success: false, message: "Invalid review id" }, { status: 400 });
+    }
     const authHeader = request.headers.get("authorization");
     if (!authHeader) {
       return Response.json(
@@ -32,6 +37,9 @@ export async function POST(request, { params }) {
     }
 
     const { body, parent_reply_id } = await request.json();
+    if (parent_reply_id && !UUID_RE.test(parent_reply_id)) {
+      return Response.json({ success: false, message: "Invalid parent reply id" }, { status: 400 });
+    }
     if (!body || body.trim().length === 0) {
       return Response.json(
         { success: false, message: "Reply body is required" },

@@ -631,3 +631,21 @@ DB probes + `npm audit`). Full write-up with root causes and fixes:
       images 200, mobile no-overflow, API 401 gating, `tsc`/lint 0 errors/275 tests/build all
       green. Old REMAINING-ISSUES.md items #2/#3/#9/#11/#12/#13/#15/#28/#30/#32 confirmed
       fixed; #16/#27/#29 confirmed still open (covered above).
+
+---
+
+## Creator Studio (added 2026-11-13) — see `docs/CREATOR-STUDIO-FINAL-REPORT.md`
+
+- [ ] **Apply the three Studio migrations to an isolated Staging project first** (production
+      pushes remain blocked): `20261110120000_creator_studio_core.sql` →
+      `20261110160000_creator_studio_template_seed.sql` →
+      `20261110170000_creator_studio_publish_functions.sql`. Until then every Studio surface
+      answers an honest `503 MIGRATION_REQUIRED` / pending notice (by design).
+- [ ] **Verify on Staging:** 4 tables + RLS, both storage buckets, 8 template rows, both RPCs
+      callable by service role only, `admin_review_creator_submission` actor gating.
+- [ ] **Admin identity:** configure `ADMIN_EMAILS` (or `is_admin()` role) for the reviewing admin;
+      entry point is Admin → Creators (`/admin/creators`).
+- [ ] **Fulfillment provider** integration before any creator product may be sold as shippable
+      (rows start `unconfigured` with stock 0 — business rule, see report limitation L4).
+- [ ] Optional: visual print-area editor, template-create button in the admin UI, signed-URL
+      original-artwork viewer for review (report limitations L5–L7).

@@ -42,6 +42,9 @@ import {
   type ExternalWalletSettings,
   type PaymentAttempt,
 } from "@/app/lib/payment-status";
+import GiftBoxOrderContents, {
+  type OrderGiftBoxContent,
+} from "@/app/components/GiftBoxOrderContents";
 
 type OrderItem = {
   id: string;
@@ -52,6 +55,8 @@ type OrderItem = {
   line_total: number;
   status: string;
   options_snapshot: Record<string, string> | null;
+  /** Frozen gift box composition snapshot (empty for regular lines). */
+  gift_box_contents?: OrderGiftBoxContent[];
 };
 
 type ShippingMethod = {
@@ -742,6 +747,10 @@ export default function OrderDetailPage() {
                             ))}
                         </p>
                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                        <GiftBoxOrderContents
+                          rows={item.gift_box_contents}
+                          currency={orderCurrency}
+                        />
                       </div>
                       <p className="font-bold">{formatCurrency(item.line_total, orderCurrency)}</p>
                     </div>

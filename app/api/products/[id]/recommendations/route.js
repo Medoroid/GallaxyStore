@@ -6,7 +6,8 @@ export async function GET(request, { params }) {
   try {
     const { id: product_id } = await params;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "8", 10);
+    const limitParam = parseInt(searchParams.get("limit") || "8", 10);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 24) : 8;
 
     const SupabaseClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,

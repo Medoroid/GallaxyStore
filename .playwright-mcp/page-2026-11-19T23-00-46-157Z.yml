@@ -1,0 +1,51 @@
+- generic [ref=f1e2]:
+  - navigation [ref=f1e3]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - link "Gmail" [ref=f1e8] [cursor=pointer]:
+          - /url: https://mail.google.com/mail/&ogbl
+        - link "البحث عن صور" [ref=f1e10] [cursor=pointer]:
+          - /url: https://www.google.com/imghp?hl=ar&ogbl
+          - text: صور
+      - button "تطبيقات Google" [ref=f1e13] [cursor=pointer]
+      - link "تسجيل الدخول" [ref=f1e18] [cursor=pointer]:
+        - /url: https://accounts.google.com/ServiceLogin?hl=ar&passive=true&continue=https://www.google.com/&ec=futura_exp_og_so_72776762_e
+  - img "Google" [ref=f1e21]
+  - search [ref=f1e29]:
+    - generic [ref=f1e31]:
+      - generic [ref=f1e33]:
+        - button "إضافة الملفات والأدوات واختيار نموذج" [ref=f1e39] [cursor=pointer]
+        - combobox "بحث" [active] [ref=f1e44]
+        - generic [ref=f1e45]:
+          - generic [ref=f1e46]:
+            - button "أدوات الإدخال" [ref=f1e49] [cursor=pointer]
+            - button "البحث الصوتي" [ref=f1e55] [cursor=pointer]
+            - button "بحث بالصور" [ref=f1e60] [cursor=pointer]
+          - link "وضع AI" [ref=f1e63] [cursor=pointer]
+      - generic [ref=f1e71]:
+        - button "بحث Google‏" [ref=f1e72] [cursor=pointer]
+        - button "ضربة حظ" [ref=f1e73] [cursor=pointer]
+  - generic [ref=f1e76]:
+    - text: "محرّك بحث Google متوفّر باللغة:"
+    - link "English" [ref=f1e77] [cursor=pointer]:
+      - /url: https://www.google.com/setprefs?sig=0_UTd8QOjqoqRjEjeY6gCq3rgKWoY%3D&hl=en&source=homepage&sa=X&ved=2ahUKEwiVqNjIkZWYAxVH0AIHHeDFIhoQ2ZgBegQIABAn
+  - contentinfo [ref=f1e79]:
+    - generic [ref=f1e80]: مصر
+    - generic [ref=f1e81]:
+      - generic [ref=f1e82]:
+        - link "لمحة" [ref=f1e83] [cursor=pointer]:
+          - /url: https://about.google/?utm_source=google-EG&utm_medium=referral&utm_campaign=hp-footer&fg=1
+        - link "الإعلانات" [ref=f1e84] [cursor=pointer]:
+          - /url: https://www.google.com/intl/ar_eg/ads/?subid=ww-ww-et-g-awa-a-g_hpafoot1_1!o2&utm_source=google.com&utm_medium=referral&utm_campaign=google_hpafooter&fg=1
+        - link "الأعمال" [ref=f1e85] [cursor=pointer]:
+          - /url: https://www.google.com/services/?subid=ww-ww-et-g-awa-a-g_hpbfoot1_1!o2&utm_source=google.com&utm_medium=referral&utm_campaign=google_hpbfooter&fg=1
+        - link "آلية عمل \"بحث Google\"" [ref=f1e86] [cursor=pointer]:
+          - /url: https://google.com/search/howsearchworks/?fg=1
+      - 'link "العقد الثالث من نشاطنا في مجال المناخ: تحقق من عملنا" [ref=f1e88] [cursor=pointer]':
+        - /url: https://sustainability.google/intl/ar/carbon-free/?utm_source=googlehpfooter&utm_medium=housepromos&utm_campaign=bottom-footer&utm_content=
+      - generic [ref=f1e89]:
+        - link "الخصوصية" [ref=f1e90] [cursor=pointer]:
+          - /url: https://policies.google.com/privacy?hl=ar&fg=1
+        - link "البنود" [ref=f1e91] [cursor=pointer]:
+          - /url: https://policies.google.com/terms?hl=ar&fg=1
+        - button "الإعدادات" [ref=f1e95] [cursor=pointer]

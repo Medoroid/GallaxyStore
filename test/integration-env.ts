@@ -52,11 +52,15 @@ if (!testUrl || !testAnonKey) {
 }
 
 const normalize = (value: string) => value.replace(/\/+$/, "").toLowerCase();
+const PRODUCTION_SUPABASE_URL = "https://httywgkwfqvrbuwuzutu.supabase.co";
 const forbidden = new Set(
   [
-    "https://httywgkwfqvrbuwuzutu.supabase.co",
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    PRODUCTION_SUPABASE_URL,
+    // Compare against the project's configured URL from .env.local, NOT the
+    // process variable: the local runner intentionally points NEXT_PUBLIC_* at
+    // the isolated Supabase stack.
     fileEnv.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.PRODUCTION_SUPABASE_URL,
   ]
     .filter(Boolean)
     .map((value) => normalize(value as string))

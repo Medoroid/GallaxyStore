@@ -173,7 +173,7 @@ export default function AdminSettingsPage() {
 
       <div className="glass rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2 text-white font-semibold">
-          <Store className="w-5 h-5 text-[#FF4FD8]" /> Store profile
+          <Store className="w-5 h-5 text-[var(--brand)]" /> Store profile
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -278,7 +278,7 @@ export default function AdminSettingsPage() {
 
       <div className="glass rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2 text-white font-semibold">
-          <Wallet className="w-5 h-5 text-[#FF4FD8]" /> Wallet transfers (e.g. Vodafone Cash)
+          <Wallet className="w-5 h-5 text-[var(--brand)]" /> Wallet transfers (e.g. Vodafone Cash)
         </div>
         <p className="text-sm text-gray-400">
           Set the receiving account (such as your Vodafone Cash number) that customers transfer to.
@@ -346,7 +346,7 @@ export default function AdminSettingsPage() {
 
       <div className="glass rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2 text-white font-semibold">
-          <Share2 className="w-5 h-5 text-[#FF4FD8]" /> Social links
+          <Share2 className="w-5 h-5 text-[var(--brand)]" /> Social links
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           <Field label="Instagram">
@@ -380,7 +380,7 @@ export default function AdminSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-semibold hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-semibold hover:shadow-cta-sm transition-all disabled:opacity-50"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Save Settings
@@ -400,7 +400,7 @@ export default function AdminSettingsPage() {
 }
 
 const INPUT_CLASS =
-  "w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors text-sm";
+  "w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors text-sm";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

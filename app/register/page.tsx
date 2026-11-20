@@ -4,8 +4,9 @@ import { ErrorMessage, Field, Form, Formik } from "formik";
 import { Mail, Lock, User, Calendar } from "lucide-react";
 import * as Yup from 'yup';
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { safeNext } from "@/lib/redirect";
 
 type RegisterValues = {
   firstName: string;
@@ -20,6 +21,9 @@ export default function Register() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const navigate = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
+  const loginHref = nextPath !== "/" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
 
   const initialValues: RegisterValues = {
     firstName: "",
@@ -49,6 +53,10 @@ export default function Register() {
         email: values.email,
         password: values.password,
         options: {
+          emailRedirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+              : undefined,
           data: {
             full_name: `${values.firstName} ${values.lastName}`,
             userName: values.username,
@@ -62,7 +70,7 @@ export default function Register() {
         return;
       }
 
-      navigate.push('/login');
+      navigate.push(loginHref);
     } catch {
       setSubmitError("An error occurred during signup. Please try again.");
     } finally {
@@ -71,15 +79,15 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#1a0a24] flex items-center justify-center p-6">
+    <div className="min-h-screen w-full bg-[var(--bg-elevated)] flex items-center justify-center p-6">
       <div className="relative w-full max-w-md mt-24">
         {/* Outer glow */}
         <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-r from-purple-600/40 via-pink-500/40 to-purple-600/40 blur-2xl" />
 
         {/* Top accent bar */}
-        <div className="absolute -top-1 left-6 right-6 h-1 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 shadow-[0_0_20px_4px_rgba(236,72,153,0.6)]" />
+        <div className="absolute -top-1 left-6 right-6 h-1 rounded-full bg-gradient-to-r from-[var(--brand-2)] via-[var(--brand)] to-[var(--brand-2)] shadow-[0_0_20px_4px_var(--brand-glow-mid)]" />
 
-        <div className="relative rounded-[1.75rem] border border-pink-400/20 bg-gradient-to-b from-[#2a1035]/95 to-[#1a0a24]/95 backdrop-blur-xl p-8 shadow-[0_0_60px_-10px_rgba(217,70,239,0.35)]">
+        <div className="relative rounded-[1.75rem] border border-pink-400/20 bg-gradient-to-b from-[var(--bg-elevated-2)]/95 to-[var(--bg-elevated)]/95 backdrop-blur-xl p-8 shadow-[0_0_60px_-10px_color-mix(in_srgb,_var(--brand-2)_35%,_transparent)]">
           {/* Header */}
           <p className="text-xs uppercase tracking-[0.3em] text-pink-400 font-bold">
             Join the Galaxy
@@ -167,7 +175,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-base hover:scale-[1.02] transition-transform shadow-[0_0_25px_-5px_rgba(217,70,239,0.7)]"
+                className="w-full h-12 rounded-2xl bg-gradient-to-r from-[var(--primary)] to-pink-500 text-white font-bold text-base hover:scale-[1.02] transition-transform shadow-[0_0_25px_-5px_color-mix(in_srgb,_var(--brand-2)_70%,_transparent)]"
               >
                 {isPending ? "Signing Up..." : "Sign Up"}
               </button>
@@ -178,7 +186,7 @@ export default function Register() {
           <p className="text-center text-sm text-slate-400 mt-6">
             I already have an account?{" "}
             <a
-              href="/login"
+              href={loginHref}
               className="font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
             >
               Sign in

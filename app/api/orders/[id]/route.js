@@ -61,6 +61,37 @@ export async function GET(request, { params }) {
       .select("*")
       .eq("order_id", id);
 
+    // Gift box composition snapshot for these lines (owner-readable via RLS).
+    // The relation ships with the local gift box migration — until it is
+    // applied the lookup degrades silently (42P01) and items keep no contents.
+    const contentsByItem = new Map();
+    const itemIds = (items ?? []).map((item) => item.id);
+    if (itemIds.length > 0) {
+      try {
+        const { data: contents, error: contentsError } = await SupabaseClient
+          .from("order_item_gift_box_contents")
+          .select("*")
+          .in("order_item_id", itemIds)
+          .order("display_order", { ascending: true });
+        if (contentsError) throw contentsError;
+        for (const row of contents ?? []) {
+          const list = contentsByItem.get(row.order_item_id) ?? [];
+          list.push(row);
+          contentsByItem.set(row.order_item_id, list);
+        }
+      } catch (contentsFailure) {
+        if (
+          contentsFailure?.code !== "42P01" &&
+          contentsFailure?.code !== "PGRST202"
+        ) {
+          logger.warn(
+            "[Order GET] gift box contents lookup failed:",
+            contentsFailure?.message ?? contentsFailure
+          );
+        }
+      }
+    }
+
     // Payment attempts (RLS: owner only). Needed by the manual-transfer panel
     // so the customer can see the state and submit/re-submit a receipt.
     const { data: payments, error: paymentsError } = await SupabaseClient
@@ -82,7 +113,16 @@ export async function GET(request, { params }) {
 
     return Response.json({
       success: true,
-      order: { ...order, items: items || [], payment, payments: attempts, shipping_method },
+      order: {
+        ...order,
+        items: (items || []).map((item) => ({
+          ...item,
+          gift_box_contents: contentsByItem.get(item.id) ?? [],
+        })),
+        payment,
+        payments: attempts,
+        shipping_method,
+      },
     });
   } catch (error) {
     logger.error("[Order GET Error]", error);

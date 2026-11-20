@@ -43,6 +43,7 @@ type Handler = (context: {
   terminal: Terminal;
   payload: unknown;
   filters: Array<[string, unknown]>;
+  selectCols: string;
 }) => unknown;
 
 function makeDb(handler: Handler) {
@@ -52,13 +53,15 @@ function makeDb(handler: Handler) {
         operation: "select" as Operation,
         payload: undefined as unknown,
         filters: [] as Array<[string, unknown]>,
+        selectCols: "",
       };
 
       const builder: Record<string, unknown> = {};
       const chain = () => builder;
 
-      builder.select = () => {
+      builder.select = (cols?: unknown) => {
         if (state.operation !== "select") return builder;
+        state.selectCols = String(cols ?? "");
         return builder;
       };
       builder.insert = (payload: unknown) => {
@@ -94,6 +97,7 @@ function makeDb(handler: Handler) {
           terminal,
           payload: state.payload,
           filters: state.filters,
+          selectCols: state.selectCols,
         });
 
       builder.single = () => Promise.resolve(resolve("single"));
@@ -196,6 +200,65 @@ describe("GET /api/vendor/products", () => {
 
     const res = await GET(getRequest());
     expect(res.status).toBe(403);
+  });
+
+  test("retries the list once without available_sizes while the column is un-migrated", async () => {
+    const seenSelects: string[] = [];
+    let productReads = 0;
+
+    mockDbFrom.mockImplementation(
+      dbWith(({ table, selectCols }) => {
+        if (table === "products") {
+          productReads += 1;
+          seenSelects.push(selectCols);
+          if (productReads === 1) {
+            return {
+              data: null,
+              error: {
+                code: "42703",
+                message: "column products.available_sizes does not exist",
+              },
+            };
+          }
+          return { data: [], error: null };
+        }
+        if (table === "categories" || table === "brands") {
+          return { data: [], error: null };
+        }
+        return { data: null, error: null };
+      })
+    );
+
+    const res = await GET(getRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(productReads).toBe(2);
+    expect(seenSelects[0]).toContain("available_sizes");
+    expect(seenSelects[1]).not.toContain("available_sizes");
+  });
+
+  test("a non-missing-column list failure is not retried", async () => {
+    let productReads = 0;
+
+    mockDbFrom.mockImplementation(
+      dbWith(({ table }) => {
+        if (table === "products") {
+          productReads += 1;
+          return {
+            data: null,
+            error: { code: "57014", message: "canceling statement due to statement timeout" },
+          };
+        }
+        return { data: [], error: null };
+      })
+    );
+
+    const res = await GET(getRequest());
+
+    expect(res.status).toBe(500);
+    expect(productReads).toBe(1);
   });
 });
 
@@ -307,6 +370,62 @@ describe("POST /api/vendor/products", () => {
     expect(updates.at(-1)).toMatchObject({
       color: "Black",
       available_colors: ["Black"],
+    });
+  });
+
+  test("a partial update still saves when available_sizes has not been migrated", async () => {
+    const updates: Array<Record<string, unknown>> = [];
+    const preReadSelects: string[] = [];
+    let preReads = 0;
+
+    mockDbFrom.mockImplementation(
+      dbWith(({ table, operation, terminal, payload, filters, selectCols }) => {
+        if (table === "products" && operation === "select" && terminal === "maybeSingle") {
+          preReads += 1;
+          preReadSelects.push(selectCols);
+          if (preReads === 1) {
+            return {
+              data: null,
+              error: {
+                code: "42703",
+                message: "column products.available_sizes does not exist",
+              },
+            };
+          }
+          const owned = filters.some(
+            ([column, value]) => column === "store_id" && value === "store-1"
+          );
+          return { data: owned ? EXISTING_PRODUCT : null, error: null };
+        }
+        if (table === "products" && operation === "update") {
+          updates.push(payload as Record<string, unknown>);
+          return { data: { id: EXISTING_PRODUCT.id }, error: null };
+        }
+        if (table === "product_variants" && operation === "select") {
+          return { data: { id: "variant-1" }, error: null };
+        }
+        return { data: null, error: null };
+      })
+    );
+
+    const res = await POST(
+      postRequest({
+        action: "update",
+        product_id: EXISTING_PRODUCT.id,
+        product: { name: "New name" },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(preReads).toBe(2);
+    expect(preReadSelects[0]).toContain("available_sizes");
+    expect(preReadSelects[1]).not.toContain("available_sizes");
+    expect(updates[0]).toMatchObject({
+      name: "New name",
+      description: "Old description",
+      base_price: 50,
+      currency: "EGP",
+      store_id: "store-1",
     });
   });
 

@@ -107,7 +107,7 @@ export default function AdminReviewsPage() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               filter === f
-                ? "bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white"
+                ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white"
                 : "bg-white/[0.05] text-gray-400 hover:text-white"
             }`}
           >
@@ -137,7 +137,7 @@ export default function AdminReviewsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <div className="flex gap-0.5 text-[#FFD166]">
+                    <div className="flex gap-0.5 text-[var(--gold)]">
                       {Array.from({ length: Math.max(0, Math.min(5, review.rating)) }).map((_, i) => (
                         <Star key={i} className="h-3 w-3 fill-current" />
                       ))}

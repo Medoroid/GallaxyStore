@@ -2,13 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
+import { validateUploadedImageBytes } from "@/lib/image-upload-validation";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import {
   isProductImagePathForProduct,
   MAX_PRODUCT_IMAGE_BYTES,
   PRODUCT_IMAGE_BUCKET,
   productImageStoragePath,
-  validateProductImageFile,
+  PRODUCT_IMAGE_MIME_EXTENSIONS,
 } from "@/lib/product-image-upload";
 import { MAX_PRODUCT_IMAGES } from "@/lib/product-admin";
 
@@ -148,10 +149,19 @@ export async function POST(request) {
 
     // Validate every file before writing anything so a bad file late in the
     // list cannot leave earlier files half-uploaded.
-    const validations = files.map((file) => ({
-      file,
-      validation: validateProductImageFile({ type: file.type, size: file.size }),
-    }));
+    const validations = await Promise.all(
+      files.map(async (file) => {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return {
+          file,
+          bytes,
+          validation: validateUploadedImageBytes(bytes, {
+            allowed: PRODUCT_IMAGE_MIME_EXTENSIONS,
+            maxBytes: MAX_PRODUCT_IMAGE_BYTES,
+          }),
+        };
+      })
+    );
     const invalid = validations.find((entry) => !entry.validation.ok);
     if (invalid && !invalid.validation.ok) return json(invalid.validation.message, 400);
 
@@ -164,7 +174,7 @@ export async function POST(request) {
     try {
       for (const [index, entry] of validations.entries()) {
         if (!entry.validation.ok) continue;
-        const { file, validation } = entry;
+        const { file, bytes, validation } = entry;
         if (Number(file.size) > MAX_PRODUCT_IMAGE_BYTES) {
           throw new Error("Each image must be 5MB or smaller");
         }
@@ -174,11 +184,11 @@ export async function POST(request) {
           throw new Error("Invalid image path");
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const buffer = Buffer.from(bytes);
         const { error: uploadError } = await db.storage
           .from(PRODUCT_IMAGE_BUCKET)
           .upload(storagePath, buffer, {
-            contentType: validation.contentType,
+            contentType: validation.mime,
             upsert: false,
           });
         if (uploadError) throw uploadError;

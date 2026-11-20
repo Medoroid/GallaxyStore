@@ -380,7 +380,7 @@ export default function AdminProductsPage() {
           </button>
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-semibold hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-semibold hover:shadow-cta-sm transition-all"
           >
             <Plus className="w-4 h-4" />
             Add Product
@@ -403,7 +403,7 @@ export default function AdminProductsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products by name, category, or brand..."
-            className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors"
+            className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
           />
         </div>
       </div>
@@ -445,7 +445,7 @@ export default function AdminProductsPage() {
                   )}
                   <div className="absolute top-2 right-2 flex gap-1">
                     {product.is_featured && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white">
                         Featured
                       </span>
                     )}
@@ -491,7 +491,7 @@ export default function AdminProductsPage() {
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#FF4FD8] font-bold">
+                      <span className="text-[var(--brand)] font-bold">
                         {formatCurrency(Number(product.base_price), product.currency)}
                       </span>
                       {product.compare_at_price && (
@@ -564,7 +564,7 @@ export default function AdminProductsPage() {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={url} alt={image.alt_text || "Product"} className="w-full h-24 object-cover" />
                                 {image.is_primary && (
-                                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-[#FF4FD8] text-[10px] text-white font-bold">
+                                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-[var(--brand)] text-[10px] text-white font-bold">
                                     Primary
                                   </span>
                                 )}
@@ -595,14 +595,14 @@ export default function AdminProductsPage() {
                     </div>
                   )}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1.5">Main Image <span className="text-[#FF4FD8]">*</span></label>
+                    <label className="block text-sm text-gray-400 mb-1.5">Main Image <span className="text-[var(--brand)]">*</span></label>
                     <div 
                       onClick={() => mainImageInputRef.current?.click()}
-                      className="border-2 border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#FF4FD8]/50 hover:bg-white/[0.02] transition-colors"
+                      className="border-2 border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[var(--brand)]/50 hover:bg-white/[0.02] transition-colors"
                     >
                       {mainImage ? (
                         <div className="flex flex-col items-center gap-2">
-                          <ImageIcon className="w-8 h-8 text-[#FF4FD8]" />
+                          <ImageIcon className="w-8 h-8 text-[var(--brand)]" />
                           <span className="text-sm text-white font-medium">{mainImage.name}</span>
                           <span className="text-xs text-gray-400">Click to replace</span>
                         </div>
@@ -627,7 +627,7 @@ export default function AdminProductsPage() {
                     <label className="block text-sm text-gray-400 mb-1.5">Additional Images</label>
                     <div 
                       onClick={() => secondaryImagesInputRef.current?.click()}
-                      className="border-2 border-dashed border-white/20 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#FF4FD8]/50 hover:bg-white/[0.02] transition-colors"
+                      className="border-2 border-dashed border-white/20 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[var(--brand)]/50 hover:bg-white/[0.02] transition-colors"
                     >
                       <Upload className="w-6 h-6 text-gray-500 mb-2" />
                       <span className="text-sm text-gray-400">Upload multiple images</span>
@@ -778,7 +778,7 @@ export default function AdminProductsPage() {
                       id="is_featured"
                       checked={form.is_featured}
                       onChange={(e) => updateForm("is_featured", e.target.checked)}
-                      className="w-4 h-4 rounded border-white/20 bg-white/[0.03] text-[#FF4FD8] focus:ring-[#FF4FD8]/50"
+                      className="w-4 h-4 rounded border-white/20 bg-white/[0.03] text-[var(--brand)] focus:ring-[var(--brand)]/50"
                     />
                     <label htmlFor="is_featured" className="text-sm text-gray-400 flex items-center gap-1">
                       <Star className="w-3 h-3" /> Featured Product
@@ -945,7 +945,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={handleSave}
                 disabled={saving || !form.name || !form.base_price}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] text-white font-semibold hover:shadow-[0_0_20px_rgba(255,79,216,0.3)] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] text-white font-semibold hover:shadow-cta-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -965,7 +965,7 @@ export default function AdminProductsPage() {
 }
 
 const INPUT_CLASS =
-  "w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF4FD8]/50 transition-colors text-sm";
+  "w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors text-sm";
 
 function FormField({
   label,
@@ -979,7 +979,7 @@ function FormField({
   return (
     <div>
       <label className="block text-sm text-gray-400 mb-1.5">
-        {label} {required && <span className="text-[#FF4FD8]">*</span>}
+        {label} {required && <span className="text-[var(--brand)]">*</span>}
       </label>
       {children}
     </div>

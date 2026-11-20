@@ -100,11 +100,18 @@ function fromWith(handler: (context: Context) => unknown) {
   return (table: string) => makeBuilder(table, handler);
 }
 
+// Real 1x1 PNG bytes: the upload routes now sniff magic bytes, so fake text
+// payloads are correctly rejected before any storage write.
+const PNG_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
 function requestWithTwoFiles() {
   const form = new FormData();
   form.append("product_id", PRODUCT_ID);
-  form.append("files", new File([Buffer.from("first")], "first.png", { type: "image/png" }));
-  form.append("files", new File([Buffer.from("second")], "second.png", { type: "image/png" }));
+  form.append("files", new File([PNG_BYTES], "first.png", { type: "image/png" }));
+  form.append("files", new File([PNG_BYTES], "second.png", { type: "image/png" }));
 
   return new Request("http://localhost/api/vendor/products/images", {
     method: "POST",

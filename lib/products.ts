@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { isMissingSizesColumn } from "./product-admin";
 
 export type ProductStatus = "draft" | "published" | "archived";
 export type ProductVisibility = "visible" | "hidden";
@@ -7,6 +8,19 @@ export type ProductLookup = {
   id: string;
   name: string;
   slug?: string | null;
+};
+
+/** Variant data embedded in product reads for client-side selection. */
+export type ProductVariantEmbed = {
+  id: string;
+  price: number;
+  is_default: boolean;
+  is_active: boolean;
+  deleted_at: string | null;
+  product_variant_options: Array<{
+    attribute_value_id: string;
+    product_attribute_values: { value: string } | null;
+  }>;
 };
 
 export type SupabaseProduct = {
@@ -44,6 +58,7 @@ export type SupabaseProduct = {
     is_primary: boolean;
     sort_order: number;
   }>;
+  product_variants?: ProductVariantEmbed[];
 };
 
 export type ProductFormValues = {
@@ -114,8 +129,25 @@ export const productSelect = `
   categories(id, name, slug),
   brands(id, name, slug),
   stores(id, name),
-  product_images(id, storage_path, alt_text, is_primary, sort_order)
+  product_images(id, storage_path, alt_text, is_primary, sort_order),
+  product_variants(id, price, is_default, is_active, deleted_at, product_variant_options(attribute_value_id, product_attribute_values(value)))
 `;
+
+/**
+ * `productSelect` minus the `available_sizes` column.
+ *
+ * `products.available_sizes` ships in supabase/migrations/20261115120000. A
+ * deployment running this code before that SQL is applied gets HTTP 400
+ * (`42703 — column products.available_sizes does not exist`) for every product
+ * read, which emptied the storefront. Reads below always try the full select
+ * first (so sizes appear the moment the migration lands) and fall back to this
+ * reduced one — the read-side twin of `omitAvailableSizes()` in
+ * lib/product-admin.ts.
+ */
+export const productSelectWithoutSizes = productSelect.replace(
+  /\s*available_sizes,/,
+  ""
+);
 
 function withSupabaseTimeout<TQuery extends { abortSignal: (signal: AbortSignal) => TQuery }>(
   query: TQuery,
@@ -128,6 +160,41 @@ function withSupabaseTimeout<TQuery extends { abortSignal: (signal: AbortSignal)
     query: query.abortSignal(controller.signal),
     done: () => clearTimeout(timeoutId),
   };
+}
+
+export type ProductsReadResult = {
+  data: unknown;
+  error: { code?: string; message?: string } | null;
+};
+
+/**
+ * Runs one products read with the full `productSelect`, then retries exactly
+ * once with `productSelectWithoutSizes` — but only when the failure is the
+ * known missing-`available_sizes` error (42703 / PGRST204 naming that column,
+ * see `isMissingSizesColumn`). Every other error is returned untouched so real
+ * failures are never swallowed by the retry.
+ *
+ * `build` must create a fresh query per call (the retry runs it again) and may
+ * return an optional `done()` that is always invoked once the attempt settles,
+ * which is how callers clear their timeout timer.
+ */
+export async function selectProductsWithFallback(
+  build: (select: string) => { query: PromiseLike<unknown>; done?: () => void }
+): Promise<ProductsReadResult> {
+  const exec = async (select: string): Promise<ProductsReadResult> => {
+    const { query, done } = build(select);
+    try {
+      return (await query) as ProductsReadResult;
+    } finally {
+      done?.();
+    }
+  };
+
+  const first = await exec(productSelect);
+  if (isMissingSizesColumn(first.error)) {
+    return exec(productSelectWithoutSizes);
+  }
+  return first;
 }
 
 export function slugify(value: string) {
@@ -202,36 +269,34 @@ export function formToProductPayload(values: ProductFormValues) {
 }
 
 export async function fetchProducts() {
-  const request = withSupabaseTimeout(
-    supabase
-    .from("products")
-    .select(productSelect)
-    .is("deleted_at", null)
-      .order("created_at", { ascending: false })
+  const { data, error } = await selectProductsWithFallback((select) =>
+    withSupabaseTimeout(
+      supabase
+        .from("products")
+        .select(select)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+    )
   );
-
-  const { data, error } = await request.query;
-  request.done();
 
   if (error) throw error;
   return (data ?? []) as unknown as SupabaseProduct[];
 }
 
 export async function fetchFeaturedProducts(limit = 8) {
-  const request = withSupabaseTimeout(
-    supabase
-    .from("products")
-    .select(productSelect)
-    .eq("status", "published")
-    .eq("visibility", "visible")
-    .is("deleted_at", null)
-    .order("is_featured", { ascending: false })
-    .order("created_at", { ascending: false })
-      .limit(limit)
+  const { data, error } = await selectProductsWithFallback((select) =>
+    withSupabaseTimeout(
+      supabase
+        .from("products")
+        .select(select)
+        .eq("status", "published")
+        .eq("visibility", "visible")
+        .is("deleted_at", null)
+        .order("is_featured", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(limit)
+    )
   );
-
-  const { data, error } = await request.query;
-  request.done();
 
   if (error) throw error;
   return (data ?? []) as unknown as SupabaseProduct[];
@@ -284,40 +349,35 @@ export async function fetchCategoriesWithCounts(): Promise<CategoryWithCount[]> 
 }
 
 export async function fetchProductById(id: string) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  const { data, error } = await supabase
-    .from("products")
-    .select(productSelect)
-    .eq("id", id)
-    .is("deleted_at", null)
-    .abortSignal(controller.signal)
-    .single();
-  clearTimeout(timeoutId);
+  const { data, error } = await selectProductsWithFallback((select) => {
+    const request = withSupabaseTimeout(
+      supabase.from("products").select(select).eq("id", id).is("deleted_at", null)
+    );
+    return { query: request.query.single(), done: request.done };
+  });
 
   if (error) throw error;
   return data as unknown as SupabaseProduct;
 }
 
 export async function fetchRelatedProducts(product: SupabaseProduct, limit = 4) {
-  let query = supabase
-    .from("products")
-    .select(productSelect)
-    .neq("id", product.id)
-    .eq("status", "published")
-    .eq("visibility", "visible")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const { data, error } = await selectProductsWithFallback((select) => {
+    let query = supabase
+      .from("products")
+      .select(select)
+      .neq("id", product.id)
+      .eq("status", "published")
+      .eq("visibility", "visible")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  if (product.category_id) {
-    query = query.eq("category_id", product.category_id);
-  }
+    if (product.category_id) {
+      query = query.eq("category_id", product.category_id);
+    }
 
-  const request = withSupabaseTimeout(query);
-  const { data, error } = await request.query;
-  request.done();
+    return withSupabaseTimeout(query);
+  });
 
   if (error) throw error;
   return (data ?? []) as unknown as SupabaseProduct[];
@@ -355,6 +415,55 @@ export async function fetchDefaultVariant(
 
   if (error) throw error;
   return (data as ProductVariantInfo | null) ?? null;
+}
+
+export type ProductAttribution = {
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+};
+
+/**
+ * Creator attribution for a store product (Phase 7 acceptance: "Designed by").
+ *
+ * Reads the PUBLIC RLS slice of `creator_design_products` — only rows linked
+ * to a published + visible product are exposed to anon, and only the public
+ * persona fields are selected (never private account data). Returns null for
+ * ordinary vendor/admin products, in which case nothing renders.
+ */
+export async function fetchProductAttribution(
+  productId: string
+): Promise<ProductAttribution | null> {
+  const { data, error } = await supabase
+    .from("creator_design_products")
+    .select("creator_profiles(username, display_name, avatar_url)")
+    .eq("product_id", productId)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const profile = (
+    data as {
+      creator_profiles: {
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+      } | null;
+    } | null
+  )?.creator_profiles;
+
+  if (!profile || typeof profile.username !== "string" || !profile.username) return null;
+
+  return {
+    username: profile.username,
+    display_name:
+      typeof profile.display_name === "string" && profile.display_name
+        ? profile.display_name
+        : profile.username,
+    avatar_url: typeof profile.avatar_url === "string" ? profile.avatar_url : null,
+  };
 }
 
 function defaultVariantSku(values: ProductFormValues, productId: string) {

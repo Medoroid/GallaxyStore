@@ -13,13 +13,16 @@
 const mockGetSession = jest.fn();
 const mockUpdateUser = jest.fn();
 
-jest.mock("@supabase/supabase-js", () => ({
-  createClient: jest.fn(() => ({
+// The page talks to the shared app client (PKCE + cookies), not to a
+// client it creates itself — mock that module directly.
+jest.mock("@/lib/supabaseClient", () => ({
+  supabase: {
     auth: {
       getSession: (...args: unknown[]) => mockGetSession(...args),
       updateUser: (...args: unknown[]) => mockUpdateUser(...args),
+      setSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     },
-  })),
+  },
 }));
 
 const mockPush = jest.fn();

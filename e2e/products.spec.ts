@@ -13,7 +13,7 @@ test("product list loads with a real counter and product cards", async ({ page }
   // wait for the real count, then confirm the loading label is gone.
   await expect(page.getByText(/^\d+ products?$/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/loading products/i)).toHaveCount(0);
-  await expect(page.locator('a[href^="/product-details/"]').first()).toBeVisible();
+  await expect(page.locator('a[href^="/product-details/"]:visible').first()).toBeVisible();
 
   // q stayed empty: every search request was read-only
   expect(counters.mockedSearches).toBe(0);
@@ -27,8 +27,9 @@ test("filters and sort update the URL using read-only searches", async ({ page }
   await page.goto("/products");
   await expect(page.getByText(/^\d+ products?$/)).toBeVisible({ timeout: 20_000 });
 
-  // Sort (filters closed → the results toolbar select is the only one)
-  await page.locator("select").first().selectOption("price-asc");
+  // Sort is a CustomSelect (button + listbox), not a native <select>.
+  await page.getByRole("button", { name: "Relevance", exact: true }).click();
+  await page.getByRole("option", { name: /price: low/i }).click();
   await expect(page).toHaveURL(/sort=price-asc/);
 
   // Open the filter panel and toggle availability + rating

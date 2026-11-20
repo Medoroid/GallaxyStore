@@ -29,6 +29,8 @@ export default function VendorPrintingPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+  const [busyJob, setBusyJob] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
     setError(null);
@@ -50,6 +52,33 @@ export default function VendorPrintingPage() {
       setLoading(false);
     }
   }, [getToken]);
+
+  const updateJob = async (jobId: string, action: "start" | "complete") => {
+    setActionError(null);
+    setBusyJob(jobId);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/vendor/printing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ print_job_id: jobId, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Unable to update this print job.");
+      }
+      await fetchJobs();
+    } catch (updateError) {
+      setActionError(
+        updateError instanceof Error ? updateError.message : "Unable to update this print job."
+      );
+    } finally {
+      setBusyJob(null);
+    }
+  };
 
   useEffect(() => {
     fetchJobs();
@@ -94,6 +123,12 @@ export default function VendorPrintingPage() {
           <RotateCw className="w-4 h-4" /> Refresh
         </button>
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-300">
+          {actionError}
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-300">
@@ -163,13 +198,21 @@ export default function VendorPrintingPage() {
                   </div>
                   <div className="text-right">
                     {job.status === "queued" && (
-                      <button className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors">
-                        Start Printing
+                      <button
+                        onClick={() => updateJob(job.print_job_id, "start")}
+                        disabled={busyJob === job.print_job_id}
+                        className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                      >
+                        {busyJob === job.print_job_id ? "Updating..." : "Start Printing"}
                       </button>
                     )}
                     {job.status === "printing" && (
-                      <button className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition-colors">
-                        Mark Complete
+                      <button
+                        onClick={() => updateJob(job.print_job_id, "complete")}
+                        disabled={busyJob === job.print_job_id}
+                        className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                      >
+                        {busyJob === job.print_job_id ? "Updating..." : "Mark Complete"}
                       </button>
                     )}
                   </div>

@@ -1,11 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   FaInstagram,
   FaFacebook,
   FaTwitter,
 } from "react-icons/fa";
 
-import { HiSparkles } from "react-icons/hi2";
 import { getPublicStoreSettings } from "@/lib/storeSettings";
 
 /**
@@ -28,15 +28,20 @@ export async function Footer() {
   ].filter(Boolean) as Array<{ Icon: typeof FaInstagram; label: string; href: string }>;
 
   return (
-    <footer className="relative mt-24">
+    <footer className="relative mt-14">
       <div className="mx-auto max-w-7xl px-4 pb-10">
         <div className="glass rounded-3xl p-8 md:p-12 grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-xl bg-gradient-neon grid place-items-center animate-pulse-glow">
-                <HiSparkles className="h-5 w-5 text-white" />
+            <Link href="/" className="inline-flex items-center gap-2 group" aria-label={storeName}>
+              <div className="relative h-14 md:h-16 w-44 md:w-52 flex items-center">
+                <Image
+                  src="/logo.png"
+                  alt={storeName}
+                  fill
+                  sizes="(max-width: 768px) 176px, 208px"
+                  className="object-contain object-left rtl:object-right group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(255,79,216,0.35)]"
+                />
               </div>
-              <span className="text-xl font-extrabold">{storeName}</span>
             </Link>
             <p className="text-sm text-muted-foreground max-w-md">
               Premium custom printing &amp; galaxy-themed gifts. Bring your ideas to life with stellar

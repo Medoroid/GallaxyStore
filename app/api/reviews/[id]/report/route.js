@@ -24,6 +24,25 @@ const MAX_DETAILS_LENGTH = 1000;
 // POST - Report a review
 export async function POST(request, { params }) {
   try {
+    // Authenticate before any path/body validation so unauthenticated callers
+    // consistently receive 401.
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) {
+      return Response.json(
+        { success: false, message: "Authorization required" },
+        { status: 401 }
+      );
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const SupabaseClient = getSupabaseForUser(token);
+    const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return Response.json(
+        { success: false, message: "Invalid token" },
+        { status: 401 }
+      );
+    }
+
     const { id: review_id } = await params;
     if (!UUID_RE.test(String(review_id || ""))) {
       return Response.json({ success: false, message: "Invalid review id" }, { status: 400 });
@@ -37,24 +56,6 @@ export async function POST(request, { params }) {
       return Response.json(
         { success: false, message: "Too many requests. Please try again later." },
         { status: 429 }
-      );
-    }
-
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      return Response.json(
-        { success: false, message: "Authorization required" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const SupabaseClient = getSupabaseForUser(token);
-    const { data: { user }, error: authError } = await SupabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      return Response.json(
-        { success: false, message: "Invalid token" },
-        { status: 401 }
       );
     }
 

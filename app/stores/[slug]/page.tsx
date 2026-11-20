@@ -5,7 +5,7 @@ import { ArrowLeft, Package } from "lucide-react";
 import { ProductCard } from "@/app/components/ProductCard";
 import { getPublicServerClient } from "@/lib/supabase/public-server";
 import {
-  productSelect,
+  selectProductsWithFallback,
   toProductCardProduct,
   type SupabaseProduct,
 } from "@/lib/products";
@@ -62,15 +62,23 @@ export default async function StoreDetailPage({
   if (!store) notFound();
 
   const supabase = getPublicServerClient();
-  const { data: products } = await supabase
-    .from("products")
-    .select(productSelect)
-    .eq("store_id", store.id)
-    .eq("status", "published")
-    .eq("visibility", "visible")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(60);
+  const buildProductsQuery = (select: string) =>
+    supabase
+      .from("products")
+      .select(select)
+      .eq("store_id", store.id)
+      .eq("status", "published")
+      .eq("visibility", "visible")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(60);
+
+  // The full select fails with 42703 until migration 20261115120000 adds
+  // `products.available_sizes`; retry once without that column instead of
+  // rendering an empty store page.
+  const { data: products } = await selectProductsWithFallback((select) => ({
+    query: buildProductsQuery(select),
+  }));
 
   const rows = (products ?? []) as unknown as SupabaseProduct[];
 

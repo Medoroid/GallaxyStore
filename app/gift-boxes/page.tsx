@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sparkles, Send, Loader2, AlertTriangle, PackageOpen, RefreshCw, LogIn, ShoppingBag } from "lucide-react";
 import { ProductCard } from "@/app/components/ProductCard";
+import { CustomSelect } from "@/app/components/CustomSelect";
+import GiftBoxesGrid from "@/app/components/GiftBoxesGrid";
 import { toProductCardProduct, type SupabaseProduct } from "@/lib/products";
 import { useAuth } from "../lib/auth-context";
 
@@ -130,6 +132,11 @@ export default function GiftBoxes() {
         </p>
       </header>
 
+      {/* ---------------- Real gift box bundles (product-based) ---------------- */}
+      <section className="mt-10">
+        <GiftBoxesGrid />
+      </section>
+
       {/* ---------------- Real products from the store ---------------- */}
       <section className="mt-10">
         <div className="flex items-center justify-between gap-4 mb-5">
@@ -247,23 +254,16 @@ export default function GiftBoxes() {
                 </div>
               )}
               <div>
-                <label htmlFor="gift-occasion" className="text-sm font-semibold mb-1 block">
+                <label htmlFor="gift-occasion" className="text-sm font-semibold mb-1.5 block">
                   Occasion
                 </label>
-                <select
+                <CustomSelect
                   id="gift-occasion"
                   value={form.occasion}
-                  onChange={(e) => setForm({ ...form, occasion: e.target.value })}
-                  className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm bg-transparent"
-                  required
-                >
-                  <option value="" className="bg-black">Select occasion...</option>
-                  {OCCASIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-black">
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, occasion: val })}
+                  options={OCCASIONS}
+                  placeholder="Select occasion..."
+                />
               </div>
               <div>
                 <label htmlFor="gift-budget" className="text-sm font-semibold mb-1 block">

@@ -53,7 +53,7 @@ describe("API Routes — Real Content Validation", () => {
   // =========================================================================
 
   describe("GET /api/search", () => {
-    test("search mode → 200 with products that have product_id and name", async () => {
+    test("search mode → 200 with products that have id and name", async () => {
       if (!up) return;
       const res = await fetch(`${BASE_URL}/api/search?q=galaxy&mode=search`);
       expect(res.status).toBe(200);
@@ -62,7 +62,8 @@ describe("API Routes — Real Content Validation", () => {
       expect(Array.isArray(body.products)).toBe(true);
       expect(body.products.length).toBeGreaterThan(0);
       const p = body.products[0];
-      expect(p.product_id).toBeDefined();
+      // The API maps the RPC's product_id to `id` for ProductCard consumption.
+      expect(p.id).toBeDefined();
       expect(typeof p.name).toBe("string");
       expect(p.name.length).toBeGreaterThan(0);
       expect(typeof p.slug).toBe("string");
@@ -78,9 +79,11 @@ describe("API Routes — Real Content Validation", () => {
       expect(Array.isArray(body.suggestions)).toBe(true);
       expect(body.suggestions.length).toBeGreaterThan(0);
       const s = body.suggestions[0];
-      expect(typeof s.suggestion).toBe("string");
-      expect(s.suggestion.length).toBeGreaterThan(0);
-      expect(s.type).toBeDefined();
+      // The API maps RPC rows to { id, name, category }.
+      expect(typeof s.name).toBe("string");
+      expect(s.name.length).toBeGreaterThan(0);
+      expect(s.category).toBeDefined();
+      expect(s.id).toBeDefined();
     });
 
     test("facets mode → 200 with category facets having category_id and name", async () => {
@@ -159,7 +162,7 @@ describe("API Routes — Real Content Validation", () => {
 
       if (!product) return;
 
-      const testSessionToken = `test-session-${Date.now()}`;
+      const testSessionToken = crypto.randomUUID();
 
       const res = await fetch(`${BASE_URL}/api/products/${product.id}/track`, {
         method: "POST",
@@ -338,8 +341,8 @@ describe("API Routes — Real Content Validation", () => {
   // WEBHOOKS — Reject invalid requests
   // =========================================================================
 
-  describe("Webhooks (reject invalid requests)", () => {
-    test("Stripe webhook with bad signature → 400 or 500", async () => {
+  describe("Disabled webhooks never settle payments", () => {
+    test("Stripe webhook is acknowledged but ignored (card payments disabled)", async () => {
       if (!up) return;
       const res = await fetch(`${BASE_URL}/api/stripe/webhook`, {
         method: "POST",
@@ -349,14 +352,13 @@ describe("API Routes — Real Content Validation", () => {
         },
         body: JSON.stringify({ type: "checkout.session.completed" }),
       });
-      expect([400, 500]).toContain(res.status);
-      if (res.status === 500) {
-        const body = await res.json();
-        expect(body.error).toContain("misconfigured");
-      }
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ignored).toBe(true);
+      expect(body.settled).toBe(false);
     });
 
-    test("Paymob webhook with bad signature → 400 or 500", async () => {
+    test("Paymob webhook is disabled and returns 410", async () => {
       if (!up) return;
       const res = await fetch(`${BASE_URL}/api/paymob/webhook`, {
         method: "POST",
@@ -366,11 +368,9 @@ describe("API Routes — Real Content Validation", () => {
         },
         body: JSON.stringify({ event: "payment.completed" }),
       });
-      expect([400, 500]).toContain(res.status);
-      if (res.status === 500) {
-        const body = await res.json();
-        expect(body.error).toContain("misconfigured");
-      }
+      expect(res.status).toBe(410);
+      const body = await res.json();
+      expect(body.received).toBe(false);
     });
   });
 });

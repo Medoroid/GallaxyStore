@@ -337,6 +337,10 @@ begin
 end;
 $$;
 
+-- Parameter name/body changed from the earlier definition; CREATE OR REPLACE
+-- cannot rename input parameters. Drop the same-signature function first.
+drop function if exists public.verify_vodafone_cash_payment(uuid, boolean, text);
+
 create or replace function public.verify_vodafone_cash_payment(
   p_order_id uuid,
   p_approve boolean,

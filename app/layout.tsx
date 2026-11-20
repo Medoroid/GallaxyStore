@@ -4,7 +4,11 @@ import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { AnnouncementBar } from "./components/AnnouncementBar";
 import Providers from "./components/providers";
+import ThemeDecorations from "./components/ThemeDecorations";
+import ThemePreviewBridge from "./components/ThemePreviewBridge";
 import { getPublicStoreSettings } from "@/lib/storeSettings";
+import { getResolvedTheme } from "@/lib/themes/server";
+import { themeToCss } from "@/lib/themes/css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://galaxystore.com";
 const DEFAULT_STORE_NAME = "Galaxy Store";
@@ -96,7 +100,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const settings = await getPublicStoreSettings();
+  const [settings, { theme }] = await Promise.all([
+    getPublicStoreSettings(),
+    getResolvedTheme(),
+  ]);
   const storeName = settings.store_name ?? DEFAULT_STORE_NAME;
 
   const jsonLd = {
@@ -127,6 +134,15 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Seasonal theme tokens — only emitted for a real resolved theme.
+            The built-in default writes nothing, so the storefront stays
+            pixel-identical to globals.css until an admin publishes one. */}
+        {theme.source !== "builtin" && (
+          <style
+            id="theme-tokens"
+            dangerouslySetInnerHTML={{ __html: themeToCss(theme.config) }}
+          />
+        )}
       </head>
       <body suppressHydrationWarning>
         <Providers>
@@ -138,7 +154,11 @@ export default async function RootLayout({
           {children}
           </div>
           <Footer />
+          {/* No-op for visitors; activates only with ?preview=1 (studio iframe). */}
+          <ThemePreviewBridge />
         </Providers>
+        {/* Seasonal overlay — fixed, click-through, reduced-motion aware. */}
+        <ThemeDecorations decorations={theme.config.decorations} />
       </body>
     </html>
   );

@@ -60,11 +60,21 @@ export function ProductCard({ product, href }: ProductCardProps) {
   useEffect(() => setImageSrc(image), [image]);
 
   const productId = "id" in product && product.id != null ? String(product.id) : "";
+  const targetHref = href ?? (productId ? `/product-details/${productId}` : "#");
+
+  // Calculate discount percentage if available
+  const discountPercent =
+    comparePrice && comparePrice > price
+      ? Math.round(((comparePrice - price) / comparePrice) * 100)
+      : null;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     addItem({
+      // Fallback key for id-less products; runs in a click handler, never
+      // during render (false positive of the compiler purity rule).
+      // eslint-disable-next-line react-hooks/purity -- Date.now() is safe here
       product_id: productId || String(Date.now()),
       name: title,
       price,
@@ -111,85 +121,117 @@ export function ProductCard({ product, href }: ProductCardProps) {
   const handleQuickView = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const target = href ?? (productId ? `/product-details/${productId}` : null);
-    if (target) router.push(target);
+    if (targetHref && targetHref !== "#") router.push(targetHref);
   };
 
-  const card = (
-    <div className="group relative glass rounded-3xl p-3 transition-all duration-500 hover:-translate-y-1 hover:pink-glow cursor-pointer">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-white/10">
-        <Image
-          src={imageSrc}
-          alt={title}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover transition-transform duration-700 group-hover:scale-110"
-          onError={() => setImageSrc(FALLBACK_IMAGE)}
-        />
-        {product.badge && (
-          <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gradient-neon text-white shadow-lg">
-            {product.badge}
-          </span>
-        )}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+  return (
+    <div className="group relative flex flex-col justify-between h-full glass rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 transition-all duration-300 hover:-translate-y-1 hover:pink-glow">
+      {/* Top Media Container */}
+      <div className="relative aspect-square overflow-hidden rounded-xl sm:rounded-2xl bg-white/10">
+        <Link href={targetHref} className="block relative w-full h-full" tabIndex={-1}>
+          <Image
+            src={imageSrc}
+            alt={title}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            onError={() => setImageSrc(FALLBACK_IMAGE)}
+          />
+        </Link>
+
+        {/* Badges: Discount & Custom Badge */}
+        <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
+          {discountPercent !== null && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider bg-accent text-accent-foreground shadow-md">
+              -{discountPercent}%
+            </span>
+          )}
+          {product.badge && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-gradient-neon text-white shadow-md">
+              {product.badge}
+            </span>
+          )}
+        </div>
+
+        {/* Action Buttons: Wishlist & Quick View */}
+        <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 flex flex-col gap-1.5 z-10">
           <button
-            className="h-9 w-9 grid place-items-center rounded-full glass text-[#9835fd] hover:pink-glow disabled:opacity-50"
+            className={`h-8 w-8 sm:h-8 sm:w-8 grid place-items-center rounded-full transition-all shadow-xl backdrop-blur-md border ${
+              wishlisted
+                ? "bg-pink-500 text-white border-pink-400 pink-glow scale-105"
+                : "bg-black/75 border-white/20 text-pink-400 hover:text-white hover:bg-gradient-neon hover:border-pink-500 hover:scale-110 active:scale-95"
+            }`}
             aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
             aria-pressed={wishlisted}
             disabled={wishPending}
             onClick={handleWishlist}
           >
-            <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
+            <Heart className={`h-4 w-4 ${wishlisted ? "fill-white" : "fill-current"}`} />
           </button>
+
           <button
-            className="h-9 w-9 grid place-items-center rounded-full glass text-[#9835fd] hover:pink-glow"
+            className="hidden sm:grid h-8 w-8 place-items-center rounded-full bg-black/75 border border-white/20 text-white/90 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-gradient-neon hover:border-pink-500 hover:scale-110 active:scale-95 transition-all shadow-xl backdrop-blur-md"
             aria-label="Quick view"
             onClick={handleQuickView}
           >
             <Eye className="h-4 w-4" />
           </button>
         </div>
-        <div className="absolute inset-x-3 bottom-3 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
-          <button
-            className="w-full h-10 rounded-xl bg-gradient-neon text-white text-sm font-semibold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
-            onClick={handleAddToCart}
-          >
-            <ShoppingBag className="h-4 w-4" /> Add to Cart
-          </button>
-        </div>
       </div>
-      <div className="p-3 space-y-1.5">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          {product.category ?? "Product"}
-        </p>
-        <h3 className="font-semibold leading-tight">{title}</h3>
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-extrabold text-gradient-gold">
+
+      {/* Product Information */}
+      <div className="flex flex-col flex-1 justify-between pt-2.5 sm:pt-3">
+        <div className="space-y-1">
+          {/* Category & Rating Row */}
+          <div className="flex items-center justify-between gap-1 text-[10px] sm:text-[11px] text-muted-foreground min-h-[16px]">
+            {product.category && product.category !== "Product" ? (
+              <span className="uppercase tracking-wider font-semibold truncate max-w-[70%]">
+                {product.category}
+              </span>
+            ) : (
+              <span />
+            )}
+
+            {/* Display rating only if it exists (> 0) */}
+            {rating > 0 ? (
+              <div className="inline-flex items-center gap-0.5 text-accent font-medium shrink-0">
+                <Star className="h-3 w-3 fill-current" />
+                <span>{rating.toFixed(1)}</span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Title with uniform 2-line height */}
+          <Link href={targetHref} className="block group-hover:text-pink-300 transition-colors">
+            <h3 className="font-semibold leading-snug text-xs sm:text-sm line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
+              {title}
+            </h3>
+          </Link>
+        </div>
+
+        {/* Price & Quick Add Button Row */}
+        <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-white/5">
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm sm:text-base md:text-lg font-extrabold text-gradient-gold truncate">
               {formatCurrency(price, currency)}
             </span>
             {comparePrice !== null && (
-              <span className="text-xs text-muted-foreground line-through">
+              <span className="text-[10px] sm:text-xs text-muted-foreground line-through -mt-0.5">
                 {formatCurrency(comparePrice, currency)}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs text-accent">
-            <Star className="h-3.5 w-3.5 fill-current" />
-            <span className="font-medium">{rating.toFixed(1)}</span>
-          </div>
+
+          <button
+            onClick={handleAddToCart}
+            className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 rounded-lg sm:rounded-xl bg-gradient-neon text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-md shrink-0 pink-glow"
+            aria-label="Add to cart"
+            title="Add to cart"
+          >
+            <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
         </div>
       </div>
     </div>
   );
-
-  if (href) {
-    return (
-      <Link href={href} className="block">
-        {card}
-      </Link>
-    );
-  }
-
-  return card;
 }

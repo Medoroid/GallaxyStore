@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useAuth } from "@/app/lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { ShoppingBag, Search, Eye, Truck, AlertCircle, ChevronUp } from "lucide-react";
@@ -199,8 +199,8 @@ export default function VendorOrdersPage() {
                   );
 
                   return (
-                    <>
-                      <tr key={order.id} className="hover:bg-white/[0.02]">
+                    <Fragment key={order.id}>
+                      <tr className="hover:bg-white/[0.02]">
                         <td className="p-4">
                           <span className="text-sm font-medium text-white">
                             #{order.order_number || order.id.slice(0, 8)}
@@ -262,7 +262,7 @@ export default function VendorOrdersPage() {
                       </tr>
 
                       {expanded && (
-                        <tr key={`${order.id}-details`} className="bg-white/[0.02]">
+                        <tr className="bg-white/[0.02]">
                           <td colSpan={7} className="p-4">
                             <div className="space-y-2">
                               {order.items.map((item) => (
@@ -292,7 +292,7 @@ export default function VendorOrdersPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

@@ -538,3 +538,38 @@ export function storagePathFromPublicUrl(
   if (!path || path.includes("..") || path.includes("\\")) return null;
   return path;
 }
+
+/**
+ * Supabase error meaning "the content migration has not been applied yet".
+ *
+ * Accepts both SQLSTATEs the theme system accepts (42P01 undefined table,
+ * PGRST205 PostgREST relation-not-found) plus the human messages PostgREST
+ * and Storage return, so a missing `site_banners`/`site_sections` table and
+ * a missing `site-banners` bucket (created by the SAME migration) both
+ * degrade to one honest answer instead of a generic 500.
+ */
+export function isMissingContentInfra(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: string; message?: string };
+  const message = e.message ?? "";
+  return (
+    e.code === "42P01" ||
+    e.code === "PGRST205" ||
+    message.includes("does not exist") ||
+    message.includes("Could not find the table") ||
+    message.includes("Bucket not found")
+  );
+}
+
+/** 503 response naming the exact migration that installs banners + sections. */
+export function contentMigrationRequiredResponse(): Response {
+  return Response.json(
+    {
+      success: false,
+      code: "CONTENT_MIGRATION_REQUIRED",
+      message:
+        "Content tables are not installed yet. Apply supabase/migrations/20261108130000_site_content_banners_sections.sql to enable the Content Manager.",
+    },
+    { status: 503 }
+  );
+}

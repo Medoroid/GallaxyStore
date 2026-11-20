@@ -134,7 +134,7 @@ describe("RPC Integration Tests", () => {
       const { data, error } = await supabase
         .from("storefront_products")
         .select("name, slug")
-        .ilike("name", "%كاب%")
+        .ilike("name", "%جالاكسي%")
         .limit(5);
 
       expect(error).toBeNull();

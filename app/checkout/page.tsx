@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/app/components/SafeImage";
+import { CustomSelect } from "@/app/components/CustomSelect";
 import {
   ArrowRight,
   Loader2,
@@ -817,7 +818,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-28 pb-20">
+    <div className="mx-auto max-w-7xl px-1 pt-28 pb-20">
       {/* Header */}
       <div className="mb-10">
         <p className="text-xs uppercase tracking-[0.3em] text-secondary font-semibold mb-3">
@@ -961,18 +962,19 @@ export default function CheckoutPage() {
               </div>
 
               <div>
-                <label className="text-sm font-semibold mb-1 block">Country</label>
-                <select
+                <label className="text-sm font-semibold mb-1.5 block">Country</label>
+                <CustomSelect
                   value={address.country}
-                  onChange={(e) => setAddress({ ...address, country: e.target.value })}
-                  className="w-full h-11 px-4 rounded-xl glass outline-none focus:pink-glow text-sm bg-transparent"
-                >
-                  <option value="Egypt">Egypt</option>
-                  <option value="Saudi Arabia">Saudi Arabia</option>
-                  <option value="UAE">UAE</option>
-                  <option value="Kuwait">Kuwait</option>
-                  <option value="Other">Other</option>
-                </select>
+                  onChange={(val) => setAddress({ ...address, country: val })}
+                  options={[
+                    { value: "Egypt", label: "Egypt" },
+                    { value: "Saudi Arabia", label: "Saudi Arabia" },
+                    { value: "UAE", label: "UAE" },
+                    { value: "Kuwait", label: "Kuwait" },
+                    { value: "Other", label: "Other" },
+                  ]}
+                  placeholder="Select country..."
+                />
               </div>
 
               <button

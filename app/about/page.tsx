@@ -82,10 +82,10 @@ export default async function AboutPage() {
     <div className="min-h-screen">
       {/* Hero */}
       <section className="relative py-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#FF4FD8]/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand)]/5 to-transparent" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 animate-fade-in">
-            <span className="bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent">
               About Galaxy Store
             </span>
           </h1>
@@ -104,7 +104,7 @@ export default async function AboutPage() {
               className="glass rounded-2xl p-6 text-center animate-fade-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <stat.icon className="w-8 h-8 text-[#FF4FD8] mx-auto mb-3" />
+              <stat.icon className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
               <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
               <div className="text-sm text-gray-400">{stat.label}</div>
             </div>
@@ -148,10 +148,10 @@ export default async function AboutPage() {
             {values.map((value, index) => (
               <div
                 key={value.title}
-                className="glass rounded-2xl p-6 hover:border-[#FF4FD8]/30 transition-colors animate-fade-in"
+                className="glass rounded-2xl p-6 hover:border-[var(--brand)]/30 transition-colors animate-fade-in"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <value.icon className="w-10 h-10 text-[#FF4FD8] mb-4" />
+                <value.icon className="w-10 h-10 text-[var(--brand)] mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">{value.title}</h3>
                 <p className="text-sm text-gray-400">{value.description}</p>
               </div>
@@ -167,7 +167,7 @@ export default async function AboutPage() {
           <p className="text-gray-400 mb-8">Discover our galaxy of products and find something that speaks to you.</p>
           <a
             href="/products"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#FF4FD8] to-[#A855F7] rounded-xl text-white font-bold hover:shadow-[0_0_30px_rgba(255,79,216,0.3)] transition-all"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] rounded-xl text-white font-bold hover:shadow-cta transition-all"
           >
             Browse Products
           </a>
