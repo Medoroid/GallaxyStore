@@ -40,6 +40,8 @@ Tester reported `403 Forbidden` when creating a design. Investigation of the dep
 1. `owns_design()` (SECURITY DEFINER, STABLE) could not see the just-inserted row during `INSERT … RETURNING`, so the SELECT policy rejected the returned row → 42501 → 403. Fixed by migration `20261122120000_designs_select_policy_own_id.sql` (check `owner_id = auth.uid()` directly).
 2. `design_versions.version_number` is NOT NULL but no trigger ever assigned it — `set_design_version_number()` existed in the baseline but was never wired. Fixed by migration `20261122110000_design_version_number_trigger.sql`.
 Both migrations applied to Staging and Local; regression test added to `e2e-staging/workflows.spec.ts`; deployed suite re-run → **12/12 pass**. Commit `634a2bb` pushed to `origin/staging`.
+
+A follow-up tester report showed `500` on the same endpoint: `23505 duplicate key "idx_files_checksum"` — the checksum column had a GLOBAL unique index, so uploading identical artwork into a second design always failed. Fixed by migration `20261122130000_design_files_checksum_not_unique.sql` (index kept for lookups, uniqueness removed). Regression test now uploads the same SVG twice; deployed suite re-run → **12/12 pass**. Commit `4aa5a03` pushed to `origin/staging`.
 - Production request leak check: **0** requests to production host.
 
 ## 5. Tested on deployed URL

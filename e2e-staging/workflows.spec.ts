@@ -166,6 +166,42 @@ test.describe("Creator Studio", () => {
     expect(second.status(), await second.text()).toBe(201);
   });
 
+  test("custom print: saved design can be added to cart", async ({ request }) => {
+    const authRes = await request.post(
+      `${process.env.SUPABASE_TEST_URL}/auth/v1/token?grant_type=password`,
+      {
+        headers: { apikey: process.env.SUPABASE_TEST_ANON_KEY ?? "", "Content-Type": "application/json" },
+        data: { email: customer.email, password: customer.password },
+      }
+    );
+    expect(authRes.status()).toBe(200);
+    const token = (await authRes.json()).access_token as string;
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#fff"/></svg>');
+    const designRes = await request.post("/api/designs", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: { file: { name: "cp.svg", mimeType: "image/svg+xml", buffer: svg } },
+    });
+    expect(designRes.status()).toBe(201);
+    const designId = (await designRes.json()).design.id as string;
+    expect(designId).toBeTruthy();
+
+    const cartRes = await request.post("/api/custom-print/cart", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      data: {
+        design_id: designId,
+        template_key: "hoodie",
+        view_key: "front",
+        color_key: "white",
+        size_key: "s",
+        quantity: 1,
+        transform: { cx: 0, cy: 0, width: 10, height: 10, rotation: 0 },
+        share_opt_in: false,
+      },
+    });
+    expect(cartRes.status(), await cartRes.text()).toBe(200);
+    expect((await cartRes.json()).success).toBe(true);
+  });
+
   test("admin review workflow", async ({ page }) => {
     test.skip(!credsAvailable(), "staging admin account not configured");
     await signIn(page, admin);

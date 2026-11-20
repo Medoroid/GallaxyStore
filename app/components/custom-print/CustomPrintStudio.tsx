@@ -312,7 +312,7 @@ export default function CustomPrintStudio() {
         dpi: dpi, validation: preview.validation,
       }));
       const data = await authenticatedFetch("/api/designs", form);
-      setSavedDesignId(data.design_id ?? null);
+      setSavedDesignId(data?.design?.id ?? null);
       setProgress(100);
       setNotice({ kind: "success", text: "Design saved privately to your account." });
     } catch (error) {
@@ -341,7 +341,10 @@ export default function CustomPrintStudio() {
           viewKey, colorKey, sizeKey, transform, dpi, validation: preview.validation,
         }));
         const saved = await authenticatedFetch("/api/designs", form);
-        designId = saved.design_id ?? null;
+        designId = saved?.design?.id ?? null;
+        if (!designId) {
+          throw new Error("The design could not be saved. Please try again.");
+        }
         setSavedDesignId(designId);
       }
       await authenticatedFetch("/api/custom-print/cart", JSON.stringify({

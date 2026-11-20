@@ -32,3 +32,13 @@ values
   ('22222222-2222-4222-8222-000000000001','11111111-1111-1111-1111-111111111301','11111111-1111-1111-1111-111111111401',1,1,true),
   ('22222222-2222-4222-8222-000000000001','11111111-1111-1111-1111-111111111302','11111111-1111-1111-1111-111111111403',1,2,true)
 on conflict do nothing;
+
+-- Custom-print templates mapped to real synthetic products/variants.
+insert into public.mockup_templates (template_key, name, category, store_product_id, store_variant_id, is_active)
+values
+  ('hoodie','Hoodie (staging)','apparel','11111111-1111-1111-1111-111111111302','11111111-1111-1111-1111-111111111403',true),
+  ('tshirt','T-Shirt (staging)','apparel','11111111-1111-1111-1111-111111111301','11111111-1111-1111-1111-111111111401',true)
+on conflict (template_key) do update set
+  store_product_id = excluded.store_product_id,
+  store_variant_id = excluded.store_variant_id,
+  is_active = true;
