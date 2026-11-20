@@ -128,6 +128,36 @@ test.describe("Creator Studio", () => {
     expect(body.templates[0].geometry).toBeTruthy();
   });
 
+  test("creator can create a design (regression: version trigger + SELECT policy)", async ({ page }) => {
+    test.skip(!credsAvailable(), "staging accounts not configured");
+    await signIn(page, customer);
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#fff"/></svg>'
+    );
+    // Auth is cookie-based; obtain the access token from the Staging Auth API.
+    const authRes = await page.request.post(
+      `${process.env.SUPABASE_TEST_URL}/auth/v1/token?grant_type=password`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_TEST_ANON_KEY ?? "",
+          "Content-Type": "application/json",
+        },
+        data: { email: customer.email, password: customer.password },
+      }
+    );
+    expect(authRes.status()).toBe(200);
+    const token = (await authRes.json()).access_token as string;
+    expect(token, "staging access token").toBeTruthy();
+    const res = await page.request.post("/api/designs", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: { file: { name: "regression.svg", mimeType: "image/svg+xml", buffer: svg } },
+    });
+    expect(res.status(), await res.text()).toBe(201);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.design.version.version_number).toBe(1);
+  });
+
   test("admin review workflow", async ({ page }) => {
     test.skip(!credsAvailable(), "staging admin account not configured");
     await signIn(page, admin);
