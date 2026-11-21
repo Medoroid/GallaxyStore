@@ -542,7 +542,11 @@ export async function POST(request) {
     // Confirmation email + WhatsApp use the persisted order items, never the request body.
     let orderItems = [];
     try {
-      const itemsResult = await SupabaseClient
+      // Ownership was already verified through the active cart; read persisted
+      // items with the service role. The customer JWT hits an RLS recursion on
+      // order_items, which silently produced empty notification items.
+      const notificationDb = getServiceRoleClient();
+      const itemsResult = await notificationDb
         .from("order_items")
         .select("product_name_snapshot, quantity, unit_price_snapshot, line_total")
         .eq("order_id", order.id);
@@ -582,15 +586,29 @@ export async function POST(request) {
       logger.error("[Email Error]", emailError);
     }
 
-    // WhatsApp notification is best-effort and isolated, exactly like email.
-    // The adapter never claims delivery without a provider response.
+    // WhatsApp Click-to-Chat link, built on the server from the persisted order.
+    // No provider/token is used; the customer still presses Send in WhatsApp.
+    let whatsappUrl = null;
+    let whatsappNotice = null;
     try {
-      const { sendOrderWhatsApp } = await import("@/lib/whatsapp");
-      await sendOrderWhatsApp({
+      const { buildWhatsAppUrl } = await import("@/lib/whatsapp");
+      let savedAddress = {};
+      try {
+        const snapshot = order.shipping_address_snapshot;
+        savedAddress =
+          typeof snapshot === "string" ? JSON.parse(snapshot) : (snapshot ?? {});
+      } catch {
+        savedAddress = {};
+      }
+      const link = await buildWhatsAppUrl({
         orderId: order.id,
         orderNumber: order.order_number,
+        storeName: "Gallaxy Store",
+        orderDate: order.placed_at || order.created_at,
         customerName: String(shipping_address.full_name).trim(),
         customerPhone: String(shipping_address.phone ?? "").trim(),
+        customerEmail: email,
+        shippingAddress: savedAddress,
         currency: order.currency,
         items: (orderItems || []).map((item) => ({
           name: item.product_name_snapshot,
@@ -603,10 +621,17 @@ export async function POST(request) {
         tax: Number(order.tax || 0),
         discount: Number(order.discount_amount || 0),
         total: Number(order.total || 0),
-        paymentMethod: requestedPaymentMethod,
+        paymentMethod: order.payment_method || requestedPaymentMethod,
+        customerNote: order.customer_note || null,
       });
+      if (link.status === "ready") {
+        whatsappUrl = link.url;
+      } else {
+        whatsappNotice = "لم يتم إعداد رقم استقبال الطلبات على واتساب.";
+      }
     } catch (whatsappError) {
-      logger.warn("[WhatsApp] side effect failed", whatsappError);
+      whatsappNotice = "تعذر تجهيز رابط واتساب. تم تسجيل الطلب بنجاح.";
+      logger.warn("[WhatsApp] link preparation failed", whatsappError);
     }
 
     return Response.json(
@@ -620,6 +645,8 @@ export async function POST(request) {
         payment_id: payment?.id ?? null,
         payment_status: freeOrder ? "paid" : (payment?.status ?? "pending"),
         free_order: freeOrder,
+        whatsapp_url: whatsappUrl,
+        whatsapp_notice: whatsappNotice,
       },
       { status: 201 }
     );

@@ -1,40 +1,47 @@
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { logger } from "@/lib/logger";
 
 export const WHATSAPP_SETTING_KEY = "whatsapp";
 
 export type WhatsAppSettings = {
   enabled: boolean;
+  /** Digits only, international format without '+' or spaces. */
   number: string;
-  include_customer_phone: boolean;
 };
 
 export const EMPTY_WHATSAPP_SETTINGS: WhatsAppSettings = {
   enabled: false,
   number: "",
-  include_customer_phone: true,
 };
 
 export function normalizeWhatsappSettings(value: unknown, strict = false): WhatsAppSettings {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const enabled = raw.enabled === true;
-  const number = String(raw.number ?? "").trim();
-  const includeCustomerPhone = raw.include_customer_phone !== false;
+  const number = String(raw.number ?? "")
+    .replace(/[^\d]/g, "")
+    .trim();
 
-  if (strict && enabled) {
-    if (!/^\+?[1-9]\d{7,14}$/.test(number)) {
-      throw new Error("WhatsApp number must be in international format, e.g. +201234567890");
-    }
+  if (strict && enabled && !/^[1-9]\d{7,14}$/.test(number)) {
+    throw new Error("رقم واتساب يجب أن يكون بالصيغة الدولية بدون + أو مسافات، مثال: 201234567890");
   }
 
-  return { enabled, number, include_customer_phone: includeCustomerPhone };
+  return { enabled, number };
 }
 
 export type WhatsAppOrderData = {
   orderId: string;
   orderNumber?: string;
+  storeName?: string;
+  orderDate?: string;
   customerName: string;
   customerPhone?: string;
+  customerEmail?: string;
+  shippingAddress?: {
+    full_name?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    phone?: string;
+  };
   currency?: string;
   items: Array<{ name: string; quantity: number; price: number; lineTotal?: number }>;
   subtotal: number;
@@ -43,58 +50,71 @@ export type WhatsAppOrderData = {
   discount?: number;
   total: number;
   paymentMethod?: string;
+  customerNote?: string;
 };
 
-export type WhatsAppResult =
-  | { status: "sent"; providerMessageId?: string }
-  | { status: "skipped"; reason: "disabled" | "missing_recipient" }
-  | { status: "blocked"; reason: "no_provider"; manualUrl?: string }
-  | { status: "failed"; reason: string };
+export type WhatsAppLinkResult =
+  | { status: "ready"; url: string }
+  | { status: "skipped"; reason: "disabled" | "missing_recipient" };
 
-function formatMoney(value: number, currency: string) {
+function money(value: number, currency: string) {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value || 0);
+    return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(Number(value || 0))} ${currency}`;
   } catch {
     return `${Number(value || 0).toFixed(2)} ${currency}`;
   }
 }
 
-/** One canonical message used by both the API provider and the manual link. */
+/** Arabic, UTF-8 message built only from trusted persisted order data. */
 export function buildOrderMessage(data: WhatsAppOrderData): string {
-  const currency = data.currency || "USD";
-  const label = data.orderNumber || data.orderId.slice(0, 8);
-  const lines = (data.items || []).map(
-    (item) => `• ${item.name} × ${item.quantity} — ${formatMoney(Number(item.lineTotal ?? item.price * item.quantity), currency)}`
-  );
+  const currency = data.currency || "EGP";
+  const orderLabel = data.orderNumber || data.orderId.slice(0, 8);
+  const date = data.orderDate
+    ? new Date(data.orderDate).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })
+    : "—";
+  const address = data.shippingAddress || {};
+  const addressText = [address.address, address.city, address.country].filter(Boolean).join("، ") || "—";
+
+  const items = (data.items || [])
+    .map(
+      (item, index) =>
+        `${index + 1}. ${item.name}\n   الكمية: ${item.quantity} | السعر: ${money(item.price, currency)} | الإجمالي: ${money(Number(item.lineTotal ?? item.price * item.quantity), currency)}`
+    )
+    .join("\n");
+
   return [
-    `🛒 New order #${label}`,
+    `🛍️ ${data.storeName || "Gallaxy Store"} — تفاصيل طلب جديد`,
     "",
-    ...lines,
+    `رقم الطلب: ${orderLabel}`,
+    `التاريخ: ${date}`,
     "",
-    `Subtotal: ${formatMoney(data.subtotal, currency)}`,
-    `Shipping: ${formatMoney(data.shipping, currency)}`,
-    `Discount: ${formatMoney(data.discount || 0, currency)}`,
-    `Tax: ${formatMoney(data.tax || 0, currency)}`,
-    `Total: ${formatMoney(data.total, currency)}`,
+    `اسم العميل: ${data.customerName || "—"}` + `\nرقم الهاتف: ${data.customerPhone || address.phone || "—"}`,
+    `عنوان التوصيل: ${addressText}`,
     "",
-    `Customer: ${data.customerName}`,
-    data.customerPhone ? `Phone: ${data.customerPhone}` : "",
-    data.paymentMethod ? `Payment: ${data.paymentMethod}` : "",
+    "📦 المنتجات:",
+    items || "—",
+    "",
+    `المجموع الفرعي: ${money(data.subtotal, currency)}`,
+    `الشحن: ${money(data.shipping, currency)}`,
+    `الخصم: ${money(data.discount || 0, currency)}`,
+    `الضرائب: ${money(data.tax || 0, currency)}`,
+    `الإجمالي النهائي: ${money(data.total, currency)}`,
+    "",
+    `طريقة الدفع: ${data.paymentMethod || "—"}`,
+    data.customerNote ? `ملاحظات الطلب: ${data.customerNote}` : "",
+    "",
+    "يرجى تأكيد استلام الطلب.",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-async function loadSettings(): Promise<WhatsAppSettings> {
-  // Environment recipient takes precedence; the admin setting is the fallback.
-  const envNumber = String(process.env.WHATSAPP_RECIPIENT_NUMBER ?? "").trim();
-  if (envNumber) {
-    return {
-      enabled: true,
-      number: envNumber,
-      include_customer_phone: true,
-    };
-  }
+async function loadRecipient(): Promise<WhatsAppSettings> {
+  const envNumber = String(process.env.WHATSAPP_RECIPIENT_NUMBER ?? "")
+    .replace(/[^\d]/g, "")
+    .trim();
+  if (envNumber) return { enabled: true, number: envNumber };
+
   try {
     const db = getServiceRoleClient();
     const { data } = await db
@@ -110,66 +130,19 @@ async function loadSettings(): Promise<WhatsAppSettings> {
 }
 
 /**
- * Best-effort WhatsApp notification for a placed order.
- * Never throws; never claims delivery without a provider response.
+ * WhatsApp Click-to-Chat link only. No API, token, webhook or subscription.
+ * Opening the link prepares the message — the customer still presses Send.
  */
-export async function sendOrderWhatsApp(data: WhatsAppOrderData): Promise<WhatsAppResult> {
-  const settings = await loadSettings();
+export async function buildWhatsAppUrl(
+  data: WhatsAppOrderData
+): Promise<WhatsAppLinkResult> {
+  const settings = await loadRecipient();
   if (!settings.enabled || !settings.number) {
     return { status: "skipped", reason: "disabled" };
   }
-
-  const body = buildOrderMessage(data);
-  const digits = settings.number.replace(/[^\d]/g, "");
-  const manualUrl = `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
-  const token = process.env.WHATSAPP_CLOUD_API_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_CLOUD_API_PHONE_NUMBER_ID;
-
-  if (!token || !phoneNumberId) {
-    logger.info("[WhatsApp] provider not configured; order notification blocked", {
-      orderId: data.orderId,
-      orderNumber: data.orderNumber,
-    });
-    return { status: "blocked", reason: "no_provider", manualUrl };
-  }
-
-  const version = process.env.WHATSAPP_CLOUD_API_VERSION || "v21.0";
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: digits,
-          type: "text",
-          text: { body, preview_url: false },
-        }),
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-    if (!response.ok) {
-      logger.warn("[WhatsApp] provider rejected notification", {
-        orderId: data.orderId,
-        status: response.status,
-      });
-      return { status: "failed", reason: `provider_http_${response.status}` };
-    }
-    const payload = (await response.json()) as { messages?: Array<{ id?: string }> };
-    logger.info("[WhatsApp] order notification sent", {
-      orderId: data.orderId,
-      orderNumber: data.orderNumber,
-    });
-    return { status: "sent", providerMessageId: payload.messages?.[0]?.id };
-  } catch (error) {
-    logger.warn("[WhatsApp] notification failed", {
-      orderId: data.orderId,
-      error: error instanceof Error ? error.message : "unknown",
-    });
-    return { status: "failed", reason: "network_error" };
-  }
+  const message = buildOrderMessage(data);
+  return {
+    status: "ready",
+    url: `https://wa.me/${settings.number}?text=${encodeURIComponent(message)}`,
+  };
 }

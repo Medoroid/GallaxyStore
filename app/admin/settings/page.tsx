@@ -360,10 +360,10 @@ export default function AdminSettingsPage() {
           <MessageCircle className="w-5 h-5 text-[var(--brand)]" /> WhatsApp order notifications
         </div>
         <p className="text-sm text-gray-400">
-          Send every placed order to this number. The receiving number is stored privately and is
-          never exposed on the storefront. Delivery requires WhatsApp Cloud API credentials on the
-          server (see the environment template); without them the notification is recorded as
-          blocked — it is never reported as sent.
+          After a successful order, the customer&apos;s browser opens WhatsApp with a ready-to-send
+          message containing the order details for this number. No API, token, or subscription is
+          required. The customer still presses Send inside WhatsApp. The number is stored privately
+          and is only used to build the wa.me link at order confirmation.
         </p>
         <label className="flex items-center gap-3 text-sm text-gray-300">
           <input
@@ -372,19 +372,19 @@ export default function AdminSettingsPage() {
             onChange={(e) => setForm((prev) => ({ ...prev, whatsapp_enabled: e.target.checked }))}
             className="h-4 w-4 rounded border-white/20 bg-transparent"
           />
-          Send order details on WhatsApp
+          Prepare a WhatsApp order message after checkout
         </label>
-        <Field label="Receiving number (international format)">
+        <Field label="Receiving number (international format, digits only)">
           <input
             value={form.whatsapp_number}
             onChange={(e) => setForm((prev) => ({ ...prev, whatsapp_number: e.target.value }))}
             maxLength={20}
             className={INPUT_CLASS}
-            placeholder="+201234567890"
+            placeholder="201234567890"
           />
         </Field>
         {!form.whatsapp_enabled && (
-          <p className="text-xs text-amber-300">WhatsApp notifications are currently disabled.</p>
+          <p className="text-xs text-amber-300">WhatsApp order messages are currently disabled.</p>
         )}
       </div>
 

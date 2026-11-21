@@ -120,6 +120,8 @@ export default function CheckoutPage() {
     number: string | null;
   } | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappNotice, setWhatsappNotice] = useState<string | null>(null);
 
   const [address, setAddress] = useState<ShippingAddress>({
     full_name: "",
@@ -506,9 +508,23 @@ export default function CheckoutPage() {
 
     setLoading(true);
     setMessage(null);
+    setWhatsappUrl(null);
+    setWhatsappNotice(null);
+
+    // Open a blank tab during the user gesture so popup blockers cannot stop
+    // it. It is directed to WhatsApp only AFTER the order is safely persisted.
+    // If the browser blocks it, the success screen offers an explicit button.
+    let whatsappPopup: Window | null = null;
+    try {
+      whatsappPopup = window.open("", "_blank");
+    } catch {
+      whatsappPopup = null;
+    }
+
     try {
       const token = await getToken();
       if (!token) {
+        whatsappPopup?.close();
         setMessage({ type: "error", text: "Please sign in again." });
         setLoading(false);
         return;
@@ -526,6 +542,7 @@ export default function CheckoutPage() {
       }
 
       if (currentPreview.stock_issues.length > 0) {
+        whatsappPopup?.close();
         setMessage({
           type: "error",
           text: "Some items are no longer available in the requested quantity. Please update your cart.",
@@ -534,6 +551,7 @@ export default function CheckoutPage() {
         return;
       }
       if (currentPreview.coupon_error) {
+        whatsappPopup?.close();
         setMessage({
           type: "error",
           text: `${currentPreview.coupon_error} Remove or change the coupon in your cart, then try again.`,
@@ -588,10 +606,37 @@ export default function CheckoutPage() {
           return;
         }
 
+        whatsappPopup?.close();
         const failure = apiErrorMessage(orderRes.status, orderData, "Failed to create order");
         setMessage({ type: "error", text: failure });
         setLoading(false);
         return;
+      }
+
+      const waUrl = typeof orderData.whatsapp_url === "string" ? orderData.whatsapp_url : null;
+      setWhatsappUrl(waUrl);
+      setWhatsappNotice(orderData.whatsapp_notice || null);
+      if (waUrl) {
+        let opened = false;
+        try {
+          if (whatsappPopup && !whatsappPopup.closed) {
+            whatsappPopup.location.href = waUrl;
+            whatsappPopup.opener = null;
+            opened = true;
+          }
+        } catch {
+          opened = false;
+        }
+        if (!opened) {
+          // Second attempt may be blocked by the browser; the success screen
+          // always keeps a visible fallback button.
+          try {
+            const second = window.open(waUrl, "_blank", "noopener,noreferrer");
+            opened = Boolean(second);
+          } catch {
+            opened = false;
+          }
+        }
       }
 
       const newOrderId = orderData.order_id;
@@ -623,6 +668,7 @@ export default function CheckoutPage() {
       // Cash on delivery: the order is placed, payment is due on delivery.
       setStep("success");
     } catch (error) {
+      whatsappPopup?.close();
       setMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Network error. Please try again.",
@@ -787,6 +833,26 @@ export default function CheckoutPage() {
               The final total was recalculated on the server to{" "}
               {formatCurrency(amountDue, orderCurrency ?? currency)}.
             </p>
+          )}
+          {whatsappNotice && (
+            <p role="status" className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
+              {whatsappNotice}
+            </p>
+          )}
+          {whatsappUrl && (
+            <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-sm text-emerald-200 mb-3">
+                تم تجهيز تفاصيل الطلب على واتساب. اضغط «إرسال» داخل واتساب لإتمام الإرسال.
+              </p>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:opacity-90"
+              >
+                إرسال تفاصيل الطلب على واتساب
+              </a>
+            </div>
           )}
           <div className="flex gap-3 justify-center flex-wrap">
             {orderId && (
