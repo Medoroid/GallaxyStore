@@ -165,7 +165,7 @@ export async function GET(request) {
     const [rowsRes, counts] = await Promise.all([
       db
         .from(config.table)
-        .select(`${config.fields.join(", ")}, created_at, updated_at`)
+        .select(`id, ${config.fields.join(", ")}, created_at, updated_at`)
         .is("deleted_at", null)
         .order(config.order, { ascending: true }),
       productCounts(db, type),
