@@ -539,13 +539,19 @@ export async function POST(request) {
       payment = paymentData;
     }
 
-    // Confirmation email uses the persisted order items, never the request body.
+    // Confirmation email + WhatsApp use the persisted order items, never the request body.
+    let orderItems = [];
     try {
-      const { data: orderItems } = await SupabaseClient
+      const itemsResult = await SupabaseClient
         .from("order_items")
         .select("product_name_snapshot, quantity, unit_price_snapshot, line_total")
         .eq("order_id", order.id);
+      orderItems = itemsResult.data ?? [];
+    } catch {
+      // Notifications are best-effort; an items read failure must not fail the order.
+    }
 
+    try {
       const { sendOrderConfirmation } = await import("@/lib/email");
       await sendOrderConfirmation({
         orderId: order.id,
@@ -574,6 +580,33 @@ export async function POST(request) {
     } catch (emailError) {
       // Email is best-effort: order creation must not fail because of Resend.
       logger.error("[Email Error]", emailError);
+    }
+
+    // WhatsApp notification is best-effort and isolated, exactly like email.
+    // The adapter never claims delivery without a provider response.
+    try {
+      const { sendOrderWhatsApp } = await import("@/lib/whatsapp");
+      await sendOrderWhatsApp({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        customerName: String(shipping_address.full_name).trim(),
+        customerPhone: String(shipping_address.phone ?? "").trim(),
+        currency: order.currency,
+        items: (orderItems || []).map((item) => ({
+          name: item.product_name_snapshot,
+          quantity: item.quantity,
+          price: Number(item.unit_price_snapshot),
+          lineTotal: Number(item.line_total),
+        })),
+        subtotal: Number(order.subtotal || 0),
+        shipping: Number(order.shipping_fee || 0),
+        tax: Number(order.tax || 0),
+        discount: Number(order.discount_amount || 0),
+        total: Number(order.total || 0),
+        paymentMethod: requestedPaymentMethod,
+      });
+    } catch (whatsappError) {
+      logger.warn("[WhatsApp] side effect failed", whatsappError);
     }
 
     return Response.json(

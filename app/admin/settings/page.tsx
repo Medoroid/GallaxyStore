@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Loader2, Store, Mail, Phone, MapPin, Megaphone, Share2, Wallet } from "lucide-react";
+import { Save, Loader2, Store, Mail, Phone, MapPin, Megaphone, Share2, Wallet, MessageCircle } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import {
   EMPTY_EXTERNAL_WALLET_SETTINGS,
@@ -21,6 +21,8 @@ type SettingsForm = {
   instagram_url: string;
   facebook_url: string;
   twitter_url: string;
+  whatsapp_enabled: boolean;
+  whatsapp_number: string;
 };
 
 const DEFAULTS: SettingsForm = {
@@ -37,6 +39,8 @@ const DEFAULTS: SettingsForm = {
   instagram_url: "",
   facebook_url: "",
   twitter_url: "",
+  whatsapp_enabled: false,
+  whatsapp_number: "",
 };
 
 export default function AdminSettingsPage() {
@@ -76,6 +80,8 @@ export default function AdminSettingsPage() {
             instagram_url: String(settings.instagram_url ?? ""),
             facebook_url: String(settings.facebook_url ?? ""),
             twitter_url: String(settings.twitter_url ?? ""),
+            whatsapp_enabled: settings.whatsapp?.enabled === true,
+            whatsapp_number: String(settings.whatsapp?.number ?? ""),
           });
           setWallet(
             isExternalWalletSettings(settings.external_wallet)
@@ -125,6 +131,11 @@ export default function AdminSettingsPage() {
             free_shipping_threshold: Number(form.free_shipping_threshold || 0),
             default_shipping_fee: Number(form.default_shipping_fee || 0),
             external_wallet: wallet,
+            whatsapp: {
+              enabled: form.whatsapp_enabled,
+              number: form.whatsapp_number,
+              include_customer_phone: true,
+            },
           },
         }),
       });
@@ -341,6 +352,39 @@ export default function AdminSettingsPage() {
           <p className="text-xs text-amber-300">
             Wallet transfers are currently hidden at checkout. Cash on delivery remains available.
           </p>
+        )}
+      </div>
+
+      <div className="glass rounded-2xl p-6 space-y-5">
+        <div className="flex items-center gap-2 text-white font-semibold">
+          <MessageCircle className="w-5 h-5 text-[var(--brand)]" /> WhatsApp order notifications
+        </div>
+        <p className="text-sm text-gray-400">
+          Send every placed order to this number. The receiving number is stored privately and is
+          never exposed on the storefront. Delivery requires WhatsApp Cloud API credentials on the
+          server (see the environment template); without them the notification is recorded as
+          blocked — it is never reported as sent.
+        </p>
+        <label className="flex items-center gap-3 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={form.whatsapp_enabled}
+            onChange={(e) => setForm((prev) => ({ ...prev, whatsapp_enabled: e.target.checked }))}
+            className="h-4 w-4 rounded border-white/20 bg-transparent"
+          />
+          Send order details on WhatsApp
+        </label>
+        <Field label="Receiving number (international format)">
+          <input
+            value={form.whatsapp_number}
+            onChange={(e) => setForm((prev) => ({ ...prev, whatsapp_number: e.target.value }))}
+            maxLength={20}
+            className={INPUT_CLASS}
+            placeholder="+201234567890"
+          />
+        </Field>
+        {!form.whatsapp_enabled && (
+          <p className="text-xs text-amber-300">WhatsApp notifications are currently disabled.</p>
         )}
       </div>
 

@@ -4,6 +4,10 @@ import {
   EXTERNAL_WALLET_SETTING_KEY,
   normalizeExternalWalletSettings,
 } from "@/lib/payment-settings";
+import {
+  WHATSAPP_SETTING_KEY,
+  normalizeWhatsappSettings,
+} from "@/lib/whatsapp";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
@@ -55,6 +59,8 @@ function validate(key, value) {
     }
     case EXTERNAL_WALLET_SETTING_KEY:
       return normalizeExternalWalletSettings(value, true);
+    case WHATSAPP_SETTING_KEY:
+      return normalizeWhatsappSettings(value, true);
     default:
       throw new Error(`Unknown setting: ${key}`);
   }
