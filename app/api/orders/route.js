@@ -605,9 +605,11 @@ export async function POST(request) {
         orderNumber: order.order_number,
         storeName: "Gallaxy Store",
         orderDate: order.placed_at || order.created_at,
-        customerName: String(shipping_address.full_name).trim(),
-        customerPhone: String(shipping_address.phone ?? "").trim(),
-        customerEmail: email,
+        // Prefer the persisted snapshot so the message is built from stored
+        // order data, not from the request body.
+        customerName: String(savedAddress.full_name ?? shipping_address.full_name).trim(),
+        customerPhone: String(savedAddress.phone ?? shipping_address.phone ?? "").trim(),
+        customerEmail: order.customer_email || email,
         shippingAddress: savedAddress,
         currency: order.currency,
         items: (orderItems || []).map((item) => ({
