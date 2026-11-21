@@ -30,4 +30,4 @@ export const categories = [
   { id: 7, name: "Stickers", image: "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?auto=format&fit=crop&w=300&q=80", count: 300 },
 ];
 
-export const heroImg = "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1800&q=85";
+export const heroImg = "/hero-astronaut.jpg";
