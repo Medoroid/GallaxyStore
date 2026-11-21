@@ -27,5 +27,9 @@ curl -s https://gallaxy-store-staging.vercel.app/api/auth/google-status
 ```
 Then browser-test "Sign in with Google" on https://gallaxy-store-staging.vercel.app/login with the synthetic staging account allowed by that OAuth client.
 
-## Until then
-Email/password login works. Google sign-in is **BLOCKED BY EXTERNAL CREDENTIALS**, not failed.
+## Code bug found and fixed (2026-11-21)
+A tester reported: after choosing a Google account and being redirected back, no user session existed.
+Root cause in `app/auth/callback/route.ts`: the code exchange wrote cookies to a throwaway `NextResponse.next()` (`supabaseResponse`), then the handler returned a **new** `NextResponse.redirect()` — so the session cookie never reached the browser. Fixed by collecting `setAll()` cookies and attaching them to the actual redirect response. Regression test added to `__tests__/auth-callback-contract.test.ts` (asserts `Set-Cookie` on the 307). Unit suite: **1485 passed**. Redeployed to Staging.
+
+## Still blocked (external)
+`/api/auth/google-status` on the deployed Staging app still returns `{"enabled":false}` and a direct probe of `.../auth/v1/authorize?provider=google` returns HTTP 400 "Unsupported provider". The Google provider is therefore **not enabled on the Staging Supabase project** — no OAuth flow can complete there until the owner enables it and registers the callback. Live Google sign-in is **BLOCKED BY EXTERNAL CONFIGURATION**, not by application code.
