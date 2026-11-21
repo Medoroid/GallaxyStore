@@ -66,7 +66,7 @@ export async function Footer() {
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-gradient-gold">Shop</h4>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-gradient-gold">Shop</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/products" className="hover:text-foreground">All Products</Link></li>
               <li><Link href="/custom-print" className="hover:text-foreground">Custom Print</Link></li>
@@ -76,7 +76,7 @@ export async function Footer() {
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-gradient-gold">Help</h4>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-gradient-gold">Help</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/track-order" className="hover:text-foreground">Track Order</Link></li>
               <li><Link href="/faq" className="hover:text-foreground">FAQ</Link></li>

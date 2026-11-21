@@ -130,6 +130,22 @@ export default async function RootLayout({
       } as React.CSSProperties}
     >
       <head>
+        {/* Critical self-hosted font weights only (body + heading). Other
+            weights/subsets load on demand from the CSS. */}
+        <link
+          rel="preload"
+          href="/fonts/poppins-400-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/poppins-800-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

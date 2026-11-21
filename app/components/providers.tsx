@@ -31,7 +31,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       />
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* Devtools are development-only; the production bundle must not ship them. */}
+      {process.env.NODE_ENV === "development" && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
     </QueryClientProvider>
   )
 }

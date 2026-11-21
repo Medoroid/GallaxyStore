@@ -3,7 +3,24 @@ import { SafeImage } from "@/app/components/SafeImage";
 import Link from "next/link";
 import { Sparkles, ArrowRight, Palette, Truck, Star, Gift } from "lucide-react";
 import { ProductCard } from "./components/ProductCard";
-import { FeaturedDropsSlider } from "./components/FeaturedDropsSlider";
+import dynamic from "next/dynamic";
+
+// Swiper + the slider are below the fold. Load them after hydration so the
+// initial main thread is reserved for the hero / LCP work. The placeholder
+// reserves the same grid height as the loading state to avoid layout shift.
+const FeaturedDropsSlider = dynamic(
+  () => import("./components/FeaturedDropsSlider").then((m) => m.FeaturedDropsSlider),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="glass rounded-2xl sm:rounded-3xl p-3 aspect-[3/4] animate-pulse" />
+        ))}
+      </div>
+    ),
+  }
+);
 import { heroImg } from "@/data/products";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -81,8 +98,9 @@ export default function Home() {
           src={heroImg}
           alt="Galaxy Store Hero"
           fill
-          priority
-          sizes="100vw"
+          loading="eager"
+          fetchPriority="high"
+          sizes="(max-width: 1280px) 100vw, 1280px"
           className="object-cover object-center opacity-45"
           style={{ zIndex: 0 }}
         />
@@ -120,8 +138,12 @@ export default function Home() {
             </div>
           </div>
           {/* Hero floating product cards — real products from the catalog */}
-          <div className="relative hidden md:flex items-center justify-center min-h-[380px]">
-            <div className="absolute -inset-10 bg-gradient-neon opacity-25 blur-3xl rounded-full" />
+          <div className="relative hidden md:flex items-center justify-center h-[380px]">
+            <div
+              className="absolute -inset-10 bg-gradient-neon opacity-25 blur-3xl rounded-full pointer-events-none"
+              style={{ transform: "translateZ(0)" }}
+              aria-hidden="true"
+            />
             {isLoading && (
               <div className="glass-strong rounded-3xl p-4 rotate-3 overflow-hidden mx-auto space-y-3" style={{ width: 260 }}>
                 <div className="rounded-2xl bg-white/5 animate-pulse" style={{ height: 260 }} />

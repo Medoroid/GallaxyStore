@@ -13,6 +13,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Array<{ name: string; slug: string; id: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -39,6 +40,7 @@ export function Navbar() {
   useEffect(() => {
     setOpen(false);
     setShowSuggestions(false);
+    setMobileSearchOpen(false);
   }, [pathname]);
 
   // Lock body scroll when mobile menu is open
@@ -151,23 +153,24 @@ export function Navbar() {
     <>
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? "py-2" : "py-4"
+          scrolled ? "py-1.5 sm:py-2" : "py-2 sm:py-4"
         }`}
       >
-        <div className="mx-auto max-w-7xl px-4">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4">
           <div
-            className={`glass-nav rounded-2xl px-3 md:px-6 py-2.5 flex items-center justify-between transition-all duration-300 ${
+            className={`glass-nav rounded-2xl px-2.5 sm:px-4 md:px-6 py-2 sm:py-2.5 flex items-center justify-between transition-all duration-300 ${
               scrolled ? "pink-glow" : ""
             }`}
           >
             <Link href="/" className="flex items-center gap-2 group shrink-0" aria-label="Galaxy Store Home">
-              <div className="relative h-10 md:h-12 w-32 md:w-40 flex items-center">
+              <div className="relative h-8 sm:h-9 md:h-11 w-24 sm:w-28 md:w-36 flex items-center">
                 <Image
                   src="/logo.png"
                   alt="Galaxy Store"
                   fill
-                  priority
-                  sizes="(max-width: 768px) 128px, 160px"
+                  loading="eager"
+                  fetchPriority="low"
+                  sizes="(max-width: 640px) 96px, (max-width: 768px) 112px, 144px"
                   className="object-contain object-left rtl:object-right group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_12px_rgba(255,79,216,0.35)]"
                 />
               </div>
@@ -192,9 +195,19 @@ export function Navbar() {
               })}
             </nav>
 
-            <div className="flex items-center gap-2">
-              {/* Search */}
-              <div className="relative" ref={searchRef}>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Mobile Search Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                className="sm:hidden h-9 w-9 inline-flex items-center justify-center rounded-xl glass hover:pink-glow transition-all text-white/90 shrink-0 active:scale-95"
+                aria-label={mobileSearchOpen ? "Close search" : "Search products"}
+              >
+                {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+              </button>
+
+              {/* Desktop / Tablet Search */}
+              <div className="relative hidden sm:block" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
@@ -203,11 +216,11 @@ export function Navbar() {
                     onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
                     placeholder="Search..."
                     aria-label="Search products"
-                    className="h-10 w-28 sm:w-36 lg:w-48 pl-9 pr-3 rounded-xl glass text-sm outline-none focus:pink-glow transition-all placeholder:text-muted-foreground"
+                    className="h-9 sm:w-32 md:w-44 lg:w-48 pl-9 pr-3 rounded-xl glass text-xs sm:text-sm outline-none focus:pink-glow transition-all placeholder:text-muted-foreground"
                   />
                 </form>
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-12 left-0 right-0 glass rounded-xl p-2 min-w-[220px] animate-fade-in-up z-[200]">
+                  <div className="absolute top-11 left-0 right-0 glass rounded-xl p-2 min-w-[220px] animate-fade-in-up z-[200]">
                     {suggestions.map((s, i) => (
                       <button
                         key={i}
@@ -249,7 +262,7 @@ export function Navbar() {
 
               {/* Notifications */}
               {user && (
-                <div className="relative" ref={notifRef}>
+                <div className="relative hidden sm:block" ref={notifRef}>
                   <button
                     onClick={() => setShowNotifications((v) => !v)}
                     className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl glass hover:pink-glow transition-all"
@@ -287,51 +300,22 @@ export function Navbar() {
                 </div>
               )}
 
-              {/* Admin Dashboard Button (Only for Admin) */}
-              {/* {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="h-10 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white font-bold text-xs inline-flex items-center gap-1.5 hover:scale-105 hover:pink-glow transition-all shadow-md shrink-0 border border-pink-400/40"
-                  aria-label="Admin Dashboard"
-                  title="Admin Dashboard"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Admin</span>
-                </Link>
-              )} */}
-
               {/* User Profile Button: Displays single initial letter when logged in */}
               {user ? (
                 <Link
                   href="/profile"
-                  className="h-10 w-10 rounded-xl bg-gradient-neon text-white font-extrabold md:flex items-center justify-center hover:scale-105 hover:pink-glow transition-all shadow-md text-base shrink-0 border border-white/20 select-none hidden"
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-neon text-white font-extrabold md:flex items-center justify-center hover:scale-105 hover:pink-glow transition-all shadow-md text-xs sm:text-base shrink-0 border border-white/20 select-none hidden"
                   aria-label="Profile"
                   title={userDisplayName}
                 >
                   {userInitial}
                 </Link>
               ) : null}
-{/* 
-              {user && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await signOut();
-                    router.push("/");
-                    router.refresh();
-                  }}
-                  aria-label="Sign out"
-                  title="Sign out"
-                  className="hidden h-10 w-10 items-center justify-center rounded-xl glass hover:text-red-300 transition-colors shrink-0 md:flex"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              )} */}
 
               {!user ? (
                 <Link
                   href="/login"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl glass hover:pink-glow transition-all shrink-0"
+                  className="hidden sm:inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl glass hover:pink-glow transition-all shrink-0"
                   aria-label="Account"
                 >
                   <User className="h-4 w-4" />
@@ -351,12 +335,12 @@ export function Navbar() {
               {!isAdminRoute && (
                 <Link
                   href="/cart"
-                  className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl bg-gradient-neon text-white hover:scale-105 transition-transform shrink-0"
+                  className="relative h-9 w-9 sm:h-10 sm:w-10 inline-flex items-center justify-center rounded-xl bg-gradient-neon text-white hover:scale-105 transition-transform shrink-0"
                   aria-label="Cart"
                 >
                   <ShoppingBag className="h-4 w-4" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-[10px] font-bold text-background grid place-items-center gold-glow">
+                    <span className="absolute -top-1 -right-1 h-4.5 w-4.5 sm:h-5 sm:w-5 rounded-full bg-accent text-[9px] sm:text-[10px] font-bold text-background grid place-items-center gold-glow">
                       {cartCount}
                     </span>
                   )}
@@ -366,7 +350,7 @@ export function Navbar() {
               {/* Hamburger Button for Mobile Drawer */}
               <button
                 onClick={() => setOpen((v) => !v)}
-                className="lg:hidden h-10 w-10 inline-flex items-center justify-center rounded-xl glass hover:pink-glow transition-all shrink-0"
+                className="lg:hidden h-9 w-9 sm:h-10 sm:w-10 inline-flex items-center justify-center rounded-xl glass hover:pink-glow transition-all shrink-0 active:scale-95"
                 aria-label={open ? "Close menu" : "Open menu"}
                 aria-expanded={open}
               >
@@ -374,6 +358,50 @@ export function Navbar() {
               </button>
             </div>
           </div>
+
+          {/* Expandable Mobile Search Bar */}
+          {mobileSearchOpen && (
+            <div className="mt-2 sm:hidden animate-fade-in-up">
+              <div className="glass-nav rounded-2xl p-2.5 shadow-2xl flex items-center gap-2 border border-pink-500/30">
+                <Search className="h-4 w-4 text-pink-400 shrink-0 ml-1" />
+                <form onSubmit={handleSearchSubmit} className="flex-1">
+                  <input
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search products, gifts, gear..."
+                    aria-label="Search products"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground text-white"
+                  />
+                </form>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="h-6 w-6 rounded-lg glass flex items-center justify-center text-xs text-muted-foreground hover:text-white"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="glass rounded-xl p-2 mt-1.5 shadow-xl animate-fade-in-up z-[200]">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        handleSuggestionClick(s);
+                        setMobileSearchOpen(false);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg text-sm text-left hover:bg-white/10 transition-all truncate text-white"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
 

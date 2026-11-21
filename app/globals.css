@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap');
+/* Self-hosted fonts: no external Google Fonts request chain. */
+@import "./fonts.css";
 @import "tailwindcss";
 
 /*
@@ -200,7 +201,7 @@
 
   body {
     color: var(--color-foreground);
-    font-family: var(--font-body);
+    font-family: var(--font-body), 'Poppins Fallback', 'Tajawal Fallback', system-ui, sans-serif;
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-body);
     line-height: var(--line-height-body);
@@ -218,7 +219,7 @@
   }
 
   h1, h2, h3, h4 {
-    font-family: var(--font-heading);
+    font-family: var(--font-heading), 'Poppins Fallback', 'Tajawal Fallback', system-ui, sans-serif;
     font-weight: var(--font-weight-heading);
     letter-spacing: var(--letter-spacing-heading);
   }
@@ -572,6 +573,12 @@
 
 /* Decorations are pure ornament: freeze them for reduced-motion users. */
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .theme-decor * {
     animation: none !important;
   }
