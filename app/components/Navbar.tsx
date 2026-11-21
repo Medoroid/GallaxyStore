@@ -130,7 +130,7 @@ export function Navbar() {
     { href: "/products", label: t("nav_products") },
     { href: "/custom-print", label: t("nav_custom_print") },
     { href: "/gallery", label: t("nav_gallery") },
-    { href: "/designs", label: t("nav_designs") },
+    // { href: "/designs", label: t("nav_designs") },
     { href: "/gift-boxes", label: t("nav_gift_boxes") },
     // { href: "/creators", label: t("nav_creators") },
   ];

@@ -1,6 +1,8 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeNext } from "@/lib/redirect";
+
+type PendingCookie = { name: string; value: string; options?: CookieOptions };
 
 function safeRedirect(next: string, origin: string): string {
   if (
@@ -31,7 +33,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (code) {
-    let supabaseResponse = NextResponse.next({ request });
+    // Cookies produced by the code exchange MUST be attached to the response
+    // we actually return. Setting them on a throwaway NextResponse.next() and
+    // then returning a fresh redirect silently drops the session.
+    const pendingCookies: PendingCookie[] = [];
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,10 +50,7 @@ export async function GET(request: NextRequest) {
             cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
             );
-            supabaseResponse = NextResponse.next({ request });
-            cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
-            );
+            pendingCookies.push(...cookiesToSet);
           },
         },
       }
@@ -58,7 +60,11 @@ export async function GET(request: NextRequest) {
       await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
-      return NextResponse.redirect(safeRedirect(next, origin));
+      const redirectResponse = NextResponse.redirect(safeRedirect(next, origin));
+      for (const { name, value, options } of pendingCookies) {
+        redirectResponse.cookies.set(name, value, options);
+      }
+      return redirectResponse;
     }
   }
 
