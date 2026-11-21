@@ -589,7 +589,7 @@ function ProductDetailsClient({ id }) {
             <button
               id="add-to-cart-btn"
               onClick={handleAddToCart}
-              className="flex-1 h-14 rounded-2xl bg-gradient-neon text-white font-bold flex items-center justify-center gap-2 pink-glow hover:scale-[1.02] transition-transform"
+              className="flex-1 h-14 rounded-2xl bg-gradient-neon text-white font-bold flex items-center justify-center gap-2 pink-glow hover:scale-[1.02] transition-transform px-3"
             >
               <ShoppingBag className="h-5 w-5" /> Add to Cart
             </button>
