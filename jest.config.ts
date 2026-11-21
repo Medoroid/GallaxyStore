@@ -18,6 +18,8 @@ const config: Config = {
     "<rootDir>/e2e/",
     // Phase 1 Local E2E suite — run with playwright.local.config.ts, never Jest.
     "<rootDir>/e2e-local/",
+    // Phase 2 Staging E2E suite — run with playwright.staging.config.ts.
+    "<rootDir>/e2e-staging/",
     "<rootDir>/playwright.config\\.ts$",
   ],
   transform: {

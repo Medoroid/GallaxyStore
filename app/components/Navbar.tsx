@@ -165,11 +165,12 @@ export function Navbar() {
             <Link href="/" className="flex items-center gap-2 group shrink-0" aria-label="Galaxy Store Home">
               <div className="relative h-8 sm:h-9 md:h-11 w-24 sm:w-28 md:w-36 flex items-center">
                 <Image
-                  src="/logo.png"
+                  src="/logo-optimized.webp"
                   alt="Galaxy Store"
                   fill
                   loading="eager"
                   fetchPriority="low"
+                  quality={65}
                   sizes="(max-width: 640px) 96px, (max-width: 768px) 112px, 144px"
                   className="object-contain object-left rtl:object-right group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_12px_rgba(255,79,216,0.35)]"
                 />
@@ -428,9 +429,10 @@ export function Navbar() {
                 <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2 group" aria-label="Galaxy Store Home">
                   <div className="relative h-10 w-32 flex items-center">
                     <Image
-                      src="/logo.png"
+                      src="/logo-optimized.webp"
                       alt="Galaxy Store"
                       fill
+                      quality={65}
                       sizes="128px"
                       className="object-contain object-left rtl:object-right group-hover:scale-105 transition-transform drop-shadow-[0_0_12px_rgba(255,79,216,0.35)]"
                     />

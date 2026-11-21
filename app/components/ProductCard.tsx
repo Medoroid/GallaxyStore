@@ -133,7 +133,7 @@ export function ProductCard({ product, href }: ProductCardProps) {
             src={imageSrc}
             alt={title}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1440px) 25vw, 20vw"
             className="object-cover transition-transform duration-700 group-hover:scale-105"
             onError={() => setImageSrc(FALLBACK_IMAGE)}
           />

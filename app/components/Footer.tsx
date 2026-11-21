@@ -35,9 +35,10 @@ export async function Footer() {
             <Link href="/" className="inline-flex items-center gap-2 group" aria-label={storeName}>
               <div className="relative h-14 md:h-16 w-44 md:w-52 flex items-center">
                 <Image
-                  src="/logo.png"
+                  src="/logo-optimized.webp"
                   alt={storeName}
                   fill
+                  quality={65}
                   sizes="(max-width: 768px) 176px, 208px"
                   className="object-contain object-left rtl:object-right group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(255,79,216,0.35)]"
                 />

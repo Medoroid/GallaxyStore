@@ -242,7 +242,17 @@ export default function Home() {
                 className="group glass rounded-2xl p-4 text-center hover:pink-glow hover:-translate-y-1 transition-all"
               >
                 <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-background/40 grid place-items-center">
-                  <Gift className="h-8 w-8 text-secondary group-hover:scale-125 transition-transform duration-500" />
+                  {c.image_url ? (
+                    <SafeImage
+                      src={c.image_url}
+                      alt={c.name}
+                      fill
+                      sizes="(max-width: 640px) 45vw, (max-width: 1024px) 22vw, 14vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <Gift className="h-8 w-8 text-secondary group-hover:scale-125 transition-transform duration-500" />
+                  )}
                 </div>
                 <p className="font-semibold text-sm">{c.name}</p>
                 <p className="text-[11px] text-muted-foreground">

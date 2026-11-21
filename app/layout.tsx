@@ -9,6 +9,7 @@ import ThemePreviewBridge from "./components/ThemePreviewBridge";
 import { getPublicStoreSettings } from "@/lib/storeSettings";
 import { getResolvedTheme } from "@/lib/themes/server";
 import { themeToCss } from "@/lib/themes/css";
+import { FONT_FACES_CSS } from "./fonts-inline";
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://galaxystore.com";
 const DEFAULT_STORE_NAME = "Galaxy Store";
@@ -130,8 +131,13 @@ export default async function RootLayout({
       } as React.CSSProperties}
     >
       <head>
-        {/* Critical self-hosted font weights only (body + heading). Other
-            weights/subsets load on demand from the CSS. */}
+        {/* Font faces are inlined so the browser can discover them from the
+            initial HTML instead of waiting for the render-blocking CSS chunk.
+            Only the weights actually used load; files remain self-hosted. */}
+        <style dangerouslySetInnerHTML={{ __html: FONT_FACES_CSS }} />
+        {/* Critical self-hosted fonts only. These four cover the LCP text on
+            the storefront (body, heading and Arabic subset). Other weights/
+            subsets still load on demand from fonts.css. */}
         <link
           rel="preload"
           href="/fonts/poppins-400-latin.woff2"
@@ -141,7 +147,21 @@ export default async function RootLayout({
         />
         <link
           rel="preload"
-          href="/fonts/poppins-800-latin.woff2"
+          href="/fonts/poppins-600-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/tajawal-400-arabic.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/tajawal-700-arabic.woff2"
           as="font"
           type="font/woff2"
           crossOrigin="anonymous"

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
+import { CatalogImageField } from "./CatalogImageField";
 
 type CatalogType = "categories" | "brands";
 
@@ -282,14 +283,11 @@ export default function CatalogManager({ type }: { type: CatalogType }) {
                     onChange={(e) => setField("icon", e.target.value)}
                   />
                 </label>
-                <label className="block">
-                  <span className="text-xs text-gray-400">Image URL</span>
-                  <input
-                    className={`${FIELD} mt-1`}
-                    value={String(form.image_url ?? "")}
-                    onChange={(e) => setField("image_url", e.target.value)}
-                  />
-                </label>
+                <CatalogImageField
+                  label="Category image"
+                  value={String(form.image_url ?? "")}
+                  onChange={(value) => setField("image_url", value)}
+                />
                 <label className="block">
                   <span className="text-xs text-gray-400">Parent category</span>
                   <select
@@ -319,14 +317,11 @@ export default function CatalogManager({ type }: { type: CatalogType }) {
               </>
             ) : (
               <>
-                <label className="block">
-                  <span className="text-xs text-gray-400">Logo URL</span>
-                  <input
-                    className={`${FIELD} mt-1`}
-                    value={String(form.logo_url ?? "")}
-                    onChange={(e) => setField("logo_url", e.target.value)}
-                  />
-                </label>
+                <CatalogImageField
+                  label="Brand logo"
+                  value={String(form.logo_url ?? "")}
+                  onChange={(value) => setField("logo_url", value)}
+                />
                 <label className="block">
                   <span className="text-xs text-gray-400">Website URL</span>
                   <input
@@ -420,14 +415,11 @@ export default function CatalogManager({ type }: { type: CatalogType }) {
                     onChange={(e) => setField("icon", e.target.value)}
                   />
                 </label>
-                <label className="block">
-                  <span className="text-xs text-gray-400">Image URL</span>
-                  <input
-                    className={`${FIELD} mt-1`}
-                    value={String(form.image_url ?? "")}
-                    onChange={(e) => setField("image_url", e.target.value)}
-                  />
-                </label>
+                <CatalogImageField
+                  label="Category image"
+                  value={String(form.image_url ?? "")}
+                  onChange={(value) => setField("image_url", value)}
+                />
                 <label className="block">
                   <span className="text-xs text-gray-400">Parent category</span>
                   <select
@@ -455,14 +447,11 @@ export default function CatalogManager({ type }: { type: CatalogType }) {
               </>
             ) : (
               <>
-                <label className="block">
-                  <span className="text-xs text-gray-400">Logo URL</span>
-                  <input
-                    className={`${FIELD} mt-1`}
-                    value={String(form.logo_url ?? "")}
-                    onChange={(e) => setField("logo_url", e.target.value)}
-                  />
-                </label>
+                <CatalogImageField
+                  label="Brand logo"
+                  value={String(form.logo_url ?? "")}
+                  onChange={(value) => setField("logo_url", value)}
+                />
                 <label className="block">
                   <span className="text-xs text-gray-400">Website URL</span>
                   <input

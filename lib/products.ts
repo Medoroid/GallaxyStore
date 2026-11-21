@@ -306,6 +306,7 @@ export type CategoryWithCount = {
   id: string;
   name: string;
   slug: string | null;
+  image_url: string | null;
   count: number;
 };
 
@@ -318,7 +319,7 @@ export async function fetchCategoriesWithCounts(): Promise<CategoryWithCount[]> 
   const [categoriesRes, productsRes] = await Promise.all([
     supabase
       .from("categories")
-      .select("id, name, slug")
+      .select("id, name, slug, image_url")
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("sort_order"),
@@ -340,7 +341,12 @@ export async function fetchCategoriesWithCounts(): Promise<CategoryWithCount[]> 
     }
   }
 
-  return ((categoriesRes.data ?? []) as Array<{ id: string; name: string; slug: string | null }>)
+  return ((categoriesRes.data ?? []) as Array<{
+    id: string;
+    name: string;
+    slug: string | null;
+    image_url: string | null;
+  }>)
     .map((category) => ({
       ...category,
       count: counts.get(category.id) ?? 0,
