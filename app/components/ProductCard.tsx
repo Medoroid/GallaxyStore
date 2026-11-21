@@ -26,9 +26,9 @@ type RemoteProductCard = {
   badge?: string;
 };
 
-type ProductCardProduct = Product | RemoteProductCard;
+export type ProductCardProduct = Product | RemoteProductCard;
 
-interface ProductCardProps {
+export interface ProductCardProps {
   product: ProductCardProduct;
   href?: string;
 }

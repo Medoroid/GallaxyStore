@@ -8,9 +8,17 @@
  */
 
 const mockExchange = jest.fn();
+let mockSetAll: ((cookies: Array<{ name: string; value: string; options?: Record<string, unknown> }>) => void) | null = null;
 
 jest.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({ auth: { exchangeCodeForSession: mockExchange } }),
+  createServerClient: (_url: unknown, _key: unknown, options: {
+    cookies?: {
+      setAll?: (cookies: Array<{ name: string; value: string; options?: Record<string, unknown> }>) => void;
+    };
+  }) => {
+    mockSetAll = options?.cookies?.setAll ?? null;
+    return { auth: { exchangeCodeForSession: mockExchange } };
+  },
 }));
 
 import { GET } from "@/app/auth/callback/route";
@@ -22,6 +30,7 @@ function req(url: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSetAll = null;
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
 });
@@ -46,6 +55,18 @@ describe("GET /auth/callback", () => {
   it("accepts a safe local `next` path after a successful exchange", async () => {
     mockExchange.mockResolvedValue({ error: null });
     const res = await GET(req("http://localhost:3000/auth/callback?code=ok&next=%2Forders"));
+    expect(res.headers.get("location")).toBe("http://localhost:3000/orders");
+  });
+
+  it("attaches the exchanged session cookies to the redirect response", async () => {
+    mockExchange.mockImplementation(async () => {
+      // Mirrors @supabase/ssr: a successful exchange writes cookies via setAll.
+      mockSetAll?.([{ name: "sb-auth-token", value: "session-value", options: { path: "/", httpOnly: true } }]);
+      return { error: null };
+    });
+    const res = await GET(req("http://localhost:3000/auth/callback?code=ok&next=%2Forders"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("set-cookie")).toContain("sb-auth-token=session-value");
     expect(res.headers.get("location")).toBe("http://localhost:3000/orders");
   });
 

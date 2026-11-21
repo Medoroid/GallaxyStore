@@ -3,6 +3,7 @@ import { SafeImage } from "@/app/components/SafeImage";
 import Link from "next/link";
 import { Sparkles, ArrowRight, Palette, Truck, Star, Gift } from "lucide-react";
 import { ProductCard } from "./components/ProductCard";
+import { FeaturedDropsSlider } from "./components/FeaturedDropsSlider";
 import { heroImg } from "@/data/products";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -187,35 +188,14 @@ export default function Home() {
       {/* Admin-managed content below the hero */}
       <ContentZone page="home" zone="after_hero" className="mt-16" />
 
-      {/* Featured slider (marquee) */}
+      {/* Featured Drops Slider */}
       <section className="mt-16">
         <SectionHeading eyebrow="Trending" title="Featured Drops" />
-        {/* Pause-on-hover works via the CSS rule in globals.css */}
-        <div className="relative overflow-hidden mt-6 sm:mask-fade marquee-track px-1 sm:px-0">
-          <div className="flex gap-2.5 sm:gap-4 md:gap-5 animate-slide-x w-max">
-            {isLoading && (
-              <div className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-muted-foreground">
-                Loading...
-              </div>
-            )}
-            {error && (
-              <div className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0 glass rounded-2xl p-6 text-sm text-red-400">
-                Unable to load products.
-              </div>
-            )}
-            {homeProducts.map((p, i) => (
-              <div key={i} className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0">
-                <ProductCard product={p} href={`/product-details/${p.id}`} />
-              </div>
-            ))}
-            {/* Duplicate for seamless infinite loop */}
-            {homeProducts.map((p, i) => (
-              <div key={`dup-${i}`} className="w-[calc(50vw-20px)] min-w-[140px] sm:w-[220px] md:w-[260px] lg:w-[280px] shrink-0" aria-hidden="true">
-                <ProductCard product={p} href={`/product-details/${p.id}`} />
-              </div>
-            ))}
-          </div>
-        </div>
+        <FeaturedDropsSlider
+          products={homeProducts}
+          isLoading={isLoading}
+          error={error}
+        />
       </section>
 
       {/* Categories — real, with real published-product counts */}
