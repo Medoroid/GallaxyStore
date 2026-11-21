@@ -36,6 +36,10 @@ type Template = {
   isActive: boolean;
   store_product_id?: string | null;
   store_variant_id?: string | null;
+  store_variant_sku?: string | null;
+  store_variant_price?: number | null;
+  store_product_name?: string | null;
+  store_product_currency?: string | null;
 };
 
 type Submission = {
@@ -70,6 +74,9 @@ export default function AdminCustomPrintPage() {
   const { getToken } = useAuth();
   const [tab, setTab] = useState<"submissions" | "templates">("submissions");
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [priceDrafts, setPriceDrafts] = useState<
+    Record<string, { price: string; currency: string }>
+  >({});
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [editing, setEditing] = useState<Template | null>(null);
   const [json, setJson] = useState("");
@@ -93,8 +100,22 @@ export default function AdminCustomPrintPage() {
         setError(a?.message ?? "Could not load custom print data.");
         return;
       }
-      setSubmissions(a.submissions ?? []);
-      setTemplates(b?.success ? (b.templates ?? []) : (a.templates ?? []));
+      const list = (b?.success ? (b.templates ?? []) : (a.templates ?? [])) as Template[];
+      setTemplates(list);
+      setPriceDrafts(
+        Object.fromEntries(
+          list.filter((item) => item.id && item.store_variant_id).map((item) => [
+            item.id as string,
+            {
+              price:
+                item.store_variant_price != null
+                  ? String(item.store_variant_price)
+                  : "",
+              currency: item.store_product_currency || "USD",
+            },
+          ])
+        )
+      );
     } catch {
       setError("Network error.");
     }
@@ -285,6 +306,38 @@ export default function AdminCustomPrintPage() {
     }
   }
 
+  async function savePrice(item: Template) {
+    const draft = item.id ? priceDrafts[item.id] : null;
+    if (!draft || !item.id) return;
+    const price = Number(draft.price);
+    if (!Number.isFinite(price) || price < 0) {
+      setError("Enter a valid, non-negative price.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const token = await getToken();
+      const response = await fetch("/api/admin/custom-print/templates/price", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template_id: item.id,
+          price,
+          currency: draft.currency,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        setError(data?.message ?? "Could not save the price.");
+        return;
+      }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -386,27 +439,75 @@ export default function AdminCustomPrintPage() {
               className="px-3 py-2 rounded-lg text-xs bg-gradient-neon text-white">New template</button>
           </div>
           {templates.length === 0 && <p className="p-5 text-sm text-muted-foreground">No templates configured.</p>}
-          {templates.map((item) => (
-            <div key={item.id ?? item.template_key} className="p-4 flex flex-wrap items-center gap-3 justify-between">
-              <div>
-                <p className="font-semibold">{item.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {item.template_key} · {item.isActive ? "active" : "disabled"} · {item.views.length} view(s) ·{" "}
-                  {item.store_variant_id ? "linked to catalog variant" : "not linked to a sellable product"}
-                </p>
+          {templates.map((item) => {
+            const draft = item.id ? priceDrafts[item.id] : null;
+            return (
+              <div key={item.id ?? item.template_key} className="p-4 flex flex-wrap items-center gap-3 justify-between">
+                <div>
+                  <p className="font-semibold">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.template_key} · {item.isActive ? "active" : "disabled"} · {item.views.length} view(s) ·{" "}
+                    {item.store_variant_id
+                      ? `linked: ${item.store_product_name ?? item.store_variant_sku ?? item.store_variant_id}`
+                      : "not linked to a sellable product"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {draft && (
+                    <>
+                      <label className="text-xs text-muted-foreground">Price</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft.price}
+                        onChange={(event) =>
+                          setPriceDrafts((prev) => ({
+                            ...prev,
+                            [item.id as string]: {
+                              ...prev[item.id as string],
+                              price: event.target.value,
+                            },
+                          }))
+                        }
+                        className="w-24 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm"
+                      />
+                      <input
+                        value={draft.currency}
+                        maxLength={3}
+                        onChange={(event) =>
+                          setPriceDrafts((prev) => ({
+                            ...prev,
+                            [item.id as string]: {
+                              ...prev[item.id as string],
+                              currency: event.target.value.toUpperCase(),
+                            },
+                          }))
+                        }
+                        className="w-16 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm uppercase"
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void savePrice(item)}
+                        className="px-3 py-1.5 rounded-lg text-xs bg-gradient-neon text-white"
+                      >
+                        Save price
+                      </button>
+                    </>
+                  )}
+                  <button type="button" disabled={busy} onClick={() => openEditor(item)}
+                    className="px-3 py-2 rounded-lg text-xs glass">Edit</button>
+                  <button type="button" disabled={busy} onClick={() => void toggleTemplate(item)}
+                    className="px-3 py-2 rounded-lg text-xs glass">
+                    {item.isActive ? "Disable" : "Enable"}
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => void deleteTemplate(item)}
+                    className="px-3 py-2 rounded-lg text-xs bg-red-500/15 text-red-400">Delete</button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button type="button" disabled={busy} onClick={() => openEditor(item)}
-                  className="px-3 py-2 rounded-lg text-xs glass">Edit</button>
-                <button type="button" disabled={busy} onClick={() => void toggleTemplate(item)}
-                  className="px-3 py-2 rounded-lg text-xs glass">
-                  {item.isActive ? "Disable" : "Enable"}
-                </button>
-                <button type="button" disabled={busy} onClick={() => void deleteTemplate(item)}
-                  className="px-3 py-2 rounded-lg text-xs bg-red-500/15 text-red-400">Delete</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

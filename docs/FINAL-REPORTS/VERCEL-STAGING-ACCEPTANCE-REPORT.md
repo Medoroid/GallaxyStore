@@ -46,6 +46,8 @@ A follow-up tester report showed `500` on the same endpoint: `23505 duplicate ke
 A further tester report showed `400` on `POST /api/custom-print/cart` with `design_id: null`. Root cause: a frontend contract mismatch — `CustomPrintStudio` read `saved.design_id` while `/api/designs` returns `{ design: { id } }`, so the id was always null. Fixed both call sites, seeded Staging `mockup_templates` mappings to real synthetic variants, added a full regression test (create design → add custom print to cart), redeployed. Deployed suite → **13/13 pass**. Commit `3e58535` pushed to `origin/staging`.
 
 A final 409 showed that only `hoodie`/`tshirt` had `mockup_templates` mappings. All 8 published template keys (`tshirt`, `hoodie`, `sweatshirt`, `mug`, `phone_case`, `tote_bag`, `poster`, `mouse_pad`) were seeded to real synthetic variants; the regression test now loops through all 8 and asserts 200. Deployed suite → **13/13 pass**. Commit `b4ae55e` pushed to `origin/staging`.
+
+Gift Box admin concern: all underlying APIs (`create_box`, `add_item`, image upload, admin list, public list) were verified working on the deployed URL via a synthetic box. The reported invisibility was due to boxes left in **Draft** status — the public listing intentionally shows only `published + visible` boxes. Added an explicit amber hint and a one-click **Publish now** action on draft cards in `/admin/gift-boxes`, redeployed, and confirmed the previously-draft synthetic box now appears at `/gift-boxes`. Commit `ca4da7c` pushed to `origin/staging`.
 - Production request leak check: **0** requests to production host.
 
 ## 5. Tested on deployed URL

@@ -283,7 +283,7 @@ export function Navbar() {
               )}
 
               {/* Admin Dashboard Button (Only for Admin) */}
-              {isAdmin && (
+              {/* {isAdmin && (
                 <Link
                   href="/admin"
                   className="h-10 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white font-bold text-xs inline-flex items-center gap-1.5 hover:scale-105 hover:pink-glow transition-all shadow-md shrink-0 border border-pink-400/40"
@@ -293,7 +293,7 @@ export function Navbar() {
                   <LayoutDashboard className="h-4 w-4" />
                   <span className="hidden sm:inline">Admin</span>
                 </Link>
-              )}
+              )} */}
 
               {/* User Profile Button: Displays single initial letter when logged in */}
               {user ? (
@@ -306,7 +306,7 @@ export function Navbar() {
                   {userInitial}
                 </Link>
               ) : null}
-
+{/* 
               {user && (
                 <button
                   type="button"
@@ -321,7 +321,7 @@ export function Navbar() {
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
-              )}
+              )} */}
 
               {!user ? (
                 <Link

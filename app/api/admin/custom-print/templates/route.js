@@ -35,7 +35,36 @@ export async function GET(request) {
     if (isMissingRelation(error)) return migrationRequiredResponse("admin.templates", MIGRATION_FILE);
     if (error) throw error;
 
-    return Response.json({ success: true, templates: (data ?? []).map(rowToTemplate) });
+    const rows = data ?? [];
+    const variantIds = [...new Set(rows.map((row) => row.store_variant_id).filter(Boolean))];
+    const productIds = [...new Set(rows.map((row) => row.store_product_id).filter(Boolean))];
+    const [variantsRes, productsRes] = await Promise.all([
+      variantIds.length
+        ? db.from("product_variants").select("id, sku, price").in("id", variantIds)
+        : { data: [], error: null },
+      productIds.length
+        ? db.from("products").select("id, name, currency, base_price").in("id", productIds)
+        : { data: [], error: null },
+    ]);
+    const variantById = new Map((variantsRes.data ?? []).map((row) => [row.id, row]));
+    const productById = new Map((productsRes.data ?? []).map((row) => [row.id, row]));
+
+    const templates = rows.map((row) => {
+      const variant = variantById.get(row.store_variant_id);
+      const product = productById.get(row.store_product_id);
+      return {
+        ...rowToTemplate(row),
+        id: row.id,
+        store_product_id: row.store_product_id ?? null,
+        store_variant_id: row.store_variant_id ?? null,
+        store_variant_sku: variant?.sku ?? null,
+        store_variant_price: variant?.price ?? null,
+        store_product_name: product?.name ?? null,
+        store_product_currency: product?.currency ?? null,
+      };
+    });
+
+    return Response.json({ success: true, templates });
   } catch (error) {
     return handleApiError(error, "Admin mockup templates GET", "Could not load mockup templates.");
   }
