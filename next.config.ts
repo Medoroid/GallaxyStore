@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   images: {
+    // Serve the smallest modern format the browser accepts. AVIF/WebP cut
+    // product-image payloads substantially with no visual change.
+    formats: ["image/avif", "image/webp"],
+    // Allowed optimization qualities. Next.js 16 requires this allowlist;
+    // the old singular `quality` config key is no longer valid.
+    qualities: [50, 65, 75],
+    // Intermediate widths stop the optimizer jumping from 128 -> 256 -> 384,
+    // which previously shipped ~2x the pixels needed for cards and logos.
+    deviceSizes: [
+      16, 32, 48, 64, 96, 128, 160, 192, 224, 256, 320, 384, 512, 640, 750, 828, 1080, 1200, 1920, 2048, 3840,
+    ],
     remotePatterns: [
       {
         protocol: "https",

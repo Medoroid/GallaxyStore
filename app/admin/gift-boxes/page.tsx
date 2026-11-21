@@ -794,7 +794,11 @@ export default function AdminGiftBoxesPage() {
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-400">{t("giftbox.images.title")}</span>
               <label
-                className={`${BTN_GHOST} cursor-pointer ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+                className={`${BTN_GHOST} cursor-pointer ${uploading ? "opacity-50 pointer-events-none" : ""} ${!selectedId ? "opacity-60" : ""}`}
+                  title={!selectedId ? "Save the box first, then upload images" : undefined}
+                  onClick={() => {
+                    if (!selectedId) setActionError("Save the box before uploading images.");
+                  }}
               >
                 {uploading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -816,7 +820,9 @@ export default function AdminGiftBoxesPage() {
               </label>
             </div>
             {!selectedId && (
-              <p className="text-[11px] text-gray-600">{t("giftbox.form.saveFirst")}</p>
+              <p className="text-[11px] text-amber-400/90">
+                Save the box first, then upload its images.
+              </p>
             )}
             {images.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
