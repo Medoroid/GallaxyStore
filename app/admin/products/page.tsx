@@ -57,6 +57,8 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
@@ -334,12 +336,18 @@ export default function AdminProductsPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.categories?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.brands?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory =
+      !categoryFilter || p.category_id === categoryFilter;
+    const matchesBrand = !brandFilter || p.brand_id === brandFilter;
+    const term = search.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      p.name.toLowerCase().includes(term) ||
+      p.categories?.name?.toLowerCase().includes(term) ||
+      p.brands?.name?.toLowerCase().includes(term);
+    return matchesCategory && matchesBrand && matchesSearch;
+  });
 
   // Compare-at is the ORIGINAL price before the discount, so it has to be
   // higher than the selling price. The API drops anything else (the storefront
@@ -394,18 +402,64 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search & filters */}
       <div className="glass rounded-2xl p-4">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products by name, category, or brand..."
-            className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
-          />
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto]">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products by name, category, or brand..."
+              className="w-full pl-12 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[var(--brand)]/50 transition-colors"
+            />
+          </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter by category"
+            className="px-3 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white text-sm focus:outline-none focus:border-[var(--brand)]/50"
+          >
+            <option value="" className="bg-black">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id} className="bg-black">
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            aria-label="Filter by brand"
+            className="px-3 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white text-sm focus:outline-none focus:border-[var(--brand)]/50"
+          >
+            <option value="" className="bg-black">All brands</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id} className="bg-black">
+                {brand.name}
+              </option>
+            ))}
+          </select>
+          {(search || categoryFilter || brandFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setCategoryFilter("");
+                setBrandFilter("");
+              }}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.05] text-gray-300 text-sm hover:bg-white/[0.08] whitespace-nowrap"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
+        {(categoryFilter || brandFilter) && (
+          <p className="text-xs text-gray-500 mt-2">
+            Showing {filteredProducts.length} of {products.length} products
+          </p>
+        )}
       </div>
 
       {/* Products Grid */}
