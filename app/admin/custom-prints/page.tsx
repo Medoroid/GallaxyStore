@@ -5,6 +5,7 @@ import {
   Palette,
   Loader2,
   ExternalLink,
+  Download,
   Save,
   Search,
   Mail,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { downloadImage, imageFilename } from "@/lib/download-image";
 
 type CustomPrintRequest = {
   id: string;
@@ -253,18 +255,52 @@ export default function AdminCustomPrintsPage() {
                       <span>{new Date(request.created_at).toLocaleString()}</span>
                     </div>
                   </div>
-                  {request.design_url ? (
-                    <a
-                      href={request.design_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.05] text-sm text-gray-300 hover:bg-white/[0.1]"
-                    >
-                      <ExternalLink className="w-4 h-4" /> Open artwork
-                    </a>
-                  ) : (
-                    <span className="text-xs text-red-400">Artwork link unavailable</span>
-                  )}
+                  <div className="flex flex-col items-end gap-2">
+                    {request.design_url && (
+                      <a
+                        href={request.design_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded-xl border border-white/10 bg-white/5"
+                      >
+                        <img
+                          src={request.design_url}
+                          alt={`Requested artwork for ${request.request_number}`}
+                          className="h-24 w-24 object-cover"
+                          loading="lazy"
+                        />
+                      </a>
+                    )}
+                    {request.design_url && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadImage(
+                            request.design_url,
+                            imageFilename(
+                              `${request.request_number}-artwork`,
+                              request.design_url
+                            )
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-xl bg-white/[0.05] px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.1]"
+                      >
+                        <Download className="w-3 h-3" /> Download
+                      </button>
+                    )}
+                    {request.design_url ? (
+                      <a
+                        href={request.design_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.05] text-sm text-gray-300 hover:bg-white/[0.1]"
+                      >
+                        <ExternalLink className="w-4 h-4" /> Open artwork
+                      </a>
+                    ) : (
+                      <span className="text-xs text-red-400">Artwork link unavailable</span>
+                    )}
+                  </div>
                 </div>
 
                 {(request.custom_text || request.notes) && (

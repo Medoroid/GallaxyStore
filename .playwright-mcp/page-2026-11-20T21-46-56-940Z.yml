@@ -1,0 +1,109 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - link "Galaxy Store Home" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Galaxy Store" [ref=e7]
+      - navigation [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Products" [ref=e10] [cursor=pointer]:
+          - /url: /products
+        - link "Custom Print" [ref=e11] [cursor=pointer]:
+          - /url: /custom-print
+        - link "Gallery" [ref=e12] [cursor=pointer]:
+          - /url: /gallery
+        - link "Designs" [ref=e13] [cursor=pointer]:
+          - /url: /designs
+        - link "Gift Boxes" [ref=e14] [cursor=pointer]:
+          - /url: /gift-boxes
+      - generic [ref=e15]:
+        - textbox "Search products" [ref=e21]:
+          - /placeholder: Search...
+        - button "Language" [ref=e23]
+        - button "Notifications" [ref=e127]
+        - link "Profile" [ref=e131] [cursor=pointer]:
+          - /url: /profile
+          - text: G
+        - button "Sign out" [ref=e132]
+        - link "Wishlist" [ref=e136] [cursor=pointer]:
+          - /url: /wishlist
+        - link "Cart" [ref=e31] [cursor=pointer]:
+          - /url: /cart
+  - generic [ref=e40]:
+    - paragraph [ref=e41]: Welcome back
+    - heading "Sign in to Galaxy" [level=1] [ref=e42]
+    - paragraph [ref=e43]: Access your orders, wishlist and custom designs.
+    - generic [ref=e44]:
+      - textbox "Email address" [ref=e49]: admin3@galaxystore.com
+      - generic [ref=e50]:
+        - textbox "Password" [ref=e54]: 3NPEGok2etL-REjjx4eq^qzn
+        - button "Show password" [ref=e55]
+      - link "Forgot Password?" [ref=e60] [cursor=pointer]:
+        - /url: /forgot-password
+      - button "Sign In" [ref=e61]
+      - generic [ref=e62]: or continue with
+      - button "Sign in with Google" [ref=e67]
+    - paragraph [ref=e73]:
+      - text: Don't have an account?
+      - link "Create one" [ref=e74] [cursor=pointer]:
+        - /url: /register
+  - contentinfo [ref=e75]:
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - link "Galaxy Store" [ref=e79] [cursor=pointer]:
+            - /url: /
+            - img "Galaxy Store" [ref=e81]
+          - paragraph [ref=e82]: Premium custom printing & galaxy-themed gifts. Bring your ideas to life with stellar quality, neon-bright colors, and out-of-this-world delivery.
+        - generic [ref=e83]:
+          - heading "Shop" [level=4] [ref=e84]
+          - list [ref=e85]:
+            - listitem [ref=e86]:
+              - link "All Products" [ref=e87] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=e88]:
+              - link "Custom Print" [ref=e89] [cursor=pointer]:
+                - /url: /custom-print
+            - listitem [ref=e90]:
+              - link "Gift Boxes" [ref=e91] [cursor=pointer]:
+                - /url: /gift-boxes
+            - listitem [ref=e92]:
+              - link "Gallery" [ref=e93] [cursor=pointer]:
+                - /url: /gallery
+        - generic [ref=e94]:
+          - heading "Help" [level=4] [ref=e95]
+          - list [ref=e96]:
+            - listitem [ref=e97]:
+              - link "Track Order" [ref=e98] [cursor=pointer]:
+                - /url: /track-order
+            - listitem [ref=e99]:
+              - link "FAQ" [ref=e100] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e101]:
+              - link "Contact Us" [ref=e102] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=e103]:
+              - link "Shipping Policy" [ref=e104] [cursor=pointer]:
+                - /url: /shipping
+            - listitem [ref=e105]:
+              - link "Return Policy" [ref=e106] [cursor=pointer]:
+                - /url: /returns
+      - generic [ref=e107]:
+        - link "About Us" [ref=e108] [cursor=pointer]:
+          - /url: /about
+        - link "Terms & Conditions" [ref=e109] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy Policy" [ref=e110] [cursor=pointer]:
+          - /url: /privacy
+      - paragraph [ref=e111]: © 2026 Galaxy Store. Crafted across the cosmos.
+  - region "Notifications alt+T"
+  - button "Open Tanstack query devtools" [ref=e189] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e238] [cursor=pointer]:
+    - generic [ref=e241]:
+      - text: Rendering
+      - generic [ref=e242]:
+        - generic [ref=e243]: .
+        - generic [ref=e244]: .
+        - generic [ref=e245]: .
+  - alert [ref=e125]

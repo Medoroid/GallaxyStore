@@ -27,6 +27,13 @@ const nextConfig: NextConfig = {
         hostname: "httywgkwfqvrbuwuzutu.supabase.co",
       },
       {
+        // Both production and staging Supabase projects (and any future one)
+        // serve product images from a *.supabase.co host. Without this, the
+        // optimizer returns 400 and product cards fall back to a generic image.
+        protocol: "https",
+        hostname: "**.supabase.co",
+      },
+      {
         protocol: "https",
         hostname: "i.pinimg.com",
       },

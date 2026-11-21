@@ -44,6 +44,8 @@ Both migrations applied to Staging and Local; regression test added to `e2e-stag
 A follow-up tester report showed `500` on the same endpoint: `23505 duplicate key "idx_files_checksum"` — the checksum column had a GLOBAL unique index, so uploading identical artwork into a second design always failed. Fixed by migration `20261122130000_design_files_checksum_not_unique.sql` (index kept for lookups, uniqueness removed). Regression test now uploads the same SVG twice; deployed suite re-run → **12/12 pass**. Commit `4aa5a03` pushed to `origin/staging`.
 
 A further tester report showed `400` on `POST /api/custom-print/cart` with `design_id: null`. Root cause: a frontend contract mismatch — `CustomPrintStudio` read `saved.design_id` while `/api/designs` returns `{ design: { id } }`, so the id was always null. Fixed both call sites, seeded Staging `mockup_templates` mappings to real synthetic variants, added a full regression test (create design → add custom print to cart), redeployed. Deployed suite → **13/13 pass**. Commit `3e58535` pushed to `origin/staging`.
+
+A final 409 showed that only `hoodie`/`tshirt` had `mockup_templates` mappings. All 8 published template keys (`tshirt`, `hoodie`, `sweatshirt`, `mug`, `phone_case`, `tote_bag`, `poster`, `mouse_pad`) were seeded to real synthetic variants; the regression test now loops through all 8 and asserts 200. Deployed suite → **13/13 pass**. Commit `b4ae55e` pushed to `origin/staging`.
 - Production request leak check: **0** requests to production host.
 
 ## 5. Tested on deployed URL

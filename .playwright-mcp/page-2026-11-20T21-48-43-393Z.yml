@@ -1,0 +1,89 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - generic [ref=f1e4]:
+      - link "GalaxyStore" [ref=f1e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f1e11]:
+        - link "Home" [ref=f1e12] [cursor=pointer]:
+          - /url: /
+        - link "Products" [ref=f1e13] [cursor=pointer]:
+          - /url: /products
+        - link "Custom Print" [ref=f1e14] [cursor=pointer]:
+          - /url: /custom-print
+        - link "Gallery" [ref=f1e15] [cursor=pointer]:
+          - /url: /gallery
+        - link "Gift Boxes" [ref=f1e16] [cursor=pointer]:
+          - /url: /gift-boxes
+      - generic [ref=f1e17]:
+        - textbox "Search..." [ref=f1e23]
+        - button "Language" [ref=f1e25]
+        - link "Account" [ref=f1e29] [cursor=pointer]:
+          - /url: /login
+        - link "Cart" [ref=f1e33] [cursor=pointer]:
+          - /url: /cart
+  - generic [ref=f1e42]:
+    - paragraph [ref=f1e43]: Welcome back
+    - heading "Sign in to Galaxy" [level=1] [ref=f1e44]
+    - paragraph [ref=f1e45]: Access your orders, wishlist and custom designs.
+    - generic [ref=f1e46]:
+      - textbox "Email address" [ref=f1e51]
+      - textbox "Password" [ref=f1e56]
+      - link "Forgot Password?" [ref=f1e58] [cursor=pointer]:
+        - /url: /forgot-password
+      - button "Sign In" [ref=f1e59]
+      - generic [ref=f1e60]: or continue with
+      - button "Sign in with Google" [ref=f1e65]
+    - paragraph [ref=f1e71]:
+      - text: Don't have an account?
+      - link "Create one" [ref=f1e72] [cursor=pointer]:
+        - /url: /register
+  - contentinfo [ref=f1e73]:
+    - generic [ref=f1e74]:
+      - generic [ref=f1e75]:
+        - generic [ref=f1e76]:
+          - link "Galaxy Store" [ref=f1e77] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=f1e82]: Premium custom printing & galaxy-themed gifts. Bring your ideas to life with stellar quality, neon-bright colors, and out-of-this-world delivery.
+        - generic [ref=f1e83]:
+          - heading "Shop" [level=4] [ref=f1e84]
+          - list [ref=f1e85]:
+            - listitem [ref=f1e86]:
+              - link "All Products" [ref=f1e87] [cursor=pointer]:
+                - /url: /products
+            - listitem [ref=f1e88]:
+              - link "Custom Print" [ref=f1e89] [cursor=pointer]:
+                - /url: /custom-print
+            - listitem [ref=f1e90]:
+              - link "Gift Boxes" [ref=f1e91] [cursor=pointer]:
+                - /url: /gift-boxes
+            - listitem [ref=f1e92]:
+              - link "Gallery" [ref=f1e93] [cursor=pointer]:
+                - /url: /gallery
+        - generic [ref=f1e94]:
+          - heading "Help" [level=4] [ref=f1e95]
+          - list [ref=f1e96]:
+            - listitem [ref=f1e97]:
+              - link "Track Order" [ref=f1e98] [cursor=pointer]:
+                - /url: /track-order
+            - listitem [ref=f1e99]:
+              - link "FAQ" [ref=f1e100] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=f1e101]:
+              - link "Contact Us" [ref=f1e102] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=f1e103]:
+              - link "Shipping Policy" [ref=f1e104] [cursor=pointer]:
+                - /url: /shipping
+            - listitem [ref=f1e105]:
+              - link "Return Policy" [ref=f1e106] [cursor=pointer]:
+                - /url: /returns
+      - generic [ref=f1e107]:
+        - link "About Us" [ref=f1e108] [cursor=pointer]:
+          - /url: /about
+        - link "Terms & Conditions" [ref=f1e109] [cursor=pointer]:
+          - /url: /terms
+        - link "Privacy Policy" [ref=f1e110] [cursor=pointer]:
+          - /url: /privacy
+      - paragraph [ref=f1e111]: © 2026 Galaxy Store. Crafted across the cosmos.
+  - region "Notifications alt+T"
+  - alert [ref=f1e112]

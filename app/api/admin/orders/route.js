@@ -5,6 +5,84 @@ import { recordAdminAudit } from "@/lib/admin-audit";
 import { logger } from "@/lib/logger";
 import { handleApiError } from "@/lib/api-errors";
 
+const PRODUCT_IMAGES_BUCKET = "product-images";
+const DESIGN_PREVIEWS_BUCKET = "design-previews";
+
+// Storage paths in the DB are a mix of absolute URLs, bucket-prefixed paths and
+// bucket-relative paths. Normalise them into one public URL.
+function publicStorageUrl(client, bucket, path) {
+  const value = String(path ?? "").trim();
+  if (!value) return null;
+  if (
+    /^(https?:)?\/\//i.test(value) ||
+    value.startsWith("/") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+  const objectPath = value.startsWith(`${bucket}/`)
+    ? value.slice(bucket.length + 1)
+    : value;
+  return client.storage.from(bucket).getPublicUrl(objectPath).data.publicUrl;
+}
+
+// Mockups are written to design-previews/mockups/{designId}/{template}/…
+// There is no DB row pointing at them, so the admin view lists the folder.
+async function listMockupFiles(client, prefix, depth = 0) {
+  if (depth > 2) return [];
+  const { data, error } = await client.storage
+    .from(DESIGN_PREVIEWS_BUCKET)
+    .list(prefix, { limit: 100 });
+  if (error) {
+    logger.warn("[Admin Orders] mockup listing failed:", error.message);
+    return [];
+  }
+
+  const files = [];
+  const folders = [];
+  for (const entry of data ?? []) {
+    const path = `${prefix}/${entry.name}`;
+    if (entry.id === null || entry.id === undefined) {
+      folders.push(path);
+    } else if (/\.(png|jpe?g|webp)$/i.test(entry.name)) {
+      files.push({ name: entry.name, path });
+    }
+  }
+
+  if (files.length > 0) return files;
+  for (const folder of folders) {
+    files.push(...(await listMockupFiles(client, folder, depth + 1)));
+  }
+  return files;
+}
+
+async function findMockupUrl(client, designId, settings) {
+  if (!designId) return null;
+  const config =
+    settings && typeof settings === "object" && !Array.isArray(settings)
+      ? settings
+      : {};
+  const templateKey =
+    typeof config.template_key === "string" ? config.template_key : null;
+  const view = typeof config.view === "string" ? config.view : null;
+  const color = typeof config.color === "string" ? config.color : null;
+
+  const prefix = templateKey
+    ? `mockups/${designId}/${templateKey}`
+    : `mockups/${designId}`;
+  const files = await listMockupFiles(client, prefix);
+  if (files.length === 0) return null;
+
+  const chosen =
+    (view && color && files.find((file) => file.name.startsWith(`${view}-${color}-`))) ||
+    (view && files.find((file) => file.name.startsWith(`${view}-`))) ||
+    files[0];
+
+  return client.storage
+    .from(DESIGN_PREVIEWS_BUCKET)
+    .getPublicUrl(chosen.path).data.publicUrl;
+}
+
 // Client bound to the admin's own JWT — required for RPCs that check is_admin()
 function getUserClient(request) {
   const token = (request.headers.get("authorization") || "").replace("Bearer ", "");
@@ -46,7 +124,7 @@ async function withOrderNature(client, orders) {
 
   const orderIds = orders.map((o) => o.id);
 
-  const [paymentsRes, shipmentsRes] = await Promise.all([
+  const [paymentsRes, shipmentsRes, itemsRes] = await Promise.all([
     client
       .from("payments")
       .select("id, order_id, provider, provider_payment_id, amount, status, created_at, raw_response")
@@ -56,6 +134,13 @@ async function withOrderNature(client, orders) {
       .from("shipments")
       .select("order_id, shipping_method_id, created_at")
       .in("order_id", orderIds),
+    client
+      .from("order_items")
+      .select(
+        "id, order_id, variant_id, customization_id, product_name_snapshot, sku_snapshot, options_snapshot, unit_price_snapshot, quantity, line_total, printing_instructions, is_gift_wrapped, gift_note, status, created_at"
+      )
+      .in("order_id", orderIds)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (paymentsRes.error) {
@@ -63,6 +148,9 @@ async function withOrderNature(client, orders) {
   }
   if (shipmentsRes.error) {
     logger.warn("[Admin Orders] shipments lookup failed:", shipmentsRes.error.message);
+  }
+  if (itemsRes.error) {
+    logger.warn("[Admin Orders] order items lookup failed:", itemsRes.error.message);
   }
 
   const paymentIds = (paymentsRes.data ?? []).map((payment) => payment.id);
@@ -182,6 +270,225 @@ async function withOrderNature(client, orders) {
       };
     })
   );
+
+  // Line items are what the admin actually fulfils: the product, its options
+  // and — for custom prints — the artwork layers and print job state.
+  const items = itemsRes.data ?? [];
+  const itemIds = items.map((item) => item.id);
+  const customizationIds = [
+    ...new Set(items.map((item) => item.customization_id).filter(Boolean)),
+  ];
+
+  const [printFilesRes, printJobsRes, customizationsRes, layersRes] =
+    await Promise.all([
+      itemIds.length
+        ? client
+            .from("order_item_print_files")
+            .select(
+              "order_item_id, layer_type, z_index, text_content, font_size, text_color, design_file_path, file_format, print_area_name, printing_area_width, printing_area_height, area_dpi, bleed_mm"
+            )
+            .in("order_item_id", itemIds)
+        : { data: [], error: null },
+      itemIds.length
+        ? client
+            .from("print_jobs")
+            .select("id, order_item_id, status, notes, created_at, completed_at")
+            .in("order_item_id", itemIds)
+        : { data: [], error: null },
+      customizationIds.length
+        ? client
+            .from("product_customizations")
+            .select("id, name, preview_image_url, preview_settings")
+            .in("id", customizationIds)
+        : { data: [], error: null },
+      customizationIds.length
+        ? client
+            .from("product_customization_layers")
+            .select("customization_id, design_id, layer_type, z_index")
+            .in("customization_id", customizationIds)
+        : { data: [], error: null },
+    ]);
+
+  if (printFilesRes.error) {
+    logger.warn("[Admin Orders] print files lookup failed:", printFilesRes.error.message);
+  }
+  if (printJobsRes.error) {
+    logger.warn("[Admin Orders] print jobs lookup failed:", printJobsRes.error.message);
+  }
+  if (customizationsRes.error) {
+    logger.warn("[Admin Orders] customization lookup failed:", customizationsRes.error.message);
+  }
+  if (layersRes.error) {
+    logger.warn("[Admin Orders] customization layers lookup failed:", layersRes.error.message);
+  }
+
+  // Studio artwork lives in the private design-uploads bucket.
+  await Promise.all(
+    (printFilesRes.data ?? []).map(async (file) => {
+      if (!file.design_file_path) return;
+      const { data, error } = await client.storage
+        .from("design-uploads")
+        .createSignedUrl(file.design_file_path, 3600);
+      if (error) {
+        logger.warn("[Admin Orders] design file URL failed:", error.message);
+        return;
+      }
+      file.design_url = data?.signedUrl ?? null;
+    })
+  );
+
+  const customizationById = new Map(
+    (customizationsRes.data ?? []).map((row) => [row.id, row])
+  );
+
+  // Product thumbnails: the variant image wins, then the product's primary image.
+  const variantIds = [
+    ...new Set(items.map((item) => item.variant_id).filter(Boolean)),
+  ];
+  const variantsRes = variantIds.length
+    ? await client
+        .from("product_variants")
+        .select("id, product_id, image_url")
+        .in("id", variantIds)
+    : { data: [], error: null };
+  if (variantsRes.error) {
+    logger.warn("[Admin Orders] variants lookup failed:", variantsRes.error.message);
+  }
+  const variantById = new Map(
+    (variantsRes.data ?? []).map((row) => [row.id, row])
+  );
+  const productIds = [
+    ...new Set(
+      (variantsRes.data ?? []).map((row) => row.product_id).filter(Boolean)
+    ),
+  ];
+  const imagesRes = productIds.length
+    ? await client
+        .from("product_images")
+        .select("product_id, variant_id, storage_path, is_primary, sort_order")
+        .in("product_id", productIds)
+    : { data: [], error: null };
+  if (imagesRes.error) {
+    logger.warn("[Admin Orders] product images lookup failed:", imagesRes.error.message);
+  }
+  const imagesByProduct = new Map();
+  for (const image of imagesRes.data ?? []) {
+    const list = imagesByProduct.get(image.product_id) ?? [];
+    list.push(image);
+    imagesByProduct.set(image.product_id, list);
+  }
+  for (const list of imagesByProduct.values()) {
+    list.sort(
+      (a, b) =>
+        Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)) ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    );
+  }
+
+  const productImageFor = (item) => {
+    const variant = variantById.get(item.variant_id);
+    const variantUrl = publicStorageUrl(
+      client,
+      PRODUCT_IMAGES_BUCKET,
+      variant?.image_url
+    );
+    if (variantUrl) return variantUrl;
+
+    const images = variant?.product_id
+      ? imagesByProduct.get(variant.product_id) ?? []
+      : [];
+    const image =
+      images.find((row) => row.variant_id && row.variant_id === item.variant_id) ||
+      images.find((row) => !row.variant_id) ||
+      images[0];
+    return publicStorageUrl(client, PRODUCT_IMAGES_BUCKET, image?.storage_path);
+  };
+
+  // Image layers carry the user_designs id; text-only designs have none.
+  const designIdByCustomization = new Map();
+  for (const layer of layersRes.data ?? []) {
+    if (!layer.design_id) continue;
+    if (!designIdByCustomization.has(layer.customization_id)) {
+      designIdByCustomization.set(layer.customization_id, layer.design_id);
+    }
+  }
+
+  const mockupByCustomization = new Map();
+  await Promise.all(
+    customizationIds.map(async (id) => {
+      const customization = customizationById.get(id);
+      const preview = customization?.preview_image_url;
+      if (preview) {
+        const url = publicStorageUrl(client, DESIGN_PREVIEWS_BUCKET, preview);
+        if (url) {
+          mockupByCustomization.set(id, url);
+          return;
+        }
+      }
+      const url = await findMockupUrl(
+        client,
+        designIdByCustomization.get(id),
+        customization?.preview_settings
+      );
+      if (url) mockupByCustomization.set(id, url);
+    })
+  );
+
+  const printFilesByItem = new Map();
+  for (const file of printFilesRes.data ?? []) {
+    const list = printFilesByItem.get(file.order_item_id) ?? [];
+    list.push(file);
+    printFilesByItem.set(file.order_item_id, list);
+  }
+
+  const printJobsByItem = new Map();
+  for (const job of printJobsRes.data ?? []) {
+    const list = printJobsByItem.get(job.order_item_id) ?? [];
+    list.push(job);
+    printJobsByItem.set(job.order_item_id, list);
+  }
+
+  const itemsByOrder = new Map();
+  for (const item of items) {
+    const customization = item.customization_id
+      ? customizationById.get(item.customization_id)
+      : null;
+    const preview = customization?.preview_image_url;
+    const printFiles = (printFilesByItem.get(item.id) ?? []).sort(
+      (a, b) => (a.z_index ?? 0) - (b.z_index ?? 0)
+    );
+    const artwork =
+      printFiles.find((file) => file.design_url) ??
+      printFiles.find((file) => file.design_file_path) ??
+      null;
+    const enriched = {
+      ...item,
+      product_image_url: productImageFor(item),
+      customization_name: customization?.name ?? null,
+      customization_preview_url: preview
+        ? /^https?:\/\//i.test(preview)
+          ? preview
+          : client.storage.from("customization-previews").getPublicUrl(preview).data
+              .publicUrl
+        : null,
+      mockup_url: item.customization_id
+        ? mockupByCustomization.get(item.customization_id) ?? null
+        : null,
+      artwork_url: artwork?.design_url ?? null,
+      artwork_path: artwork?.design_file_path ?? null,
+      print_files: printFiles,
+      print_jobs: (printJobsByItem.get(item.id) ?? []).sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      ),
+    };
+    const list = itemsByOrder.get(item.order_id) ?? [];
+    list.push(enriched);
+    itemsByOrder.set(item.order_id, list);
+  }
+
+  for (const row of rows) {
+    row.items = itemsByOrder.get(row.id) ?? [];
+  }
 
   return rows;
 }

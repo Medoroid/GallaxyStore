@@ -273,6 +273,35 @@ export default function AdminGiftBoxesPage() {
     }
   };
 
+  // Publish a draft box with one click (status is part of the normal product
+  // payload; no special backdoor or permission change).
+  const publishBox = async (boxId: string) => {
+    setActionError("");
+    setSaving(true);
+    try {
+      const form = productToForm(boxes.find((b) => b.id === boxId) as never, undefined as never);
+      const res = await fetch("/api/admin/gift-boxes", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          action: "update_box",
+          product_id: boxId,
+          product: { ...formToProductPayload(form), status: "published" },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setActionError(data?.message || "Could not publish the gift box.");
+        return;
+      }
+      await fetchBoxes();
+    } catch {
+      setActionError("Network error while publishing the gift box.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // -------------------------------------------------------------- images ----
   const uploadBoxImages = async (files: FileList | null) => {
     if (!selectedId || !files?.length) return;
@@ -505,14 +534,18 @@ export default function AdminGiftBoxesPage() {
             {boxes.map((box) => {
               const imageUrl = box.image ? productImageUrlFromPath(box.image) : null;
               return (
-                <button
+                <div
                   key={box.id}
-                  onClick={() => {
-                    setSelectedId(box.id);
-                    setMode("edit");
-                  }}
-                  className="glass rounded-2xl overflow-hidden text-left hover:border-[var(--brand)]/50 transition-colors"
+                  className="glass rounded-2xl overflow-hidden hover:border-[var(--brand)]/50 transition-colors"
                 >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(box.id);
+                      setMode("edit");
+                    }}
+                    className="w-full text-left"
+                  >
                   <div className="h-36 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                     {imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -552,8 +585,26 @@ export default function AdminGiftBoxesPage() {
                         {t("giftbox.badge.archived")}
                       </span>
                     )}
+                    {box.status !== "published" && !box.deleted_at && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-200">
+                        Draft boxes are hidden from the storefront. Publish it when the contents are ready.
+                      </div>
+                    )}
                   </div>
-                </button>
+                  </button>
+                  {box.status !== "published" && !box.deleted_at && (
+                    <div className="px-4 pb-4">
+                      <button
+                        type="button"
+                        onClick={() => void publishBox(box.id)}
+                        disabled={saving}
+                        className="w-full rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-3 py-2 text-xs font-semibold text-emerald-300 disabled:opacity-50"
+                      >
+                        Publish now
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -654,8 +705,14 @@ export default function AdminGiftBoxesPage() {
                 className={FIELD}
                 value={form.currency}
                 onChange={(e) => setField("currency", e.target.value.toUpperCase())}
+                list="giftbox-currencies"
                 maxLength={3}
               />
+              <datalist id="giftbox-currencies">
+                {["USD", "EUR", "GBP", "EGP", "SAR", "AED"].map((code) => (
+                  <option key={code} value={code} />
+                ))}
+              </datalist>
             </div>
           </div>
 
@@ -1561,6 +1618,7 @@ function NewProductModal({
                 className={FIELD}
                 value={values.currency}
                 onChange={(e) => setField("currency", e.target.value.toUpperCase())}
+                list="giftbox-currencies"
                 maxLength={3}
               />
             </div>

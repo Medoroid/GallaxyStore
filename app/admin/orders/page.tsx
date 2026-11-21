@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Download,
   Loader2,
   Package,
   ShieldAlert,
@@ -26,6 +27,7 @@ import {
   isManualTransferProvider,
   paymentProviderLabel,
 } from "@/app/lib/payment-status";
+import { downloadImage, imageFilename } from "@/lib/download-image";
 
 type Payment = {
   id?: string;
@@ -66,6 +68,56 @@ type ShippingMethod = {
   max_delivery_days: number | null;
 };
 
+type PrintFile = {
+  order_item_id: string;
+  layer_type: string;
+  z_index: number | null;
+  text_content: string | null;
+  font_size: number | null;
+  text_color: string | null;
+  design_file_path: string | null;
+  design_url?: string | null;
+  file_format: string | null;
+  print_area_name: string | null;
+  printing_area_width: number | null;
+  printing_area_height: number | null;
+  area_dpi: number | null;
+  bleed_mm: number | null;
+};
+
+type PrintJob = {
+  id: string;
+  order_item_id: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+type OrderItem = {
+  id: string;
+  order_id: string;
+  customization_id: string | null;
+  product_name_snapshot: string;
+  sku_snapshot: string | null;
+  options_snapshot: Record<string, unknown> | null;
+  unit_price_snapshot: number;
+  quantity: number;
+  line_total: number;
+  printing_instructions: string | null;
+  is_gift_wrapped: boolean;
+  gift_note: string | null;
+  status: string | null;
+  product_image_url?: string | null;
+  customization_name?: string | null;
+  customization_preview_url?: string | null;
+  mockup_url?: string | null;
+  artwork_url?: string | null;
+  artwork_path?: string | null;
+  print_files?: PrintFile[];
+  print_jobs?: PrintJob[];
+};
+
 type Order = {
   id: string;
   order_number: string;
@@ -88,6 +140,7 @@ type Order = {
   payment?: Payment | null;
   payments?: Payment[] | null;
   shipping_method?: ShippingMethod | null;
+  items?: OrderItem[];
   created_at: string;
   updated_at: string;
 };
@@ -965,6 +1018,318 @@ export default function AdminOrdersPage() {
                     <p className="text-muted-foreground">{order.shipping_address_snapshot.phone}</p>
                   </div>
                 )}
+
+                <details
+                  className="glass rounded-xl p-3 mb-4 text-sm"
+                  data-testid={`order-details-${order.id}`}
+                >
+                  <summary className="cursor-pointer font-semibold flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Order details ({order.items?.length ?? 0} item
+                      {(order.items?.length ?? 0) === 1 ? "" : "s"})
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Click to view products &amp; print files
+                    </span>
+                  </summary>
+
+                  <div className="mt-3 space-y-3">
+                    {(order.items?.length ?? 0) === 0 ? (
+                      <p className="text-muted-foreground">
+                        No line items were found for this order.
+                      </p>
+                    ) : (
+                      (order.items ?? []).map((item) => {
+                        const printFiles = item.print_files ?? [];
+                        const printJobs = item.print_jobs ?? [];
+                        const mockupUrl =
+                          item.mockup_url || item.customization_preview_url;
+                        const options = item.options_snapshot
+                          ? Object.entries(item.options_snapshot)
+                          : [];
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-lg border border-white/10 p-3 space-y-2"
+                          >
+                            <div className="flex flex-wrap items-start gap-3">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5">
+                                {item.product_image_url ? (
+                                  <img
+                                    src={item.product_image_url}
+                                    alt={item.product_name_snapshot}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center">
+                                    <Package
+                                      className="h-6 w-6 text-muted-foreground"
+                                      aria-hidden="true"
+                                    />
+                                  </div>
+                                )}
+                                {item.product_image_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      downloadImage(
+                                        item.product_image_url,
+                                        imageFilename(
+                                          `${order.order_number || "order"}-${
+                                            item.sku_snapshot || item.product_name_snapshot
+                                          }-product`,
+                                          item.product_image_url
+                                        )
+                                      )
+                                    }
+                                    className="absolute bottom-0 right-0 rounded-tl-md bg-black/75 p-1 text-white hover:bg-black"
+                                    aria-label={`Download image for ${item.product_name_snapshot}`}
+                                    title="Download product image"
+                                  >
+                                    <Download className="h-3 w-3" aria-hidden="true" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold">
+                                  {item.product_name_snapshot}
+                                  {item.customization_id && (
+                                    <span className="ml-2 align-middle text-[11px] font-semibold px-2 py-0.5 rounded-md bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30">
+                                      Custom print
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.sku_snapshot || "No SKU"}
+                                  {item.status ? ` · ${item.status}` : ""}
+                                </p>
+                                {item.customization_name && (
+                                  <p className="text-xs text-fuchsia-300">
+                                    {item.customization_name}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">
+                                  {item.quantity} ×{" "}
+                                  {formatCurrency(Number(item.unit_price_snapshot), order.currency)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  = {formatCurrency(Number(item.line_total), order.currency)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {options.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {options.map(([key, value]) => (
+                                  <span
+                                    key={key}
+                                    className="px-2 py-0.5 rounded-md bg-white/5 text-xs"
+                                  >
+                                    {key}: {String(value)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {item.printing_instructions && (
+                              <p className="text-xs">
+                                <span className="text-muted-foreground">
+                                  Printing instructions:{" "}
+                                </span>
+                                {item.printing_instructions}
+                              </p>
+                            )}
+
+                            {item.is_gift_wrapped && (
+                              <p className="text-xs text-secondary">
+                                Gift wrapped
+                                {item.gift_note ? ` · “${item.gift_note}”` : ""}
+                              </p>
+                            )}
+
+                            {item.customization_id && (
+                              <div className="rounded-lg bg-white/5 p-3 space-y-3">
+                                <p className="text-xs font-semibold text-secondary">
+                                  Custom print details
+                                </p>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div>
+                                    <div className="mb-1 flex items-center justify-between gap-2">
+                                      <p className="text-xs text-muted-foreground">
+                                        Requested artwork
+                                      </p>
+                                      {item.artwork_url && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            downloadImage(
+                                              item.artwork_url,
+                                              imageFilename(
+                                                `${order.order_number || "order"}-${
+                                                  item.sku_snapshot ||
+                                                  item.product_name_snapshot
+                                                }-artwork`,
+                                                item.artwork_url
+                                              )
+                                            )
+                                          }
+                                          className="inline-flex items-center gap-1 text-xs text-foreground underline hover:text-secondary"
+                                          aria-label="Download requested artwork"
+                                        >
+                                          <Download className="h-3 w-3" aria-hidden="true" />
+                                          Download
+                                        </button>
+                                      )}
+                                    </div>
+                                    {item.artwork_url ? (
+                                      <a
+                                        href={item.artwork_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block"
+                                      >
+                                        <img
+                                          src={item.artwork_url}
+                                          alt={`Artwork for ${item.product_name_snapshot}`}
+                                          className="h-40 w-full rounded-lg bg-black/40 object-contain"
+                                          loading="lazy"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <div className="flex h-40 items-center justify-center rounded-lg bg-black/40 px-3 text-center text-xs text-amber-300">
+                                        {item.artwork_path
+                                          ? "Artwork file unavailable"
+                                          : "No uploaded artwork (text-only design)"}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <div className="mb-1 flex items-center justify-between gap-2">
+                                      <p className="text-xs text-muted-foreground">Mockup</p>
+                                      {mockupUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            downloadImage(
+                                              mockupUrl,
+                                              imageFilename(
+                                                `${order.order_number || "order"}-${
+                                                  item.sku_snapshot ||
+                                                  item.product_name_snapshot
+                                                }-mockup`,
+                                                mockupUrl
+                                              )
+                                            )
+                                          }
+                                          className="inline-flex items-center gap-1 text-xs text-foreground underline hover:text-secondary"
+                                          aria-label="Download mockup"
+                                        >
+                                          <Download className="h-3 w-3" aria-hidden="true" />
+                                          Download
+                                        </button>
+                                      )}
+                                    </div>
+                                    {mockupUrl ? (
+                                      <a
+                                        href={mockupUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block"
+                                      >
+                                        <img
+                                          src={mockupUrl}
+                                          alt={`Mockup for ${item.product_name_snapshot}`}
+                                          className="h-40 w-full rounded-lg bg-black/40 object-contain"
+                                          loading="lazy"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <div className="flex h-40 items-center justify-center rounded-lg bg-black/40 px-3 text-center text-xs text-muted-foreground">
+                                        Mockup not generated
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <p className="text-xs font-semibold text-secondary">
+                                  Print layers
+                                </p>
+
+                                {printFiles.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    No print layers were saved for this item.
+                                  </p>
+                                ) : (
+                                  <ul className="space-y-1.5">
+                                    {printFiles.map((file, index) => (
+                                      <li
+                                        key={`${item.id}-${file.layer_type}-${file.z_index ?? index}-${index}`}
+                                        className="text-xs"
+                                      >
+                                        <span className="font-semibold">
+                                          {file.print_area_name || "Print area"}
+                                        </span>
+                                        {" · "}
+                                        <span className="text-muted-foreground">
+                                          {file.layer_type}
+                                        </span>
+                                        {file.text_content && <> · “{file.text_content}”</>}
+                                        {file.font_size != null && <> · {file.font_size}px</>}
+                                        {file.text_color && <> · {file.text_color}</>}
+                                        {file.design_url ? (
+                                          <>
+                                            {" · "}
+                                            <a
+                                              href={file.design_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="underline hover:text-foreground"
+                                            >
+                                              Open artwork
+                                            </a>
+                                          </>
+                                        ) : file.design_file_path ? (
+                                          <>
+                                            {" · "}
+                                            <span className="text-amber-300">
+                                              Artwork file unavailable
+                                            </span>
+                                          </>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+
+                                {printJobs.length > 0 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Print job:{" "}
+                                    {printJobs
+                                      .map((job) => job.status)
+                                      .filter(Boolean)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {order.customer_note && (
+                      <p className="text-xs">
+                        <span className="text-muted-foreground">Customer note: </span>
+                        {order.customer_note}
+                      </p>
+                    )}
+                  </div>
+                </details>
 
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
                   <div className="text-sm">
