@@ -197,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 bg-[var(--bg-deep)]/80 backdrop-blur-xl border-b border-white/[0.08]">
+        <header className="sticky top-0 z-30 bg-[var(--bg-deep)]/80 backdrop-blur-xl border-b border-white/[0.08] mt-[70px]">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button

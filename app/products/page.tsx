@@ -354,54 +354,119 @@ function ProductsInner() {
         )}
       </header>
 
-      {/* Categories */}
-      <div className="mt-6 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
-        <CategoryChip
-          active={!activeCategory}
-          onClick={() => {
-            setActiveCategory("");
-            setPage(1);
-          }}
-          label="All"
-        />
-        {categories.map((category) => (
-          <CategoryChip
-            key={category.category_id}
-            active={activeCategory === category.category_id}
-            onClick={() => {
-              setActiveCategory(category.category_id);
-              setPage(1);
-            }}
-            label={`${category.name} (${category.count})`}
-          />
-        ))}
-      </div>
+      <div className="mt-8 flex flex-col lg:flex-row gap-6 items-start">
+        {/* Desktop sidebar — every category and brand visible at once */}
+        <aside className="hidden lg:block w-60 shrink-0 sticky top-24 space-y-4">
+          <div className="glass rounded-2xl p-4">
+            <h2 className="text-sm font-semibold mb-3">Categories</h2>
+            <div className="space-y-1">
+              <FilterRow
+                active={!activeCategory}
+                onClick={() => {
+                  setActiveCategory("");
+                  setPage(1);
+                }}
+                label="All categories"
+                count={result?.total ?? 0}
+              />
+              {categories.map((category) => (
+                <FilterRow
+                  key={category.category_id}
+                  active={activeCategory === category.category_id}
+                  onClick={() => {
+                    setActiveCategory(category.category_id);
+                    setPage(1);
+                  }}
+                  label={category.name}
+                  count={category.count}
+                />
+              ))}
+            </div>
+          </div>
 
-      {brands.length > 0 && (
-        <div className="mt-2 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
-          <CategoryChip
-            active={!activeBrand}
-            onClick={() => {
-              setActiveBrand("");
-              setPage(1);
-            }}
-            label="All brands"
-          />
-          {brands.map((brand) => (
+          {brands.length > 0 && (
+            <div className="glass rounded-2xl p-4">
+              <h2 className="text-sm font-semibold mb-3">Brands</h2>
+              <div className="space-y-1">
+                <FilterRow
+                  active={!activeBrand}
+                  onClick={() => {
+                    setActiveBrand("");
+                    setPage(1);
+                  }}
+                  label="All brands"
+                  count={result?.total ?? 0}
+                />
+                {brands.map((brand) => (
+                  <FilterRow
+                    key={brand.brand_id}
+                    active={activeBrand === brand.brand_id}
+                    onClick={() => {
+                      setActiveBrand(brand.brand_id);
+                      setPage(1);
+                    }}
+                    label={brand.name}
+                    count={brand.count}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* Mobile / tablet: horizontal sliders */}
+        <div className="lg:hidden w-full min-w-0">
+          {/* Categories */}
+          <div className="flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
             <CategoryChip
-              key={brand.brand_id}
-              active={activeBrand === brand.brand_id}
+              active={!activeCategory}
               onClick={() => {
-                setActiveBrand(brand.brand_id);
+                setActiveCategory("");
                 setPage(1);
               }}
-              label={`${brand.name} (${brand.count})`}
+              label="All"
             />
-          ))}
-        </div>
-      )}
+            {categories.map((category) => (
+              <CategoryChip
+                key={category.category_id}
+                active={activeCategory === category.category_id}
+                onClick={() => {
+                  setActiveCategory(category.category_id);
+                  setPage(1);
+                }}
+                label={`${category.name} (${category.count})`}
+              />
+            ))}
+          </div>
 
-      <div className="mt-4 flex items-center justify-between">
+          {brands.length > 0 && (
+            <div className="mt-2 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
+              <CategoryChip
+                active={!activeBrand}
+                onClick={() => {
+                  setActiveBrand("");
+                  setPage(1);
+                }}
+                label="All brands"
+              />
+              {brands.map((brand) => (
+                <CategoryChip
+                  key={brand.brand_id}
+                  active={activeBrand === brand.brand_id}
+                  onClick={() => {
+                    setActiveBrand(brand.brand_id);
+                    setPage(1);
+                  }}
+                  label={`${brand.name} (${brand.count})`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Results */}
+        <div className="min-w-0 flex-1 w-full">
+          <div className="mt-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {loading && !result ? (
             // C2 — never flash "0 products" before the first response arrives.
@@ -494,6 +559,8 @@ function ProductsInner() {
           </button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -523,6 +590,34 @@ function CategoryChip({
       }`}
     >
       {label}
+    </button>
+  );
+}
+
+function FilterRow({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-start text-sm transition-all ${
+        active
+          ? "bg-gradient-neon text-white font-semibold"
+          : "text-muted-foreground hover:bg-white/[0.05] hover:text-white"
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      <span className={`text-xs shrink-0 ${active ? "text-white/80" : "text-muted-foreground/60"}`}>
+        {count}
+      </span>
     </button>
   );
 }
