@@ -24,6 +24,8 @@ import {
   Paintbrush,
   User,
   Gift,
+  FolderTree,
+  Tag,
 } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import { useAdminT } from "@/lib/admin-i18n";
@@ -32,6 +34,8 @@ const navItems = [
   { href: "/admin", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/admin/orders", labelKey: "nav.orders", icon: ShoppingBag },
   { href: "/admin/products", labelKey: "nav.products", icon: Package },
+  { href: "/admin/categories", labelKey: "nav.categories", icon: FolderTree },
+  { href: "/admin/brands", labelKey: "nav.brands", icon: Tag },
   { href: "/admin/gift-boxes", labelKey: "nav.giftBoxes", icon: Gift },
   { href: "/admin/custom-prints", labelKey: "nav.customPrints", icon: Palette },
   { href: "/admin/custom-print", labelKey: "nav.customPrintStudio", icon: Palette },
