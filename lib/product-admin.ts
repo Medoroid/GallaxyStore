@@ -123,8 +123,12 @@ export function parseProductPayload(body: Record<string, unknown> | null | undef
   const colors = parseOptionList(body?.available_colors);
   const sizes = parseOptionList(body?.available_sizes);
 
-  const slug = slugify(body?.slug || name);
-  if (!slug) throw new Error("Could not derive a slug from the product name");
+  // Non-Latin names (e.g. Arabic) produce an empty slug with the ASCII-only
+  // slugifier. Generate a unique fallback instead of rejecting the product —
+  // the storefront URL never needs to mirror the display name.
+  const slug =
+    slugify(body?.slug || name) ||
+    `product-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   const storeId =
     options.storeId !== undefined
