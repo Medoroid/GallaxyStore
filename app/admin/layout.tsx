@@ -128,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar — logical position/border so it mirrors under RTL; the
           off-canvas slide direction follows the active locale. */}
       <aside
-        className={`fixed inset-y-0 start-0 z-50 w-64 bg-[var(--bg-panel)] border-e border-white/[0.08] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto mt-[70px] ${
+        className={`fixed inset-y-0 start-0 z-50 w-64 bg-[var(--bg-panel)] border-e border-white/[0.08] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${
           sidebarOpen
             ? "translate-x-0"
             : locale === "ar"
@@ -197,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 bg-[var(--bg-deep)]/80 backdrop-blur-xl border-b border-white/[0.08] mt-[70px]">
+        <header className="sticky top-0 z-30 bg-[var(--bg-deep)]/80 backdrop-blur-xl border-b border-white/[0.08]">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button

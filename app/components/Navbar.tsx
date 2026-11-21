@@ -143,6 +143,10 @@ export function Navbar() {
     "U"
   ).toUpperCase();
 
+  if (isAdminRoute) {
+    return null;
+  }
+
   return (
     <>
       <header

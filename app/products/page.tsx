@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { ProductCard } from "@/app/components/ProductCard";
 import { CustomSelect } from "@/app/components/CustomSelect";
 import Spinner from "../components/spinner";
@@ -72,6 +72,7 @@ function ProductsInner() {
   ]);
   const [minRating, setMinRating] = useState(Number(searchParams.get("min_rating") || 0));
   const [inStockOnly, setInStockOnly] = useState(searchParams.get("in_stock") === "true");
+  const [openMobileSection, setOpenMobileSection] = useState<string | null>(null);
 
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -414,52 +415,93 @@ function ProductsInner() {
           )}
         </aside>
 
-        {/* Mobile / tablet: horizontal sliders */}
-        <div className="lg:hidden w-full min-w-0">
-          {/* Categories */}
-          <div className="flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
-            <CategoryChip
-              active={!activeCategory}
-              onClick={() => {
-                setActiveCategory("");
-                setPage(1);
-              }}
-              label="All"
-            />
-            {categories.map((category) => (
-              <CategoryChip
-                key={category.category_id}
-                active={activeCategory === category.category_id}
-                onClick={() => {
-                  setActiveCategory(category.category_id);
-                  setPage(1);
-                }}
-                label={`${category.name} (${category.count})`}
+        {/* Mobile / tablet: accordion filter */}
+        <div className="lg:hidden w-full min-w-0 space-y-2">
+          <div className="glass rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenMobileSection((current) => (current === "categories" ? null : "categories"))
+              }
+              aria-expanded={openMobileSection === "categories"}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
+            >
+              <span>Categories</span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  openMobileSection === "categories" ? "rotate-180" : ""
+                }`}
               />
-            ))}
+            </button>
+            {openMobileSection === "categories" && (
+              <div className="px-3 pb-3 space-y-1">
+                <FilterRow
+                  active={!activeCategory}
+                  onClick={() => {
+                    setActiveCategory("");
+                    setPage(1);
+                  }}
+                  label="All categories"
+                  count={result?.total ?? 0}
+                />
+                {categories.map((category) => (
+                  <FilterRow
+                    key={category.category_id}
+                    active={activeCategory === category.category_id}
+                    onClick={() => {
+                      setActiveCategory(category.category_id);
+                      setPage(1);
+                    }}
+                    label={category.name}
+                    count={category.count}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {brands.length > 0 && (
-            <div className="mt-2 flex gap-2.5 overflow-x-auto pb-3 pt-2 px-3 sm:px-4 -mx-1 sm:mx-0 scroll-px-3 scrollbar-none">
-              <CategoryChip
-                active={!activeBrand}
-                onClick={() => {
-                  setActiveBrand("");
-                  setPage(1);
-                }}
-                label="All brands"
-              />
-              {brands.map((brand) => (
-                <CategoryChip
-                  key={brand.brand_id}
-                  active={activeBrand === brand.brand_id}
-                  onClick={() => {
-                    setActiveBrand(brand.brand_id);
-                    setPage(1);
-                  }}
-                  label={`${brand.name} (${brand.count})`}
+            <div className="glass rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenMobileSection((current) => (current === "brands" ? null : "brands"))
+                }
+                aria-expanded={openMobileSection === "brands"}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
+              >
+                <span>Brands</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${
+                    openMobileSection === "brands" ? "rotate-180" : ""
+                  }`}
                 />
-              ))}
+              </button>
+              {openMobileSection === "brands" && (
+                <div className="px-3 pb-3 space-y-1">
+                  <FilterRow
+                    active={!activeBrand}
+                    onClick={() => {
+                      setActiveBrand("");
+                      setPage(1);
+                    }}
+                    label="All brands"
+                    count={result?.total ?? 0}
+                  />
+                  {brands.map((brand) => (
+                    <FilterRow
+                      key={brand.brand_id}
+                      active={activeBrand === brand.brand_id}
+                      onClick={() => {
+                        setActiveBrand(brand.brand_id);
+                        setPage(1);
+                      }}
+                      label={brand.name}
+                      count={brand.count}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -570,27 +612,6 @@ export default function Products() {
     <Suspense fallback={<Spinner />}>
       <ProductsInner />
     </Suspense>
-  );
-}
-
-function CategoryChip({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-        active ? "bg-gradient-neon text-white pink-glow" : "glass text-foreground/80 hover:text-foreground"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 
