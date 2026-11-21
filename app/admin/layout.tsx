@@ -128,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar — logical position/border so it mirrors under RTL; the
           off-canvas slide direction follows the active locale. */}
       <aside
-        className={`fixed inset-y-0 start-0 z-50 w-64 bg-[var(--bg-panel)] border-e border-white/[0.08] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed inset-y-0 start-0 z-50 w-64 bg-[var(--bg-panel)] border-e border-white/[0.08] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto mt-[70px] ${
           sidebarOpen
             ? "translate-x-0"
             : locale === "ar"

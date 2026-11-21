@@ -24,6 +24,7 @@ export function Navbar() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const isAdminRoute = Boolean(pathname?.startsWith("/admin"));
   const cartCount = useCartStore((s) => s.items.reduce((sum, item) => sum + item.quantity, 0));
   const { user, getToken, isAdmin, signOut } = useAuth();
   const { locale, setLocale, t } = useLanguage();
@@ -343,18 +344,20 @@ export function Navbar() {
                 </Link>
               )}
 
-              <Link
-                href="/cart"
-                className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl bg-gradient-neon text-white hover:scale-105 transition-transform shrink-0"
-                aria-label="Cart"
-              >
-                <ShoppingBag className="h-4 w-4" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-[10px] font-bold text-background grid place-items-center gold-glow">
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
+              {!isAdminRoute && (
+                <Link
+                  href="/cart"
+                  className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl bg-gradient-neon text-white hover:scale-105 transition-transform shrink-0"
+                  aria-label="Cart"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-[10px] font-bold text-background grid place-items-center gold-glow">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {/* Hamburger Button for Mobile Drawer */}
               <button
@@ -528,21 +531,23 @@ export function Navbar() {
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold px-3 mb-2">
                     My Activity
                   </p>
-                  <Link
-                    href="/cart"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-white/5 transition-all"
-                  >
-                    <span className="flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 text-pink-400" />
-                      {t("nav_cart")}
-                    </span>
-                    {cartCount > 0 && (
-                      <span className="h-5 px-2 rounded-full bg-accent text-[11px] font-bold text-background grid place-items-center">
-                        {cartCount}
+                  {!isAdminRoute && (
+                    <Link
+                      href="/cart"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-white/5 transition-all"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4 text-pink-400" />
+                        {t("nav_cart")}
                       </span>
-                    )}
-                  </Link>
+                      {cartCount > 0 && (
+                        <span className="h-5 px-2 rounded-full bg-accent text-[11px] font-bold text-background grid place-items-center">
+                          {cartCount}
+                        </span>
+                      )}
+                    </Link>
+                  )}
 
                   {user && (
                     <>
