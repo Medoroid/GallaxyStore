@@ -36,7 +36,7 @@ const EMPTY_FORM: ProductFormValues = {
   store_id: "",
   short_description: "",
   description: "",
-  status: "draft",
+  status: "published",
   visibility: "visible",
   is_featured: false,
   base_price: "",
