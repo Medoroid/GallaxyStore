@@ -3,6 +3,7 @@ import { SafeImage } from "@/app/components/SafeImage";
 import Link from "next/link";
 import { Sparkles, ArrowRight, Palette, Truck, Star, Gift } from "lucide-react";
 import { ProductCard } from "./components/ProductCard";
+import { AvailableGiftBoxesSection } from "./components/AvailableGiftBoxesSection";
 import dynamic from "next/dynamic";
 
 // Swiper + the slider are below the fold. Load them after hydration so the
@@ -289,37 +290,8 @@ export default function Home() {
       {/* Admin-managed content mid page */}
       <ContentZone page="home" zone="mid_page" className="mt-20" />
 
-      {/* Gift boxes — themed request page backed by real products */}
-      <section className="mt-20">
-        <SectionHeading eyebrow="For Every Occasion" title="Themed Gift Boxes" />
-        <p className="text-sm text-muted-foreground mt-2">
-          Tell us the occasion and budget — we&apos;ll curate a box from the real catalog.
-        </p>
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-5 gap-4">
-          {["Birthday", "Couples", "Anime", "Gaming", "Graduation"].map((g, i) => (
-            <Link
-              key={g}
-              href="/gift-boxes"
-              className="group relative glass rounded-2xl overflow-hidden hover:pink-glow transition-all"
-              style={{ aspectRatio: "3/4" }}
-            >
-              <SafeImage
-                src={homeProducts[i % Math.max(homeProducts.length, 1)]?.image ?? "/product-giftbox.jpg"}
-                alt={`${g} gift box`}
-                fill
-                sizes="(max-width: 640px) 45vw, 20vw"
-                className="object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <Gift className="h-5 w-5 text-accent mb-2" />
-                <h3 className="font-extrabold text-lg">{g}</h3>
-                <p className="text-xs text-muted-foreground">Request a curated box</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Available Gift Boxes Section */}
+      <AvailableGiftBoxesSection />
 
       {/* Customer reviews — rendered only when approved reviews exist */}
       {reviews.length > 0 && (
